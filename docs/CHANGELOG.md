@@ -25,9 +25,10 @@
   (`SourceCenterX/Y`, normalized; 0.5,0.5 = previous behaviour) and rotates about that
   point, so an off-centre knob spins in place instead of orbiting. New `ContentAnalysis`
   auto-detects the opaque-content centre; the Create tab gains **Auto-center**, a
-  **draggable crosshair guide** over the source, numeric **Center X/Y**, and **Reset**;
-  knobs auto-center on load. Same content-centring for fader/slider caps. Mirrored in
-  `FilmstripEngine.cs`.
+  **draggable crosshair guide** over the source, numeric **Center X/Y**, **Reset**, and
+  **Pin centre to image** (commits the crosshair mark and flips the preview to the
+  re-centred result); knobs auto-center on load. Same content-centring for fader/slider
+  caps. Mirrored in `FilmstripEngine.cs`.
 - **Phase 7 packaging.** Velopack 1.1.1 integrated (`VelopackApp.Run()`); a self-contained
   `win-x64` publish runs without the .NET SDK; `vpk pack` builds an unsigned installer
   (`StripKit-win-Setup.exe`) + update feed. In-app **GitHub auto-update** (`UpdateService`

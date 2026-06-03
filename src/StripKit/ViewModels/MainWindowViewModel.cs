@@ -424,6 +424,19 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
+    /// <summary>
+    /// Commits the crosshair mark as the centre. The drag has already set
+    /// <see cref="SourceCenterX"/>/<see cref="SourceCenterY"/>; leaving align mode flips
+    /// the preview from the raw source back to the rendered, re-centred result — so the
+    /// chosen point is visibly "pinned" as the centre and stays put.
+    /// </summary>
+    [RelayCommand]
+    private void PinCenter()
+    {
+        StatusMessage = $"Centre pinned at ({SourceCenterX * 100:0}%, {SourceCenterY * 100:0}%).";
+        ShowCenterGuide = false;   // exit align mode → RefreshPreview renders the re-centred frame
+    }
+
     private bool CanExport() => HasSource || IsMeter;   // a procedural meter needs no source
 
     [RelayCommand(CanExecute = nameof(CanExport))]

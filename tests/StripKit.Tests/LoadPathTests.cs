@@ -120,6 +120,38 @@ public class LoadPathTests
         vm.SourceCenterY.Should().BeLessThan(0.4);
     }
 
+    [Fact]
+    public void Source_center_persists_when_the_guide_is_toggled_off()
+    {
+        var (vm, load, _) = Build();
+        load.Load("k.png").Returns(OffCenter(100, 100));
+        vm.LoadSourceFromPath("k.png");
+
+        vm.SourceCenterX = 0.72;   // a crosshair drag commits a chosen centre
+        vm.SourceCenterY = 0.18;
+
+        vm.ShowCenterGuide = true;   // enter align mode
+        vm.ShowCenterGuide = false;  // "remove the crosshairs"
+
+        vm.SourceCenterX.Should().Be(0.72);  // must NOT revert
+        vm.SourceCenterY.Should().Be(0.18);
+    }
+
+    [Fact]
+    public void Pin_center_keeps_the_mark_and_exits_align_mode()
+    {
+        var (vm, load, _) = Build();
+        load.Load("k.png").Returns(OffCenter(100, 100));
+        vm.LoadSourceFromPath("k.png");
+        vm.ShowCenterGuide = true;
+        vm.SourceCenterX = 0.66;
+
+        vm.PinCenterCommand.Execute(null);
+
+        vm.ShowCenterGuide.Should().BeFalse();  // exited align → preview shows the result
+        vm.SourceCenterX.Should().Be(0.66);     // kept the mark
+    }
+
     // An image whose opaque content sits in the top-left, not the centre.
     static SKBitmap OffCenter(int w, int h)
     {

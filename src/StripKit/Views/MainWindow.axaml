@@ -108,7 +108,7 @@
                         <Button Content="Reset to image centre" HorizontalAlignment="Left"
                                 Command="{Binding ResetCenterCommand}" Margin="0,4,0,0" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="Knobs auto-center on load. If yours still wobbles, hit Auto-center, or turn on the guide and drag the crosshair onto the knob's true centre." />
+                                   Text="Knobs auto-center on load. If yours still wobbles, hit Auto-center — or turn on the guide, drag the crosshair onto the knob's centre, and Pin it." />
 
                         <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
                             <StackPanel Spacing="2">
@@ -228,10 +228,14 @@
                                  Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" />
                     </Canvas>
 
-                    <TextBlock Text="Drag the crosshair onto the knob's centre"
-                               IsVisible="{Binding ShowCenterGuide}" Margin="0,12"
-                               HorizontalAlignment="Center" VerticalAlignment="Top"
-                               Foreground="{DynamicResource Text2Brush}" FontSize="12" />
+                    <StackPanel IsVisible="{Binding ShowCenterGuide}" Margin="0,12" Spacing="6"
+                                HorizontalAlignment="Center" VerticalAlignment="Top">
+                        <TextBlock Text="Drag the crosshair onto the knob's centre, then pin it"
+                                   HorizontalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" FontSize="12" />
+                        <Button Content="Pin centre to image" Classes="accent" HorizontalAlignment="Center"
+                                Command="{Binding PinCenterCommand}" IsEnabled="{Binding HasSource}" />
+                    </StackPanel>
 
                     <TextBlock Text="Load a source image to begin — or drop a PNG here"
                                IsVisible="{Binding ShowLoadHint}"

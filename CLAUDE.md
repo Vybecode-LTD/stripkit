@@ -126,6 +126,16 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-03 (alignment: Pin centre)** — Added a **"Pin centre to image"** button to
+  the alignment guide (in the preview overlay): drag the crosshair to mark the knob
+  centre, click **Pin** → it commits `SourceCenterX/Y` and exits guide mode so the
+  preview flips from the raw source to the **re-centred result**. This resolves the
+  owner's "as soon as I remove the crosshair it reverts" report — the centre value
+  already persisted (a new VM test proves it survives toggling the guide); the gap was a
+  missing explicit *apply* + no live feedback while marking on the raw source. +2 VM
+  tests (`PinCenterCommand` keeps the mark & exits; centre persists across guide toggle).
+  **50/50 green.** **Next step:** none pending on alignment; resume packaging/Release or
+  Phase 8 when ready.
 - **2026-06-03 (alignment tools + icon refresh)** — Fixed a reported off-centre knob
   **"wobble"**: the renderer now centres art on its detected **content centre** and
   rotates about that point (new `SourceCenterX/Y`; 0.5,0.5 preserves old output) instead
