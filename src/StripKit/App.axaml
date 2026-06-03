@@ -1,0 +1,195 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="StripKit.App"
+             RequestedThemeVariant="Dark">
+
+    <Application.Resources>
+        <!-- VybeCod.ing house accent (#e8440a) applied to Fluent controls. The Light
+             variants drive accent-button hover; the Dark variants pressed states. -->
+        <Color x:Key="SystemAccentColor">#FFE8440A</Color>
+        <Color x:Key="SystemAccentColorDark1">#FFD13C08</Color>
+        <Color x:Key="SystemAccentColorDark2">#FFB83507</Color>
+        <Color x:Key="SystemAccentColorDark3">#FF9E2E06</Color>
+        <Color x:Key="SystemAccentColorLight1">#FFFF5A1E</Color>
+        <Color x:Key="SystemAccentColorLight2">#FFFF6F38</Color>
+        <Color x:Key="SystemAccentColorLight3">#FFFF8552</Color>
+
+        <!-- ===== Obsidian design tokens (glassmorphism, dark) ===== -->
+        <SolidColorBrush x:Key="AccentBrush" Color="#FFE8440A" />
+        <SolidColorBrush x:Key="AccentHiBrush" Color="#FFFF5A1E" />
+        <SolidColorBrush x:Key="Text1Brush" Color="#FFF2F3F5" />
+        <SolidColorBrush x:Key="Text2Brush" Color="#FFA8ADB7" />
+        <SolidColorBrush x:Key="Text3Brush" Color="#FF6E7480" />
+        <SolidColorBrush x:Key="GlassFillBrush" Color="#14FFFFFF" />
+        <SolidColorBrush x:Key="GlassBorderBrush" Color="#26FFFFFF" />
+        <SolidColorBrush x:Key="GlassFillHoverBrush" Color="#22FFFFFF" />
+        <SolidColorBrush x:Key="GlassPressBrush" Color="#0AFFFFFF" />
+        <SolidColorBrush x:Key="GlassBorderHoverBrush" Color="#45FFFFFF" />
+        <SolidColorBrush x:Key="AccentPressBrush" Color="#FFC13C08" />
+
+        <!-- Accent button fill: a subtle warm gradient (current look), brighter on hover. -->
+        <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#FFE8440A" />
+            <GradientStop Offset="1" Color="#FFFF5A1E" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="AccentGradientHover" StartPoint="0%,0%" EndPoint="100%,100%">
+            <GradientStop Offset="0" Color="#FFFF5A1E" />
+            <GradientStop Offset="1" Color="#FFFF7A42" />
+        </LinearGradientBrush>
+
+        <!-- Recolor Fluent input states to translucent glass (no flat-grey hover flash).
+             Controls resolve these per-control keys via DynamicResource, so an
+             app-level override propagates to every ComboBox / TextBox / NumericUpDown. -->
+        <SolidColorBrush x:Key="ComboBoxBackground" Color="#10FFFFFF" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#22FFFFFF" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#0AFFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackground" Color="#10FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#22FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#22FFFFFF" />
+
+        <!-- Slightly rounded controls + dropdown popups everywhere (Fluent reads these). -->
+        <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
+        <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
+
+        <!-- Depth: a top-lit glass fill + a top-highlight hairline (brighter at the top
+             edge, fading down) so panels read as lit volumes, not flat rectangles. -->
+        <LinearGradientBrush x:Key="GlassFillGradient" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#24FFFFFF" />
+            <GradientStop Offset="1" Color="#0EFFFFFF" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="GlassBorderGradient" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#55FFFFFF" />
+            <GradientStop Offset="1" Color="#16FFFFFF" />
+        </LinearGradientBrush>
+
+        <!-- Frosted base: real acrylic on Windows; FallbackColor (opaque) elsewhere
+             so the window is never see-through where acrylic is unavailable. -->
+        <ExperimentalAcrylicMaterial x:Key="ObsidianAcrylic"
+                                     BackgroundSource="Digger"
+                                     TintColor="#16161C"
+                                     TintOpacity="0.85"
+                                     MaterialOpacity="0.5"
+                                     FallbackColor="#FF101015" />
+
+        <!-- Glass buttons: a full ControlTheme so hover / press / focus and the accent
+             variant read as glass + glow, with smooth transitions. -->
+        <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
+            <Setter Property="Background" Value="{DynamicResource GlassFillBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource Text1Brush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12,7" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Border x:Name="PART_Border"
+                            Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}"
+                            CornerRadius="{TemplateBinding CornerRadius}">
+                        <Border.Transitions>
+                            <Transitions>
+                                <BrushTransition Property="Background" Duration="0:0:0.13" />
+                                <BrushTransition Property="BorderBrush" Duration="0:0:0.13" />
+                                <BoxShadowsTransition Property="BoxShadow" Duration="0:0:0.13" />
+                            </Transitions>
+                        </Border.Transitions>
+                        <ContentPresenter x:Name="PART_ContentPresenter"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          Padding="{TemplateBinding Padding}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                          VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                    </Border>
+                </ControlTemplate>
+            </Setter>
+
+            <Style Selector="^:pointerover">
+                <Setter Property="Background" Value="{DynamicResource GlassFillHoverBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderHoverBrush}" />
+            </Style>
+            <Style Selector="^:pressed">
+                <Setter Property="Background" Value="{DynamicResource GlassPressBrush}" />
+            </Style>
+            <Style Selector="^:disabled">
+                <Setter Property="Opacity" Value="0.45" />
+            </Style>
+            <Style Selector="^:focus-visible /template/ Border#PART_Border">
+                <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            </Style>
+
+            <!-- Accent (primary) buttons: Classes="accent" -->
+            <Style Selector="^.accent">
+                <Setter Property="Background" Value="{DynamicResource AccentGradient}" />
+                <Setter Property="Foreground" Value="White" />
+                <Setter Property="BorderThickness" Value="0" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+            </Style>
+            <Style Selector="^.accent /template/ Border#PART_Border">
+                <Setter Property="BoxShadow" Value="0 4 18 0 #66E8440A" />
+            </Style>
+            <Style Selector="^.accent:pointerover">
+                <Setter Property="Background" Value="{DynamicResource AccentGradientHover}" />
+            </Style>
+            <Style Selector="^.accent:pointerover /template/ Border#PART_Border">
+                <Setter Property="BoxShadow" Value="0 7 28 0 #8AE8440A" />
+            </Style>
+            <Style Selector="^.accent:pressed">
+                <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            </Style>
+        </ControlTheme>
+    </Application.Resources>
+
+    <Application.Styles>
+        <FluentTheme />
+
+        <!-- Section headers + secondary labels, shared by every view. -->
+        <Style Selector="TextBlock.section">
+            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,14,0,4" />
+        </Style>
+        <Style Selector="TextBlock.label">
+            <Setter Property="Foreground" Value="{DynamicResource Text2Brush}" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Margin" Value="0,0,0,2" />
+        </Style>
+
+        <!-- Glass card: top-lit gradient fill, top-highlight hairline, layered shadow. -->
+        <Style Selector="Border.card">
+            <Setter Property="Background" Value="{DynamicResource GlassFillGradient}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderGradient}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="12" />
+            <!-- Layered shadows (tight contact + deep ambient) = strong elevation. -->
+            <Setter Property="BoxShadow" Value="0 2 8 0 #55000000, 0 24 64 0 #8A000000" />
+        </Style>
+
+        <!-- Etched divider under a title: a light hairline with a dark edge below it. -->
+        <Style Selector="Border.divider">
+            <Setter Property="Height" Value="1" />
+            <Setter Property="Background" Value="{DynamicResource GlassBorderBrush}" />
+            <Setter Property="Margin" Value="0,8,0,10" />
+            <Setter Property="BoxShadow" Value="0 1 0 0 #40000000" />
+        </Style>
+
+        <!-- Inner raised tile: a lighter sub-panel + soft shadow, for grouped controls. -->
+        <Style Selector="Border.tile">
+            <Setter Property="Background" Value="{DynamicResource GlassFillBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="10" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="BoxShadow" Value="0 6 18 0 #5A000000" />
+        </Style>
+
+        <!-- Let the acrylic show through the tab host. -->
+        <Style Selector="TabControl">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </Application.Styles>
+</Application>

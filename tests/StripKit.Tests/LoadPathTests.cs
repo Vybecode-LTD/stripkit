@@ -1,0 +1,109 @@
+using FluentAssertions;
+using NSubstitute;
+using NSubstitute.ExceptionExtensions;
+using SkiaSharp;
+using StripKit.Models;
+using StripKit.Services;
+using StripKit.ViewModels;
+using Xunit;
+
+namespace StripKit.Tests;
+
+/// <summary>
+/// Unit tests for the shared source-load path. Both the "Load source image…"
+/// button and the drag-and-drop handler funnel through
+/// <see cref="MainWindowViewModel.LoadSourceFromPath"/>, so testing it here is
+/// what covers the drag-and-drop logic.
+/// </summary>
+public class LoadPathTests
+{
+    static SKBitmap Bmp(int w, int h) => new(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+
+    static (MainWindowViewModel vm, IImageLoadService load, IFileDialogService dialogs) Build()
+    {
+        var load = Substitute.For<IImageLoadService>();
+        var renderer = Substitute.For<IFilmstripRenderer>();
+        var dialogs = Substitute.For<IFileDialogService>();
+        var export = Substitute.For<IExportService>();
+
+        // The preview path converts a rendered frame into an Avalonia Bitmap, which
+        // needs a UI platform. These are plain unit tests, so force the render to
+        // throw: RefreshPreview swallows it, and the load STATE asserted below is
+        // set before the preview ever runs.
+        renderer
+            .RenderFrame(Arg.Any<FilmstripSettings>(), Arg.Any<SKBitmap>(), Arg.Any<SKBitmap?>(), Arg.Any<int>(), Arg.Any<double>())
+            .Throws(new InvalidOperationException("preview not exercised in unit tests"));
+
+        var importer = new ImporterViewModel(
+            Substitute.For<IImageLoadService>(),
+            Substitute.For<IFilmstripImporter>(),
+            Substitute.For<IFileDialogService>(),
+            Substitute.For<IExportService>());
+        var batch = new BatchViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IBatchProcessor>());
+
+        return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(), importer, batch), load, dialogs);
+    }
+
+    [Fact]
+    public void LoadSourceFromPath_sets_source_state_and_squares_the_frame_for_a_knob()
+    {
+        var (vm, load, _) = Build();
+        load.Load("knob.png").Returns(Bmp(120, 80));
+        vm.ComponentType = ComponentType.RotaryKnob;
+
+        vm.LoadSourceFromPath("knob.png");
+
+        vm.HasSource.Should().BeTrue();
+        vm.SourceInfo.Should().Contain("knob.png").And.Contain("120×80");
+        vm.FrameWidth.Should().Be(120);   // max(120, 80) — the square knob frame
+        vm.FrameHeight.Should().Be(120);
+    }
+
+    [Fact]
+    public void LoadSourceFromPath_reports_an_error_when_the_image_cannot_be_decoded()
+    {
+        var (vm, load, _) = Build();
+        load.Load("bad.png").Returns((SKBitmap?)null);
+
+        vm.LoadSourceFromPath("bad.png");
+
+        vm.HasSource.Should().BeFalse();
+        vm.StatusMessage.Should().Contain("could not load");
+    }
+
+    [Fact]
+    public async Task OpenSource_button_uses_the_same_load_path_as_a_drop()
+    {
+        var (vm, load, dialogs) = Build();
+        dialogs.OpenImageAsync().Returns(Task.FromResult<string?>("picked.png"));
+        load.Load("picked.png").Returns(Bmp(64, 64));
+
+        await vm.OpenSourceCommand.ExecuteAsync(null);
+
+        vm.HasSource.Should().BeTrue();
+        vm.SourceInfo.Should().Contain("picked.png");
+        load.Received(1).Load("picked.png"); // single shared load path, no duplication
+    }
+
+    [Fact]
+    public void Export_is_disabled_until_a_source_is_loaded()
+    {
+        var (vm, load, _) = Build();
+        vm.ExportCommand.CanExecute(null).Should().BeFalse();
+
+        load.Load("k.png").Returns(Bmp(50, 50));
+        vm.LoadSourceFromPath("k.png");
+
+        vm.ExportCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public void Export_is_enabled_for_a_procedural_meter_even_without_a_source()
+    {
+        var (vm, _, _) = Build();
+        vm.ExportCommand.CanExecute(null).Should().BeFalse();   // knob, no source yet
+
+        vm.ComponentType = ComponentType.Meter;
+        vm.ExportCommand.CanExecute(null).Should().BeTrue();    // a procedural meter needs none
+    }
+}

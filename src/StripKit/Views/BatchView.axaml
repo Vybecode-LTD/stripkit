@@ -1,0 +1,98 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:StripKit.ViewModels"
+             x:Class="StripKit.Views.BatchView"
+             x:DataType="vm:BatchViewModel">
+
+    <Grid ColumnDefinitions="370,*">
+
+        <!-- ===== LEFT: render template ===== -->
+        <Border Grid.Column="0" Classes="card" Margin="12,12,6,12">
+            <ScrollViewer>
+                <StackPanel Margin="16" Spacing="2" IsEnabled="{Binding !IsRunning}">
+
+                    <TextBlock Text="Batch export" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <Border Classes="divider" />
+                    <TextBlock Text="Render one filmstrip per source image in a folder, using one template."
+                               Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <TextBlock Classes="section" Text="COMPONENT TYPE" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding ComponentTypes}" SelectedItem="{Binding ComponentType}" />
+
+                    <TextBlock Classes="section" Text="FRAMES" />
+                    <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1" />
+
+                    <TextBlock Classes="section" Text="FRAME SIZE (1x, px)" />
+                    <Grid ColumnDefinitions="*,8,*">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Classes="label" Text="Width" />
+                            <NumericUpDown Value="{Binding FrameWidth}" Minimum="1" Maximum="4096" Increment="1" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Classes="label" Text="Height" />
+                            <NumericUpDown Value="{Binding FrameHeight}" Minimum="1" Maximum="4096" Increment="1" />
+                        </StackPanel>
+                    </Grid>
+                    <CheckBox Content="Square knob frames to each source" IsChecked="{Binding MatchKnobFrameToSource}" Margin="0,6,0,0" />
+
+                    <StackPanel IsVisible="{Binding IsRotary}" Spacing="2">
+                        <TextBlock Classes="section" Text="ROTATION" />
+                        <TextBlock Classes="label" Text="Sweep (degrees)" />
+                        <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
+                        <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,4,0,0" />
+                    </StackPanel>
+
+                    <TextBlock Classes="section" Text="QUALITY &amp; OUTPUT" />
+                    <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding SupersampleOptions}" SelectedItem="{Binding Supersample}" />
+                    <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding StackDirections}" SelectedItem="{Binding StackDirection}" />
+                    <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0" />
+                    <CheckBox Content="Also write a skin.json per strip" IsChecked="{Binding ExportManifest}" Margin="0,0,0,12" />
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== RIGHT: folders, run, progress ===== -->
+        <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="6,12,12,12">
+
+            <StackPanel Grid.Row="0" Spacing="2" IsEnabled="{Binding !IsRunning}">
+                <TextBlock Classes="section" Text="INPUT FOLDER" />
+                <Button Content="Choose input folder…" HorizontalAlignment="Stretch"
+                        Command="{Binding ChooseInputFolderCommand}" />
+                <TextBlock Classes="label" Text="{Binding InputFolder}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                <TextBlock Classes="label" Text="{Binding InputSummary}" />
+
+                <TextBlock Classes="section" Text="OUTPUT FOLDER" />
+                <Button Content="Choose output folder…" HorizontalAlignment="Stretch"
+                        Command="{Binding ChooseOutputFolderCommand}" />
+                <TextBlock Classes="label" Text="{Binding OutputFolder}" TextWrapping="Wrap" Margin="0,4,0,0" />
+            </StackPanel>
+
+            <Border Grid.Row="1" Classes="tile" Margin="0,16,0,0">
+                <StackPanel Spacing="8">
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <Button Classes="accent" Content="Run batch" MinWidth="140"
+                                Command="{Binding RunCommand}" />
+                        <Button Content="Cancel" MinWidth="90" Command="{Binding CancelCommand}" />
+                    </StackPanel>
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}"
+                                 Height="6" IsVisible="{Binding IsRunning}" />
+                    <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource Text2Brush}" FontSize="12" />
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+
+            <Border Grid.Row="2" Classes="card" Margin="0,12,0,0" Padding="12">
+                <ScrollViewer>
+                    <TextBlock Text="{Binding ResultSummary}" Foreground="{DynamicResource Text2Brush}"
+                               FontSize="12" TextWrapping="Wrap" />
+                </ScrollViewer>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

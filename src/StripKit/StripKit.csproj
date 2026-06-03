@@ -1,0 +1,47 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <BuiltInComInteropSupport>true</BuiltInComInteropSupport>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <RootNamespace>StripKit</RootNamespace>
+    <AssemblyName>StripKit</AssemblyName>
+    <ApplicationIcon>Assets\stripkit.ico</ApplicationIcon>
+    <!-- OutputType is WinExe so no console window pops up on Windows. On
+         macOS/Linux this behaves like a normal GUI Exe. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets/**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0" />
+    <!-- Avalonia diagnostics (F12 dev tools) only in Debug. -->
+    <PackageReference Include="Avalonia.Diagnostics" Version="11.3.0">
+      <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>
+      <PrivateAssets>all</PrivateAssets>
+    </PackageReference>
+
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+
+    <!-- DI container used by the composition root in App.axaml.cs. -->
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+
+    <!-- Avalonia 11.3 renders through SkiaSharp 3.x already; this pins the
+         managed binding we draw with. If NuGet warns about a version conflict,
+         align this with Avalonia's transitive version (list the transitive
+         packages with the dotnet list package command and match SkiaSharp). -->
+    <PackageReference Include="SkiaSharp" Version="3.119.0" />
+    <PackageReference Include="Velopack" Version="1.1.1" />
+  </ItemGroup>
+
+</Project>

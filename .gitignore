@@ -1,0 +1,29 @@
+# Build output
+bin/
+obj/
+out/
+
+# Test artifacts (committed baselines stay; diff output is transient)
+tests/**/output/
+
+# IDE
+.vs/
+.idea/
+*.user
+*.suo
+*.userprefs
+
+# Rider
+*.sln.iml
+
+# Publish / packaging
+publish/
+releases/
+*.app
+
+# Large binary design sources (keep in design storage / Git LFS, not the code repo)
+*.psd
+
+# OS
+.DS_Store
+Thumbs.db

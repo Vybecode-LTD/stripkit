@@ -1,0 +1,82 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:StripKit.ViewModels"
+             x:Class="StripKit.Views.ImporterView"
+             x:DataType="vm:ImporterViewModel">
+
+    <Grid ColumnDefinitions="370,*">
+
+        <!-- ===== LEFT: import settings ===== -->
+        <Border Grid.Column="0" Classes="card" Margin="12,12,6,12">
+            <ScrollViewer>
+                <StackPanel Margin="16" Spacing="2">
+
+                    <TextBlock Text="Import existing strip" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <Border Classes="divider" />
+                    <TextBlock Text="Open a KnobMan / purchased filmstrip, detect its frames, extract or re-stack."
+                               Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <TextBlock Classes="section" Text="SOURCE STRIP" />
+                    <Button Content="Load filmstrip…" HorizontalAlignment="Stretch"
+                            Command="{Binding OpenStripCommand}" />
+                    <TextBlock Classes="label" Text="{Binding StripInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                    <TextBlock Classes="section" Text="DETECTED LAYOUT" />
+                    <TextBlock Classes="label" Text="{Binding DetectedInfo}" TextWrapping="Wrap" />
+
+                    <Border IsVisible="{Binding LowConfidence}" Background="#33E8440A"
+                            BorderBrush="#FFE8440A" BorderThickness="1" CornerRadius="4"
+                            Padding="8" Margin="0,6,0,0">
+                        <TextBlock Text="⚠ Detection is ambiguous (the strip may include an extra centre frame). Verify the count and check the preview sweeps min → max."
+                                   Foreground="#FFE8A07A" FontSize="11" TextWrapping="Wrap" />
+                    </Border>
+
+                    <TextBlock Classes="section" Text="FRAME COUNT (editable)" />
+                    <NumericUpDown Value="{Binding FrameCount}" Minimum="1" Maximum="1024" Increment="1" />
+                    <TextBlock Classes="label" Text="{Binding FrameSizeInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                    <TextBlock Classes="section" Text="EXPORT" />
+                    <Button Content="Extract current frame…" HorizontalAlignment="Stretch"
+                            Command="{Binding ExtractCurrentFrameCommand}" />
+                    <Button Content="Re-stack (flip orientation)…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                            Command="{Binding ExportRestackedCommand}" />
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== RIGHT: frame preview (also a drop zone) ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+
+            <Border Grid.Row="0" x:Name="ImportDropBorder" DragDrop.AllowDrop="True"
+                    Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
+                    BorderThickness="2" BorderBrush="Transparent"
+                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                <Border.Transitions>
+                    <Transitions>
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                    </Transitions>
+                </Border.Transitions>
+                <Panel>
+                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    <TextBlock Text="Load a filmstrip — or drop one here"
+                               IsVisible="{Binding !HasStrip}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}" />
+                </Panel>
+            </Border>
+
+            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Slider Grid.Column="0" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="0,0,12,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" MinWidth="120" TextAlignment="Right" />
+                    </Grid>
+                    <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

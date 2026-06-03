@@ -1,0 +1,237 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:StripKit.ViewModels"
+        xmlns:views="clr-namespace:StripKit.Views"
+        x:Class="StripKit.Views.MainWindow"
+        x:DataType="vm:MainWindowViewModel"
+        Title="StripKit — Animated Control Filmstrip Maker"
+        Icon="/Assets/stripkit.png"
+        Width="1060" Height="740"
+        MinWidth="940" MinHeight="620"
+        FontFamily="Verdana, Segoe UI, Arial, sans-serif"
+        TransparencyLevelHint="AcrylicBlur"
+        Background="Transparent">
+
+    <Panel>
+        <!-- Frosted acrylic base: real on Windows, FallbackColor elsewhere. -->
+        <ExperimentalAcrylicBorder Material="{DynamicResource ObsidianAcrylic}" />
+
+        <!-- Warm accent glow (top-right) — adds depth/atmosphere over the flat acrylic. -->
+        <Border IsHitTestVisible="False">
+            <Border.Background>
+                <RadialGradientBrush Center="86%,0%" GradientOrigin="86%,0%" RadiusX="80%" RadiusY="80%">
+                    <GradientStop Offset="0" Color="#33E8440A" />
+                    <GradientStop Offset="0.5" Color="#11E8440A" />
+                    <GradientStop Offset="1" Color="#00E8440A" />
+                </RadialGradientBrush>
+            </Border.Background>
+        </Border>
+
+        <TabControl>
+
+        <TabItem Header="Create">
+            <Grid ColumnDefinitions="370,*">
+
+        <!-- ===== LEFT: settings ===== -->
+        <Border Grid.Column="0" Classes="card" Margin="12,12,6,12">
+            <ScrollViewer>
+                <StackPanel Margin="16" Spacing="2">
+
+                    <TextBlock Text="StripKit" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <Border Classes="divider" />
+                    <TextBlock Text="Single image → animated knob / fader / slider / meter filmstrip"
+                               Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <!-- Source -->
+                    <TextBlock Classes="section" Text="SOURCE IMAGE" />
+                    <Button Content="Load source image…" HorizontalAlignment="Stretch"
+                            Command="{Binding OpenSourceCommand}" />
+                    <TextBlock Classes="label" Text="{Binding SourceInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                    <!-- Component type -->
+                    <TextBlock Classes="section" Text="COMPONENT TYPE" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding ComponentTypes}"
+                              SelectedItem="{Binding ComponentType}" />
+
+                    <!-- Frames -->
+                    <TextBlock Classes="section" Text="FRAMES" />
+                    <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1" />
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                        <Button Content="32" Command="{Binding SetFrames32Command}" />
+                        <Button Content="64" Command="{Binding SetFrames64Command}" />
+                        <Button Content="128" Command="{Binding SetFrames128Command}" />
+                    </StackPanel>
+
+                    <!-- Frame size -->
+                    <TextBlock Classes="section" Text="FRAME SIZE (1x, px)" />
+                    <Grid ColumnDefinitions="*,8,*">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Classes="label" Text="Width" />
+                            <NumericUpDown Value="{Binding FrameWidth}" Minimum="1" Maximum="4096" Increment="1" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Classes="label" Text="Height" />
+                            <NumericUpDown Value="{Binding FrameHeight}" Minimum="1" Maximum="4096" Increment="1" />
+                        </StackPanel>
+                    </Grid>
+                    <Button Content="Match frame to source size" Margin="0,6,0,0"
+                            HorizontalAlignment="Stretch" Command="{Binding MatchFrameToSourceCommand}" />
+
+                    <!-- Rotary -->
+                    <StackPanel IsVisible="{Binding IsRotary}" Spacing="2">
+                        <TextBlock Classes="section" Text="ROTATION" />
+                        <TextBlock Classes="label" Text="Sweep (degrees)" />
+                        <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                            <Button Content="270°" Command="{Binding Sweep270Command}" />
+                            <Button Content="300°" Command="{Binding Sweep300Command}" />
+                            <Button Content="360°" Command="{Binding Sweep360Command}" />
+                        </StackPanel>
+                        <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,6,0,0" />
+
+                        <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
+                            <StackPanel Spacing="2">
+                                <TextBlock Classes="label" Text="Start angle (frame 0)" />
+                                <NumericUpDown Value="{Binding StartAngleDegrees}" Minimum="-360" Maximum="360" Increment="1" />
+                                <TextBlock Classes="label" Text="End angle (last frame)" />
+                                <NumericUpDown Value="{Binding EndAngleDegrees}" Minimum="-360" Maximum="360" Increment="1" />
+                                <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Classes="label" Text="Pivot offset X" />
+                                        <NumericUpDown Value="{Binding PivotOffsetX}" Minimum="-2048" Maximum="2048" Increment="0.5" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Classes="label" Text="Pivot offset Y" />
+                                        <NumericUpDown Value="{Binding PivotOffsetY}" Minimum="-2048" Maximum="2048" Increment="0.5" />
+                                    </StackPanel>
+                                </Grid>
+                            </StackPanel>
+                        </Expander>
+                    </StackPanel>
+
+                    <!-- Linear -->
+                    <StackPanel IsVisible="{Binding IsLinear}" Spacing="2">
+                        <TextBlock Classes="section" Text="TRAVEL" />
+                        <TextBlock Classes="label" Text="Edge margin (px)" />
+                        <NumericUpDown Value="{Binding EdgeMargin}" Minimum="0" Maximum="512" Increment="1" />
+                        <TextBlock Classes="label" Text="Cap cross-axis offset (px)" />
+                        <NumericUpDown Value="{Binding CapCrossOffset}" Minimum="-512" Maximum="512" Increment="1" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="The loaded image is the moving cap. Frame size above is the full track area." />
+                    </StackPanel>
+
+                    <!-- Meter -->
+                    <StackPanel IsVisible="{Binding IsMeter}" Spacing="2">
+                        <TextBlock Classes="section" Text="METER" />
+                        <TextBlock Classes="label" Text="Segments" />
+                        <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1" />
+                        <TextBlock Classes="label" Text="Fill direction" Margin="0,6,0,0" />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding FillDirections}" SelectedItem="{Binding FillDirection}" />
+                        <CheckBox Content="Continuous (smooth) fill" IsChecked="{Binding ContinuousFill}" Margin="0,6,0,0" />
+                        <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="label" Text="On colour (#AARRGGBB)" />
+                                <TextBox Text="{Binding OnColorHex}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="label" Text="Off colour" />
+                                <TextBox Text="{Binding OffColorHex}" />
+                            </StackPanel>
+                        </Grid>
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Procedural segments by default. Load a source image (on-state) — and optionally a background (off-state) — for a layered meter instead." />
+                    </StackPanel>
+
+                    <!-- Background -->
+                    <TextBlock Classes="section" Text="STATIC BACKGROUND (optional)" />
+                    <Button Content="Load background layer…" HorizontalAlignment="Stretch"
+                            Command="{Binding OpenBackgroundCommand}" />
+                    <Button Content="Clear background" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                            IsEnabled="{Binding HasBackground}" Command="{Binding ClearBackgroundCommand}" />
+                    <TextBlock Classes="label" Text="{Binding BackgroundInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                    <!-- Quality / output -->
+                    <TextBlock Classes="section" Text="QUALITY &amp; OUTPUT" />
+                    <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding SupersampleOptions}"
+                              SelectedItem="{Binding Supersample}" />
+                    <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding StackDirections}"
+                              SelectedItem="{Binding StackDirection}" />
+                    <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0" />
+
+                    <!-- Manifest -->
+                    <TextBlock Classes="section" Text="MANIFEST (optional)" />
+                    <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}" />
+                    <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
+                    <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,12"
+                               Text="Writes &lt;name&gt;.skin.json next to the PNG: one control bound to this parameter, ready for a JUCE LookAndFeel / skin loader." />
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== RIGHT: preview + export ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+
+            <!-- Preview doubles as a drop zone: drop a PNG here to load it as the
+                 source (see MainWindow.axaml.cs). BorderBrush is flipped to the
+                 accent while a file is dragged over it. -->
+            <Border Grid.Row="0" x:Name="PreviewBorder" DragDrop.AllowDrop="True"
+                    Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
+                    BorderThickness="2" BorderBrush="Transparent"
+                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                <Border.Transitions>
+                    <Transitions>
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                    </Transitions>
+                </Border.Transitions>
+                <Panel>
+                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    <TextBlock Text="Load a source image to begin — or drop a PNG here"
+                               IsVisible="{Binding ShowLoadHint}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}" />
+                </Panel>
+            </Border>
+
+            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <Button Grid.Column="0" x:Name="PlayButton" Content="▶ Play" Click="OnPlayClick" Width="92" />
+                        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
+                        <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right" />
+                    </Grid>
+
+                    <TextBlock Text="{Binding StripDimensions}" Foreground="{DynamicResource Text3Brush}" FontSize="12" />
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <Button Grid.Column="1" Classes="accent" Content="Export filmstrip PNG" MinWidth="190"
+                                Command="{Binding ExportCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+            </Grid>
+        </TabItem>
+
+        <TabItem Header="Import">
+            <views:ImporterView DataContext="{Binding Importer}" />
+        </TabItem>
+
+        <TabItem Header="Batch">
+            <views:BatchView DataContext="{Binding Batch}" />
+        </TabItem>
+
+        </TabControl>
+    </Panel>
+</Window>
