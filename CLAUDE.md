@@ -126,6 +126,20 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-03 (alignment tools + icon refresh)** — Fixed a reported off-centre knob
+  **"wobble"**: the renderer now centres art on its detected **content centre** and
+  rotates about that point (new `SourceCenterX/Y`; 0.5,0.5 preserves old output) instead
+  of the image-rectangle centre. New `ContentAnalysis` auto-detects the opaque-content
+  centre; the Create tab gains **Auto-center**, a **draggable crosshair guide** (over the
+  raw source, in `ShowCenterGuide` mode), numeric **Center X/Y**, **Reset**, and
+  **auto-centres knobs on load**; fader/slider caps get the same cross-centring. Mirrored
+  in `FilmstripEngine.cs`. **48/48 green** (+7; existing golden baselines unchanged).
+  Also swapped the app icon to the new **filmstrip-fader** art (`stripkiticon02.png` →
+  contain-fit multi-res `Assets/stripkit.ico` + `stripkit.png` for window/taskbar/exe;
+  installer picks it up via `vpk --icon`) and added **`brand/favicon.ico`** (16/32/48/64)
+  for the future website. No system-tray icon exists (StripKit is a normal windowed app).
+  **Next step:** publish the GitHub Release when ready (still unsigned → SmartScreen
+  until a cert is added); Phase 8 landing page is on the roadmap.
 - **2026-06-03 (packaging + icon + repo — v0.6.0)** — The Obsidian design is now
   **visually confirmed by the owner** (the prior "not yet confirmed by the agent"
   caveat is resolved) following the hover/focus + input-state polish (custom Button

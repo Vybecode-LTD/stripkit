@@ -90,6 +90,26 @@
                         </StackPanel>
                         <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,6,0,0" />
 
+                        <TextBlock Classes="section" Text="CENTER (alignment)" />
+                        <Button Content="Auto-center on content" HorizontalAlignment="Stretch"
+                                Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
+                        <CheckBox Content="Show guide — drag the crosshair onto the centre"
+                                  IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
+                        <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="label" Text="Center X (0–1)" />
+                                <NumericUpDown Value="{Binding SourceCenterX}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="label" Text="Center Y (0–1)" />
+                                <NumericUpDown Value="{Binding SourceCenterY}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="Reset to image centre" HorizontalAlignment="Left"
+                                Command="{Binding ResetCenterCommand}" Margin="0,4,0,0" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Knobs auto-center on load. If yours still wobbles, hit Auto-center, or turn on the guide and drag the crosshair onto the knob's true centre." />
+
                         <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="label" Text="Start angle (frame 0)" />
@@ -117,6 +137,9 @@
                         <NumericUpDown Value="{Binding EdgeMargin}" Minimum="0" Maximum="512" Increment="1" />
                         <TextBlock Classes="label" Text="Cap cross-axis offset (px)" />
                         <NumericUpDown Value="{Binding CapCrossOffset}" Minimum="-512" Maximum="512" Increment="1" />
+                        <Button Content="Auto-center cap on content" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                                Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
+                        <CheckBox Content="Show alignment guide" IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="The loaded image is the moving cap. Frame size above is the full track area." />
                     </StackPanel>
@@ -192,8 +215,24 @@
                     </Transitions>
                 </Border.Transitions>
                 <Panel>
-                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
+                    <Image x:Name="PreviewImageControl" Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
                            RenderOptions.BitmapInterpolationMode="HighQuality" />
+
+                    <!-- Alignment guide: a draggable crosshair over the raw source. Shown
+                         only in align mode (ShowCenterGuide); positioned in code-behind. -->
+                    <Canvas x:Name="GuideCanvas" Margin="24" Background="Transparent"
+                            IsVisible="{Binding ShowCenterGuide}" Cursor="Cross">
+                        <Rectangle x:Name="CrossH" Height="1.5" Fill="{DynamicResource AccentBrush}" Opacity="0.9" />
+                        <Rectangle x:Name="CrossV" Width="1.5" Fill="{DynamicResource AccentBrush}" Opacity="0.9" />
+                        <Ellipse x:Name="CrossRing" Width="22" Height="22"
+                                 Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" />
+                    </Canvas>
+
+                    <TextBlock Text="Drag the crosshair onto the knob's centre"
+                               IsVisible="{Binding ShowCenterGuide}" Margin="0,12"
+                               HorizontalAlignment="Center" VerticalAlignment="Top"
+                               Foreground="{DynamicResource Text2Brush}" FontSize="12" />
+
                     <TextBlock Text="Load a source image to begin — or drop a PNG here"
                                IsVisible="{Binding ShowLoadHint}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"

@@ -108,9 +108,16 @@ public sealed class FilmstripSettings
     /// <summary>Rotation of the final frame (the maximum), in degrees, clockwise.</summary>
     public double EndAngleDegrees { get; set; } = 135.0;
 
-    /// <summary>Pivot offset from the frame centre, in 1x pixels.</summary>
+    /// <summary>Pivot offset from the frame centre, in 1x pixels (advanced nudge).</summary>
     public double PivotOffsetX { get; set; }
     public double PivotOffsetY { get; set; }
+
+    // ---- Content alignment (all art types) ----
+    /// <summary>Normalized (0..1) visual centre of the art within the source image;
+    /// (0.5, 0.5) = plain rectangle centring. A knob is re-centred on this point and
+    /// rotates about it; a fader/slider cap uses it for cross-axis centring.</summary>
+    public double SourceCenterX { get; set; } = 0.5;
+    public double SourceCenterY { get; set; } = 0.5;
 
     // ---- Linear fader / slider ----
     /// <summary>Gap, in 1x pixels, left at each end of the cap's travel.</summary>
@@ -170,12 +177,12 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         {
             case ComponentType.RotaryKnob:
             {
-                // Fit the art (aspect-preserving, centred) into the frame, then
-                // rotate about the pivot. Give knob art ~10% transparent margin
-                // so its corners don't clip as it rotates.
+                // Aspect-fit the art, then place it so its content centre (SourceCenterX/Y)
+                // lands on the frame centre and rotate about that point — so an off-centre
+                // knob stays centred and spins in place. (0.5, 0.5) = rectangle centring.
                 var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
-                float drawX = (fw - drawW) / 2f;
-                float drawY = (fh - drawH) / 2f;
+                float drawX = fw / 2f - (float)settings.SourceCenterX * drawW;
+                float drawY = fh / 2f - (float)settings.SourceCenterY * drawH;
 
                 double angle = settings.StartAngleDegrees
                              + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t;
@@ -190,9 +197,10 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             {
                 // The source is the cap. It keeps its native size and slides
                 // vertically: frame 0 (min) at the bottom, last frame (max) at top.
+                // SourceCenterX centres the cap's content on the cross (X) axis.
                 float capW = source.Width;
                 float capH = source.Height;
-                float x = (fw - capW) / 2f + (float)settings.CapCrossOffset;
+                float x = fw / 2f - (float)settings.SourceCenterX * capW + (float)settings.CapCrossOffset;
 
                 float yBottom = fh - (float)settings.EdgeMargin - capH; // min
                 float yTop = (float)settings.EdgeMargin;                 // max
@@ -204,9 +212,10 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             case ComponentType.HorizontalSlider:
             {
                 // Cap slides horizontally: min at the left, max at the right.
+                // SourceCenterY centres the cap's content on the cross (Y) axis.
                 float capW = source.Width;
                 float capH = source.Height;
-                float y = (fh - capH) / 2f + (float)settings.CapCrossOffset;
+                float y = fh / 2f - (float)settings.SourceCenterY * capH + (float)settings.CapCrossOffset;
 
                 float xLeft = (float)settings.EdgeMargin;                 // min
                 float xRight = fw - (float)settings.EdgeMargin - capW;     // max

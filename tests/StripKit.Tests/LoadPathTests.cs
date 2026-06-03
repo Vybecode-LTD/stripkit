@@ -106,4 +106,28 @@ public class LoadPathTests
         vm.ComponentType = ComponentType.Meter;
         vm.ExportCommand.CanExecute(null).Should().BeTrue();    // a procedural meter needs none
     }
+
+    [Fact]
+    public void Loading_an_offcenter_knob_auto_centers_on_its_content()
+    {
+        var (vm, load, _) = Build();
+        load.Load("k.png").Returns(OffCenter(100, 100));
+
+        vm.LoadSourceFromPath("k.png"); // default component type is a rotary knob
+
+        // Opaque box at x/y 10..40 → content centre ≈ (0.25, 0.25), not the (0.5, 0.5) default.
+        vm.SourceCenterX.Should().BeLessThan(0.4);
+        vm.SourceCenterY.Should().BeLessThan(0.4);
+    }
+
+    // An image whose opaque content sits in the top-left, not the centre.
+    static SKBitmap OffCenter(int w, int h)
+    {
+        var bmp = new SKBitmap(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var c = new SKCanvas(bmp);
+        c.Clear(SKColors.Transparent);
+        using var p = new SKPaint { Color = SKColors.White, Style = SKPaintStyle.Fill };
+        c.DrawRect(new SKRect(10, 10, 40, 40), p);
+        return bmp;
+    }
 }

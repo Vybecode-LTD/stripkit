@@ -26,9 +26,23 @@ public sealed class FilmstripSettings
     /// <summary>Rotation of the final frame (the maximum value), in degrees, clockwise.</summary>
     public double EndAngleDegrees { get; set; } = 135.0;
 
-    /// <summary>Pivot offset from the frame centre, in 1x pixels.</summary>
+    /// <summary>Pivot offset from the frame centre, in 1x pixels. An advanced nudge on
+    /// top of the content centre below (use it for deliberately eccentric rotation).</summary>
     public double PivotOffsetX { get; set; }
     public double PivotOffsetY { get; set; }
+
+    // ---- Content alignment (all art types) ----
+
+    /// <summary>
+    /// Normalized location (0..1 per axis) of the art's visual centre within the source
+    /// image; (0.5, 0.5) is the image centre and reproduces plain rectangle centring.
+    /// The app auto-detects this from the opaque pixels. For a rotary knob this point is
+    /// re-centred in the frame and used as the rotation pivot (so an off-centre knob spins
+    /// in place rather than orbiting); for a fader/slider cap it sets the cross-axis
+    /// centring. Keep the defaults to preserve existing output.
+    /// </summary>
+    public double SourceCenterX { get; set; } = 0.5;
+    public double SourceCenterY { get; set; } = 0.5;
 
     // ---- Linear fader / slider ----
 

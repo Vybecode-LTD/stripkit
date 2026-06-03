@@ -20,6 +20,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private SKBitmap? _source;
     private SKBitmap? _background;
     private string? _sourcePath;
+    private AvBitmap? _sourceAv;      // cached Avalonia copy of _source for the align overlay
+    private SKBitmap? _sourceAvOf;    // the _source that _sourceAv was built from
 
     // Suppresses the preview/recompute funnel while we set several properties at
     // once (e.g. applying type defaults), so we refresh only once afterwards.
@@ -94,6 +96,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private double _endAngleDegrees = 135;
     [ObservableProperty] private double _pivotOffsetX;
     [ObservableProperty] private double _pivotOffsetY;
+
+    // ---- content alignment (knob centre / cap cross-centre) ----
+    [ObservableProperty] private double _sourceCenterX = 0.5;
+    [ObservableProperty] private double _sourceCenterY = 0.5;
+    [ObservableProperty] private bool _showCenterGuide;
 
     // ---- linear ----
     [ObservableProperty] private double _edgeMargin = 4;
@@ -233,6 +240,8 @@ public partial class MainWindowViewModel : ViewModelBase
         EndAngleDegrees = EndAngleDegrees,
         PivotOffsetX = PivotOffsetX,
         PivotOffsetY = PivotOffsetY,
+        SourceCenterX = SourceCenterX,
+        SourceCenterY = SourceCenterY,
         EdgeMargin = EdgeMargin,
         CapCrossOffset = CapCrossOffset,
         Supersample = Supersample,
@@ -298,17 +307,25 @@ public partial class MainWindowViewModel : ViewModelBase
         _source?.Dispose();
         _source = bmp;
         _sourcePath = path;
+        _sourceAv = null;             // invalidate the cached align-overlay bitmap
         HasSource = true;
         SourceInfo = $"{Path.GetFileName(path)} — {bmp.Width}×{bmp.Height}px";
 
-        // For a rotary knob, default the (square) frame to the art's larger side.
+        _suspendRefresh = true;
         if (IsRotary)
         {
-            _suspendRefresh = true;
+            // Square the frame to the art, and auto-centre on the opaque content so an
+            // off-centre knob spins in place instead of orbiting (tweakable afterwards).
             FrameWidth = Math.Max(bmp.Width, bmp.Height);
             FrameHeight = FrameWidth;
-            _suspendRefresh = false;
+            (SourceCenterX, SourceCenterY) = ContentAnalysis.DetectContentCenter(bmp);
         }
+        else
+        {
+            SourceCenterX = 0.5;
+            SourceCenterY = 0.5;
+        }
+        _suspendRefresh = false;
 
         StatusMessage = "Source loaded.";
         UpdateReadouts();
@@ -377,6 +394,32 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         _suspendRefresh = false;
 
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    private void AutoCenter()
+    {
+        if (_source is null) return;
+        var (cx, cy) = ContentAnalysis.DetectContentCenter(_source);
+        _suspendRefresh = true;
+        SourceCenterX = cx;
+        SourceCenterY = cy;
+        _suspendRefresh = false;
+        StatusMessage = $"Centred on content ({cx * 100:0}%, {cy * 100:0}%).";
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    private void ResetCenter()
+    {
+        _suspendRefresh = true;
+        SourceCenterX = 0.5;
+        SourceCenterY = 0.5;
+        _suspendRefresh = false;
+        StatusMessage = "Centre reset to the image centre.";
         UpdateReadouts();
         RefreshPreview();
     }
@@ -457,6 +500,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
+            // Alignment mode: show the raw source so the view can overlay a draggable
+            // centre crosshair. Cache the Avalonia copy so dragging doesn't re-encode.
+            if (ShowCenterGuide && source is not null)
+            {
+                if (_sourceAv is null || !ReferenceEquals(_sourceAvOf, source))
+                {
+                    _sourceAv = SkiaImageInterop.ToAvaloniaBitmap(source);
+                    _sourceAvOf = source;
+                }
+                PreviewImage = _sourceAv;
+                return;
+            }
+
             int n = Math.Max(1, FrameCount);
             int idx = Math.Clamp((int)Math.Round(PreviewValue * (n - 1)), 0, n - 1);
 

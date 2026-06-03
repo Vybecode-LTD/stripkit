@@ -1,10 +1,13 @@
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
+using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using StripKit.ViewModels;
@@ -39,6 +42,13 @@ public partial class MainWindow : Window
         PreviewBorder.AddHandler(DragDrop.DragOverEvent, OnDragOver);
         PreviewBorder.AddHandler(DragDrop.DragLeaveEvent, OnDragLeave);
         PreviewBorder.AddHandler(DragDrop.DropEvent, OnDrop);
+
+        // Alignment crosshair: drag over the source to set its content centre.
+        GuideCanvas.PointerPressed += OnGuidePressed;
+        GuideCanvas.PointerMoved += OnGuideMoved;
+        GuideCanvas.PointerReleased += OnGuideReleased;
+        GuideCanvas.SizeChanged += (_, _) => PositionCrosshair();
+        DataContextChanged += OnDataContextChangedForGuide;
     }
 
     private MainWindowViewModel? Vm => DataContext as MainWindowViewModel;
@@ -126,5 +136,92 @@ public partial class MainWindow : Window
             e.Handled = true;
             break;
         }
+    }
+
+    // ---- alignment crosshair (drag to set the source content centre) ----
+
+    private MainWindowViewModel? _guideVm;
+
+    private void OnDataContextChangedForGuide(object? sender, EventArgs e)
+    {
+        if (_guideVm is not null)
+            _guideVm.PropertyChanged -= OnGuideVmPropertyChanged;
+        _guideVm = Vm;
+        if (_guideVm is not null)
+            _guideVm.PropertyChanged += OnGuideVmPropertyChanged;
+        PositionCrosshair();
+    }
+
+    private void OnGuideVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is nameof(MainWindowViewModel.SourceCenterX)
+            or nameof(MainWindowViewModel.SourceCenterY)
+            or nameof(MainWindowViewModel.ShowCenterGuide)
+            or nameof(MainWindowViewModel.PreviewImage))
+        {
+            // The source image re-lays-out when shown; reposition after layout settles.
+            Dispatcher.UIThread.Post(PositionCrosshair, DispatcherPriority.Background);
+        }
+    }
+
+    private void OnGuidePressed(object? sender, PointerPressedEventArgs e)
+    {
+        if (Vm is null || !Vm.ShowCenterGuide) return;
+        e.Pointer.Capture(GuideCanvas);
+        SetCenterFromPointer(e.GetPosition(GuideCanvas));
+        e.Handled = true;
+    }
+
+    private void OnGuideMoved(object? sender, PointerEventArgs e)
+    {
+        if (Vm is null || !Vm.ShowCenterGuide) return;
+        if (!e.GetCurrentPoint(GuideCanvas).Properties.IsLeftButtonPressed) return;
+        SetCenterFromPointer(e.GetPosition(GuideCanvas));
+    }
+
+    private void OnGuideReleased(object? sender, PointerReleasedEventArgs e) => e.Pointer.Capture(null);
+
+    private void SetCenterFromPointer(Point p)
+    {
+        var rect = LetterboxRect();
+        if (rect is null || Vm is null) return;
+        var (left, top, w, h) = rect.Value;
+        if (w <= 0 || h <= 0) return;
+        Vm.SourceCenterX = Math.Clamp((p.X - left) / w, 0, 1);
+        Vm.SourceCenterY = Math.Clamp((p.Y - top) / h, 0, 1);
+    }
+
+    private void PositionCrosshair()
+    {
+        if (Vm is null || !Vm.ShowCenterGuide) return;
+        var rect = LetterboxRect();
+        if (rect is null) return;
+        var (left, top, w, h) = rect.Value;
+        double cx = left + Vm.SourceCenterX * w;
+        double cy = top + Vm.SourceCenterY * h;
+
+        CrossH.Width = w;
+        Canvas.SetLeft(CrossH, left);
+        Canvas.SetTop(CrossH, cy - CrossH.Height / 2);
+
+        CrossV.Height = h;
+        Canvas.SetLeft(CrossV, cx - CrossV.Width / 2);
+        Canvas.SetTop(CrossV, top);
+
+        Canvas.SetLeft(CrossRing, cx - CrossRing.Width / 2);
+        Canvas.SetTop(CrossRing, cy - CrossRing.Height / 2);
+    }
+
+    // The displayed (letterboxed) rect of the Uniform-fit source within the overlay,
+    // in GuideCanvas coordinates — which share the preview Image's bounds and margin.
+    private (double Left, double Top, double Width, double Height)? LetterboxRect()
+    {
+        if (PreviewImageControl.Source is not Bitmap bmp) return null;
+        double cw = GuideCanvas.Bounds.Width, ch = GuideCanvas.Bounds.Height;
+        double iw = bmp.PixelSize.Width, ih = bmp.PixelSize.Height;
+        if (cw <= 0 || ch <= 0 || iw <= 0 || ih <= 0) return null;
+        double s = Math.Min(cw / iw, ch / ih);
+        double w = iw * s, h = ih * s;
+        return ((cw - w) / 2, (ch - h) / 2, w, h);
     }
 }

@@ -1,11 +1,11 @@
 # CHANGELOG — StripKit
 
-> Version 0.5.0 · last-updated 2026-06-03 · last-audit 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-03 · last-audit 2026-06-03
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased] — Obsidian design system
+## [Unreleased] — v0.6.0 (design system · packaging · alignment · icon)
 
 ### Changed
 - New **glassmorphism UI** (Obsidian, chosen from two rendered mockups): acrylic
@@ -15,7 +15,37 @@
   buttons, and a **Verdana-led sans-serif** font (replaces JetBrains Mono). Design
   tokens centralized in `App.axaml`; `MainWindow` / `ImporterView` / `BatchView`
   restyled. **Styling-only** — renderer, view-models, and tests untouched (41/41 green).
-  Pending on-screen review + token tuning (translucency/tint/radius).
+  Pending on-screen review + token tuning (translucency/tint/radius). Hover/focus +
+  input-state polish added later (custom Button `ControlTheme` with `:pointerover` /
+  `:pressed` / `:focus-visible`, brush + box-shadow transitions, rounded inputs, per-tab
+  dividers with near-white subtitles). Design confirmed on-screen by the owner.
+
+### Added
+- **Knob/cap alignment tools.** The renderer now centres art on its *content* centre
+  (`SourceCenterX/Y`, normalized; 0.5,0.5 = previous behaviour) and rotates about that
+  point, so an off-centre knob spins in place instead of orbiting. New `ContentAnalysis`
+  auto-detects the opaque-content centre; the Create tab gains **Auto-center**, a
+  **draggable crosshair guide** over the source, numeric **Center X/Y**, and **Reset**;
+  knobs auto-center on load. Same content-centring for fader/slider caps. Mirrored in
+  `FilmstripEngine.cs`.
+- **Phase 7 packaging.** Velopack 1.1.1 integrated (`VelopackApp.Run()`); a self-contained
+  `win-x64` publish runs without the .NET SDK; `vpk pack` builds an unsigned installer
+  (`StripKit-win-Setup.exe`) + update feed. In-app **GitHub auto-update** (`UpdateService`
+  → `Vybecode-LTD/stripkit`; no-op in dev/portable/tests). See `docs/PACKAGING.md`.
+- **App icon + favicon.** A multi-resolution `.ico` (16–256 px) embedded via
+  `<ApplicationIcon>` and used for the window/taskbar; a compact `brand/favicon.ico`
+  (16/32/48/64) for the future website. Generated from `stripkiticon02.png` (contain-fit,
+  so the non-square source isn't distorted).
+
+### Fixed
+- Off-centre knob PNGs no longer "wobble"/orbit during the sweep — the rotation pivot is
+  the art's detected content centre, not the image-rectangle centre.
+
+### Tests
+- +7 (48 passing): 4 `ContentAnalysis` detection tests, 2 alignment render tests (an
+  off-centre disc stays pinned to the frame centre across frames; a sanity test confirms
+  it orbits without the fix), 1 auto-center-on-load VM test. Existing golden baselines
+  unchanged (the fix is backward-compatible at the default 0.5,0.5 centre).
 
 ## [0.5.0] — 2026-06-03 — Meter mode
 
