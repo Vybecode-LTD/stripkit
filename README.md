@@ -1,136 +1,188 @@
-# StripKit
+<div align="center">
+  <img src="src/StripKit/Assets/stripkit.png" alt="StripKit" width="116" />
+  <h1>StripKit</h1>
+  <p><b>Turn one transparent PNG into a frame-perfect animated filmstrip for audio-plugin GUIs — knobs, faders, sliders, and meters.</b></p>
 
-A C#/Avalonia 11 desktop tool that turns a single transparent PNG into an animated
-**filmstrip** (sprite sheet) for audio-plugin GUI controls — rotary knobs, vertical
-faders, horizontal sliders, and segment meters. Feed it your knob/fader art and it produces a
-stacked PNG that a JUCE-style `LookAndFeel` reads one frame at a time per parameter
-value. It also **imports** existing strips (KnobMan exports, purchased packs) and can
-emit a **`skin.json` manifest** that binds a strip to a plugin parameter.
+  <p>
+    <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-e8440a"></a>
+    <a href="https://github.com/Vybecode-LTD/stripkit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Vybecode-LTD/stripkit?color=e8440a&label=release"></a>
+    <a href="https://github.com/Vybecode-LTD/stripkit/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Vybecode-LTD/stripkit/total?color=e8440a"></a>
+    <img alt="Platform: Windows 10/11" src="https://img.shields.io/badge/platform-Windows%2010%2F11-555">
+    <img alt="Built with .NET 9 and Avalonia 11" src="https://img.shields.io/badge/.NET%209-Avalonia%2011-512BD4">
+  </p>
 
-It is the asset-production companion to the GUI skinning system / VybeForge.
+  <p><b>Free, forever. Open source.</b>&nbsp; · &nbsp;<a href="https://github.com/Vybecode-LTD/stripkit/releases/latest">Download</a> · <a href="https://stripkit.pro">stripkit.pro</a> · <a href="#-features">Features</a> · <a href="#-contributing">Contributing</a></p>
 
-## Requirements
+  <img src="docs/screenshot.png" alt="The StripKit application window" width="840" />
+</div>
 
-- **.NET 9 SDK** — https://dotnet.microsoft.com/download
-- Windows 11 (primary target). Builds and runs on macOS/Linux too (Avalonia).
+---
 
-## Run
+## What is StripKit?
+
+Audio-plugin GUIs animate knobs, faders, and meters with a **filmstrip** (a.k.a. sprite
+sheet): one tall PNG holding every frame of the control stacked top-to-bottom, where the
+plugin shows frame *N* for parameter value *N*. Hand-authoring those is tedious and
+error-prone.
+
+StripKit does it for you. Feed it a **single transparent PNG** of your control and it
+renders the whole strip — correctly rotated about the art's true centre, supersampled, and
+crisp at every frame. It also **imports** existing strips (KnobMan exports, purchased
+packs) to re-slice or re-stack them, processes a **whole folder in batch**, and can emit a
+**`skin.json` manifest** that binds a strip to a parameter for a JUCE-style `LookAndFeel`
+loader.
+
+It's the asset-production companion to VybeCode's plugin GUI tooling — and it's **free and
+open source under the MIT license**.
+
+## ⬇️ Download (Windows)
+
+**[Download the latest installer →](https://github.com/Vybecode-LTD/stripkit/releases/latest)**
+
+- **Self-contained** — no .NET runtime needed on the target machine.
+- **Per-user install:** choose your folder, optional desktop + Start-Menu shortcuts, and a
+  clean uninstaller that leaves nothing behind.
+- Every release is **VirusTotal-scanned** (report + SHA-256 in the release notes). The
+  installer is currently **unsigned**, so Windows SmartScreen may warn on first run —
+  choose *More info → Run anyway*.
+
+Prefer a one-page overview with the live download and changelog? See **[stripkit.pro](https://stripkit.pro)**.
+
+## ✨ Features
+
+- **Rotary knobs** — any sweep (270° / 300° / 360° / custom), rotated about the art's *true*
+  centre so it spins clean — no wobble.
+- **Faders & sliders** — vertical faders and horizontal sliders with pixel-accurate end margins.
+- **Meters** — procedural LED segments or layered on/off art; four fill directions; discrete
+  or continuous.
+- **Smart alignment** — auto-detects the spin centre on load; a draggable crosshair lets you
+  nail it by eye on a smooth 1024-step preview.
+- **Filmstrip importer** — detects an existing strip's frame count and orientation, extracts
+  a single frame, or re-stacks it.
+- **Batch processing** — point it at a folder and render the whole set off the UI thread,
+  with progress and a working cancel.
+- **`skin.json` manifest** — schema-valid output binding each strip to a parameter id.
+- **Crisp rendering** — supersampling + a Mitchell cubic resampler keep rotated edges sharp;
+  one-toggle `@2x` HiDPI export.
+- **Live preview** — scrub, play, or step frame-by-frame before you export.
+
+## 🧰 Tech stack
+
+| Area | Tech |
+| --- | --- |
+| Language / runtime | **C# / .NET 9** |
+| UI | **Avalonia 11.3** — MVVM, compiled bindings |
+| MVVM | **CommunityToolkit.Mvvm 8.4** (source generators) |
+| Rendering | **SkiaSharp 3.119** (supersampling + Mitchell cubic) |
+| DI | **Microsoft.Extensions.DependencyInjection** |
+| Tests | **xUnit · NSubstitute · FluentAssertions · Avalonia.Headless** + golden-image regression |
+| Packaging / CI | **Inno Setup** installer · **GitHub Actions** release pipeline · **VirusTotal** scan |
+
+The renderer, importer, and manifest services have **no Avalonia dependency**, so they're
+reusable in a CLI or build step — `FilmstripEngine.cs` (repo root) is a standalone,
+copy-paste-portable copy of the renderer.
+
+## 🛠️ Build from source
+
+Requires the [**.NET 9 SDK**](https://dotnet.microsoft.com/download). Builds and runs on
+Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 
 ```bash
-dotnet run --project src/StripKit
+git clone https://github.com/Vybecode-LTD/stripkit.git
+cd stripkit
+dotnet run --project src/StripKit      # launch the app
+dotnet test                            # 49 tests
 ```
 
-First run restores NuGet packages (Avalonia 11.3, CommunityToolkit.Mvvm 8.4,
-SkiaSharp 3.119, Microsoft.Extensions.DependencyInjection 9.0).
+Build a self-contained Windows release:
+
+```bash
+dotnet publish src/StripKit -c Release -r win-x64 --self-contained true -o publish
+```
 
 > If NuGet warns about a **SkiaSharp version conflict** with Avalonia, run
-> `dotnet list package --include-transitive`, find the SkiaSharp version Avalonia
-> pulls, and set the `SkiaSharp` `Version` in `src/StripKit/StripKit.csproj` to match.
+> `dotnet list package --include-transitive`, find the SkiaSharp version Avalonia pulls,
+> and match it in `src/StripKit/StripKit.csproj`.
 
-## Build a release / single-file exe (Windows)
+## 📖 Using the app
 
-```bash
-dotnet publish src/StripKit -c Release -r win-x64 ^
-  -p:PublishSingleFile=true -p:PublishSelfContained=true
-```
+StripKit is a three-tab app: **Create**, **Import**, and **Batch**.
 
-The exe lands in `src/StripKit/bin/Release/net9.0/win-x64/publish/`.
+**Create — single image → animated strip**
+1. **Load a source PNG** (button or drag-and-drop onto the preview) — your transparent
+   control art (a knob drawn pointing up at 12 o'clock; a fader/slider's moving cap).
+2. Pick the **component type** (knob / vertical fader / horizontal slider / meter) and the
+   **frame count** (32 / 64 / 128 or custom; 64 is standard).
+3. Tune the per-type settings — rotary sweep & pivot, linear margins, or meter segments &
+   fill direction — and **align** the knob centre with auto-center or the crosshair.
+4. **Preview** (scrub / play / step), then **Export** the stacked PNG (+ optional `@2x` and
+   a `skin.json` manifest).
 
-## Run the tests
+**Import — re-use an existing strip:** load a strip; StripKit detects its layout (editable —
+detection is a guess), scrub to confirm min → max, then extract a frame or re-stack the
+orientation.
 
-```bash
-dotnet test                       # 49 tests: renderer golden-image, VM, importer, manifest, batch, meter, alignment
-UPDATE_BASELINES=1 dotnet test    # regenerate golden-image baselines (review before committing)
-```
+**Batch — a whole folder at once:** choose input/output folders, set a render template, and
+**Run** — each source becomes a strip (+ `@2x` / `.skin.json`) off-thread, with progress;
+bad files are skipped and reported, and **Cancel** stops cleanly between files.
 
-See [`docs/TESTING.md`](docs/TESTING.md) for the full test inventory and the
-golden-image baseline workflow.
+**Quality tips:** give knob art ~10% transparent margin so corners don't clip on rotation;
+exported PNGs are 32-bit RGBA with a transparent background (the plugin paints the
+background, the filmstrip draws only the control).
 
-## The app: three tabs
+## 🤝 Contributing
 
-### Create — single image → animated strip
+Contributions are very welcome — bug reports, feature ideas, and pull requests alike.
 
-1. **Load source image** (button, or **drag-and-drop a PNG onto the preview**) —
-   your transparent PNG. For a knob this is the cap/pointer art drawn pointing
-   straight up (12 o'clock); for a fader/slider it is the moving cap.
-2. **Component type** — RotaryKnob, VerticalFader, HorizontalSlider, or **Meter**.
-3. **Frames** — 32 / 64 / 128 quick buttons, or any value. 64 is standard.
-4. **Frame size** — the size of one cell. "Match frame to source size" squares the
-   frame to a knob's art; for a fader/slider the frame is the full track area.
-5. **Rotary:** sweep (270° default), clockwise/counter-clockwise, optional pivot
-   nudge. **Linear:** edge margin and cap cross-axis offset. **Meter:** segment count,
-   fill direction (up/down/left/right), a continuous toggle, and On/Off colours
-   (procedural) — or load a source (on-state) and a background (off-state) for a
-   layered meter. A procedural meter needs no source image.
-6. **Quality & output:** Supersample (1/2/4/8 — 4 is a good default), vertical or
-   horizontal stacking, optional `@2x` HiDPI export.
-7. **Manifest (optional):** tick "Also write a skin.json manifest" and set a
-   **Parameter id**; export then writes `<name>.skin.json` next to the PNG.
-8. **Preview** — drag the slider (or press Play) to watch the control animate.
-9. **Export** — writes `name_64frames.png`, plus `name_64frames@2x.png` and
-   `name_64frames.skin.json` when those toggles are on.
+**Get oriented:** read `CLAUDE.md` (conventions), `docs/KICKOFF.md` (a fast bootstrap),
+`docs/ARCHITECTURE.md` (the deep design), and `docs/SOURCE_MAP.md` (a file-by-file map).
 
-### Import — re-use an existing strip
+**Workflow**
+1. Fork the repo and branch off `main`.
+2. Make your change and add/update tests — `dotnet test` must stay green (currently **49**).
+3. Keep the house conventions:
+   - Don't rewrite `Services/SkiaFilmstripRenderer.cs`; the rotation/supersampling math is
+     deliberate (the `(N-1)` angle divisor is intentional — last frame lands exactly on max).
+     Extend, don't replace.
+   - If you touch the renderer math, mirror it in the standalone `FilmstripEngine.cs`.
+   - View models don't reference Avalonia UI types (the preview `Bitmap` alias aside); use
+     compiled bindings; re-use the `App.axaml` design tokens (Obsidian glass, `#e8440a`
+     accent, Verdana — no monospace). Don't hard-code hex.
+4. Open a PR describing the change and referencing any issue it closes.
 
-1. **Load filmstrip** (button or drop) — an existing strip you did not make.
-2. StripKit **detects** the frame count, frame size, orientation, and control kind
-   from the image dimensions, and flags ambiguous cases. The detected count is
-   **editable** (detection is a guess — verify it).
-3. **Scrub** to confirm the control sweeps min → max.
-4. **Extract current frame** to a PNG, or **Re-stack (flip orientation)** to write
-   the whole strip vertical↔horizontal.
+**Found a bug?** Open an issue with steps to reproduce (and the source PNG's dimensions for a
+rendering/import bug). Fix tracking lives in `docs/BUGS.md`.
 
-### Batch — a whole folder at once
+**Releases** are cut by maintainers via the automated pipeline (`docs/PACKAGING.md`) — you
+don't need to touch versioning in a PR.
 
-1. **Choose input folder** — a folder of source images (PNG/WebP/BMP/JPG).
-2. **Choose output folder** — where the strips are written.
-3. Set the **render template** (component type, frames, frame size, rotary sweep,
-   supersample, stacking) plus "Square knob frames to each source", `@2x`, and a
-   per-strip `skin.json` toggle.
-4. **Run batch** — exports `name_<frames>frames.png` (+ `@2x` / `.skin.json`) for each
-   source, off the UI thread, with a progress bar and a per-file readout. A bad file is
-   skipped and reported; the run continues. **Cancel** stops cleanly between files.
-
-## Notes on quality
-
-- Rotation aliases hard edges, so each frame is rendered into an oversampled surface
-  and downsampled once with a Mitchell cubic resampler — that is what keeps a rotated
-  knob crisp at every angle.
-- Give knob art roughly a 10% transparent margin so its corners don't clip as it
-  rotates within the square frame.
-- Exported PNGs are 32-bit RGBA with a transparent background — the plugin's
-  `paint()` draws the control's background; the filmstrip draws only the control.
-
-## Project layout
+## 🗂️ Project layout
 
 ```
 StripKit.sln
-FilmstripEngine.cs                     standalone, copy-paste portable renderer (not compiled by the app)
+FilmstripEngine.cs          standalone, portable renderer (not compiled by the app)
 src/StripKit/
-  Program.cs, App.axaml(.cs)           entry + composition root (DI)
-  Models/                              FilmstripSettings, FrameTransform, StripDetection,
-                                       SkinManifest, BatchModels, ComponentType,
-                                       StackDirection, MeterFillDirection
-  Services/                            renderer, importer, manifest, batch, image load, file dialog, export
-  Helpers/SkiaImageInterop.cs          SKBitmap -> Avalonia Bitmap (preview)
-  ViewModels/                          MainWindowViewModel (Create) + ImporterViewModel (Import)
-                                       + BatchViewModel (Batch)
-  Views/                               MainWindow (TabControl) + ImporterView + BatchView
-tests/StripKit.Tests/                  xUnit: renderer golden-image, VM, importer, manifest, batch, meter
-docs/                                  ARCHITECTURE, SOURCE_MAP, ROADMAP, TESTING, CHANGELOG,
-                                       BUGS, HANDOFF, AUDIT-LOG, KICKOFF
+  Program.cs, App.axaml     entry point + composition root (DI), Obsidian design tokens
+  Models/                   FilmstripSettings, FrameTransform, StripDetection, SkinManifest, BatchModels, enums
+  Services/                 renderer · importer · manifest · batch · image load · file dialog · export
+  ViewModels/               MainWindowViewModel (Create) · ImporterViewModel · BatchViewModel
+  Views/                    MainWindow (TabControl) · ImporterView · BatchView
+tests/StripKit.Tests/       xUnit: renderer golden-image, alignment, VM, importer, manifest, batch, meter
+installer/StripKit.iss      Inno Setup installer script
+scripts/Invoke-Release.ps1  local release driver (Stage 1)
+.github/workflows/          auto-release.yml — CI release creator (Stage 2)
+docs/                       ARCHITECTURE, SOURCE_MAP, ROADMAP, TESTING, CHANGELOG, BUGS, HANDOFF, AUDIT-LOG, PACKAGING, KICKOFF
 ```
 
-The renderer (`Services/SkiaFilmstripRenderer.cs`), importer (`FilmstripImporter`),
-and manifest (`ManifestService`) have **no Avalonia dependency**, so they can be
-reused in a CLI, a build step, or another app unchanged.
+## 📜 License
 
-## Documentation
+**MIT** — free for personal and commercial use, forever. Use it, modify it, ship it; just
+keep the copyright and license notice. See [`LICENSE`](LICENSE).
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — how every piece fits together (deep dive).
-- [`docs/SOURCE_MAP.md`](docs/SOURCE_MAP.md) — file-by-file map of the repo.
-- [`docs/ROADMAP.md`](docs/ROADMAP.md) — phased plan and status.
-- [`docs/TESTING.md`](docs/TESTING.md) — test inventory, frameworks, baselines.
-- [`docs/CHANGELOG.md`](docs/CHANGELOG.md) · [`docs/BUGS.md`](docs/BUGS.md) ·
-  [`docs/HANDOFF.md`](docs/HANDOFF.md) · [`docs/AUDIT-LOG.md`](docs/AUDIT-LOG.md).
-- `CLAUDE.md` — context and conventions for AI coding sessions.
+© 2026 **VybeCode Software** · built with care at [vybeco.de](https://vybeco.de)
+
+## 🔗 Links
+
+- 🌐 Website — **[stripkit.pro](https://stripkit.pro)**
+- 📦 Releases — **[github.com/Vybecode-LTD/stripkit/releases](https://github.com/Vybecode-LTD/stripkit/releases)**
+- 🏷️ Developer — **VybeCode Software** · [vybeco.de](https://vybeco.de)

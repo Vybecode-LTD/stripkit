@@ -15,6 +15,12 @@
     <!-- Version is the single source of truth; scripts/Invoke-Release.ps1 bumps it in
          lockstep with the Inno .iss and the CHANGELOG on "release it". -->
     <Version>0.6.0</Version>
+    <Authors>VybeCode Software</Authors>
+    <Company>VybeCode Software</Company>
+    <Product>StripKit</Product>
+    <Copyright>Copyright (c) 2026 VybeCode Software</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/Vybecode-LTD/stripkit</RepositoryUrl>
     <!-- OutputType is WinExe so no console window pops up on Windows. On
          macOS/Linux this behaves like a normal GUI Exe. -->
   </PropertyGroup>

@@ -5,6 +5,14 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [Unreleased]
+
+### Changed
+- **Open-sourced under the MIT license.** Added a `LICENSE` (MIT), a public-facing
+  `README.md` (badges, screenshot, tech stack, a contributing guide, and release-download
+  links), and license/author metadata in `StripKit.csproj`. The website's hero now carries
+  a "free & open source" badge linking to the public repo.
+
 ## [0.6.0] — 2026-06-03
 
 ### Changed
