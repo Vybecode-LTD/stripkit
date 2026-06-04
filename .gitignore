@@ -34,3 +34,6 @@ releases/latest/*
 # OS
 .DS_Store
 Thumbs.db
+
+# Stray versioner artifact
+/Version
