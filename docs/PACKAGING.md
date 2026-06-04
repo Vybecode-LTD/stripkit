@@ -2,111 +2,113 @@
 
 > Version 0.6.0 · last-updated 2026-06-03
 
-How StripKit is built into a Windows installer and how auto-update works. StripKit
-ships via **Velopack**, which produces *both* the installer (`Setup.exe`) and the
-delta-based auto-update feed from one `vpk pack` — so there is no separate Inno
-Setup / Squirrel step to keep in sync.
+How StripKit is built into a Windows installer and shipped. StripKit follows the
+three-stage model in `SOFTWARE_RELEASE.md`: a **local script builds + stages** the
+installer, **CI is the single release creator**, and the **website reads the live
+release** passively. Packaging is **Inno Setup** (chooseable install dir, optional
+desktop + Start-Menu shortcuts, a registry-wiping uninstaller). There is no in-app
+auto-updater — updates are delivered as new GitHub Releases that the website surfaces.
 
 ## What ships
 
-| Artifact (in `releases/`) | Purpose |
-| --- | --- |
-| `StripKit-win-Setup.exe` | The installer users download and run (per-user install, Desktop + Start-Menu shortcuts, uninstaller). |
-| `StripKit-win-Portable.zip` | A no-install build (unzip and run). |
-| `StripKit-<ver>-full.nupkg` + `RELEASES` / `*.win.json` | The **update feed** the running app reads to self-update. |
+| Artifact | Where | Purpose |
+| --- | --- | --- |
+| `StripKit-Setup-<X.Y.Z>-x64.exe` | a GitHub Release (and `releases/latest/` in-repo) | The per-user installer users download and run. Self-contained — no .NET SDK/runtime needed on the target machine. |
 
-`releases/` and `publish/` are git-ignored — they are build outputs, recreated on demand.
+`publish/` and `installer/Output/` are git-ignored build outputs. `releases/latest/*.exe`
+**is** tracked: pushing it is what triggers the release workflow.
 
-## Prerequisites
+## Prerequisites (build machine)
 
-- .NET 9 SDK.
-- The Velopack CLI, pinned to the same version as the `Velopack` package reference
-  (currently **1.1.1**):
-  ```
-  dotnet tool install --global vpk --version 1.1.1
-  ```
-  (If a new shell can't find `vpk`, it's at `%USERPROFILE%\.dotnet\tools\vpk.exe`.)
+- **.NET 9 SDK.**
+- **Inno Setup 6** — the compiler `ISCC.exe`. On this machine it's a per-user install at
+  `%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe` (the release script auto-detects it).
+- **GitHub CLI** (`gh`), authenticated with push access to `Vybecode-LTD/stripkit`.
+- One repo secret: **`VT_API_KEY`** (VirusTotal) — already set on the repo; used only by CI.
 
-## Release steps
+## Releasing — "release it"
 
-All commands run from the repo root. Bump `<ver>` to the release version (match the
-app's version; we are at `0.6.0`).
-
-### 1 — Self-contained publish (runs without the .NET SDK)
-
+```powershell
+# first release (ships the current version, 0.6.0, with no bump):
+pwsh scripts/Invoke-Release.ps1 -Bump none
+# subsequent releases:
+pwsh scripts/Invoke-Release.ps1            # patch  (+0.0.1) — a plain "release it"
+pwsh scripts/Invoke-Release.ps1 -Bump minor   # "major release" (+0.1.0)
 ```
+
+### Stage 1 — `scripts/Invoke-Release.ps1` (local)
+
+1. **Test gate** — `dotnet test`; aborts the release if anything is red.
+2. **Version bump** in lockstep: `StripKit.csproj` `<Version>`, `installer/StripKit.iss`
+   `#define MyAppVersion`, and `docs/CHANGELOG.md` (`## [Unreleased]` → `## [X.Y.Z] — date`).
+3. **Publish** a self-contained `win-x64` build into `publish/`.
+4. **Package** with Inno Setup → `installer/Output/StripKit-Setup-X.Y.Z-x64.exe`.
+5. **Stage** that installer under `releases/latest/` (replacing the previous one).
+6. **Commit, tag `vX.Y.Z`, and push** (branch + tag).
+
+It deliberately does **not** call `gh release create`. The push is the hand-off.
+
+### Stage 2 — `.github/workflows/auto-release.yml` (CI, the sole release creator)
+
+Triggered by the push touching `releases/latest/*.exe`. It:
+
+1. Reads the version from the installer filename.
+2. Skips if a release for that version already exists (idempotent / race-free).
+3. **VirusTotal scan** of the installer (large-file upload API, `VT_API_KEY`), capturing the
+   detection ratio + report link.
+4. Extracts that version's section from `docs/CHANGELOG.md` for the release notes.
+5. **Creates the GitHub Release**, attaching the installer and appending the VirusTotal
+   verdict + SHA-256.
+
+### Stage 3 — the website (passive)
+
+`StripKit-Website` reads the latest release from the GitHub API (`js/download.js`) and the
+changelog from `docs/CHANGELOG.md` (`js/changelog.js`). No deploy step is coupled to a
+release — publishing the release is enough for the site to update.
+
+## The installer (`installer/StripKit.iss`)
+
+- Per-user install (`PrivilegesRequired=lowest`, dialog override allowed) — no forced UAC.
+- The **install directory is chooseable**; **desktop shortcut** is an opt-in task; a
+  **Start-Menu** group is created (the user can decline it).
+- The **uninstaller wipes all traces**: the only registry footprint
+  (`HKA\Software\VybeCode\StripKit`) is flagged `uninsdeletekey`, and Inno removes its own
+  uninstall key automatically.
+- Wizard art: `installer/wizard-large.bmp` (the StripKit brandmark + the VybeCode logo) and
+  `installer/wizard-small.bmp`; the setup/uninstaller icon is `Assets/stripkit.ico`. The
+  BMPs are regenerated from the source PNGs with the System.Drawing snippet kept in the
+  session notes (luminance-checked so the dark VybeCode logo sits on a light chip).
+
+## Manual build (debugging the package without a release)
+
+```powershell
 dotnet publish src/StripKit/StripKit.csproj -c Release -r win-x64 --self-contained true -o publish
+& "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe" installer/StripKit.iss
+# → installer/Output/StripKit-Setup-0.6.0-x64.exe  (~33 MB)
 ```
-
-This bundles the .NET runtime + the native libs (`libSkiaSharp.dll`, `av_libGLESv2.dll`)
-into `publish/` (~100 MB). Boot `publish/StripKit.exe` once to sanity-check it runs.
-
-### 2 — (Not the first release) pull existing releases so deltas can be built
-
-```
-vpk download github --repoUrl https://github.com/Vybecode-LTD/stripkit --token <GITHUB_TOKEN> --outputDir releases
-```
-
-Skip this for the very first release.
-
-### 3 — Pack the installer + feed
-
-```
-vpk pack --packId StripKit --packVersion <ver> --packDir publish --mainExe StripKit.exe ^
-         --packTitle "StripKit" --packAuthors "VybeCod.ing" ^
-         --icon src/StripKit/Assets/stripkit.ico --outputDir releases
-```
-
-`vpk` verifies `VelopackApp.Run()` is wired in `Main` and compresses `publish/` into the
-artifacts above. The build is **unsigned** today — see *Code signing* below.
-
-### 4 — Publish to GitHub Releases (makes auto-update live)
-
-```
-vpk upload github --repoUrl https://github.com/Vybecode-LTD/stripkit --token <GITHUB_TOKEN> ^
-         --publish --releaseName "StripKit <ver>" --tag v<ver> --outputDir releases
-```
-
-Use a token with `repo` scope (the GitHub CLI's token works: `gh auth token`). Once the
-release is published, installed copies pick the update up on their next launch.
-
-## How auto-update works in the app
-
-`src/StripKit/Services/UpdateService.cs` runs in the background from `App.OnFrameworkInitializationCompleted`:
-
-1. `new UpdateManager(new GithubSource("https://github.com/Vybecode-LTD/stripkit", null, false))`.
-2. Returns immediately unless `manager.IsInstalled` — so **dev runs (`dotnet run`), the
-   portable build, and headless tests never touch the network or update**.
-3. `CheckForUpdatesAsync` → `DownloadUpdatesAsync` → `WaitExitThenApplyUpdates`: the update
-   is staged and applied the next time the user closes the app, never mid-session.
-
-All failures (offline, no release yet) are swallowed — updates never crash the app.
-
-## Versioning
-
-The `--packVersion` is the release version Velopack compares against. Keep it in step with
-the project/docs version. SemVer; pre-1.0 we bump the minor for each shipped feature set.
 
 ## Code signing (deferred — currently shipping unsigned)
 
-Unsigned builds raise a Windows SmartScreen prompt on first run. To sign, put a code-signing
-cert on the build machine (or use a cloud signer) and pass signtool args to `vpk pack`:
+Unsigned installers raise a Windows SmartScreen prompt on first run. To sign once a cert is
+available: sign `publish/StripKit.exe` (and the native DLLs) with `signtool` before packaging,
+and add a `SignTool` directive to `[Setup]` so Inno signs the produced installer:
 
 ```
-vpk pack ... --signParams "/a /fd sha256 /tr http://timestamp.digicert.com /td sha256"
+signtool sign /fd sha256 /tr http://timestamp.digicert.com /td sha256 publish\StripKit.exe
+; in StripKit.iss [Setup]:  SignTool=mysigntool
 ```
 
-`vpk` signs every packaged binary + the `Setup.exe`. Azure Trusted Signing is also
-supported via `--azureTrustedSignFile`. Document the cert source here once chosen.
+Document the cert source here once chosen.
 
 ## Regenerating the icon
 
 The app icon is `src/StripKit/Assets/stripkit.ico` (a 32-bit multi-resolution ICO —
 16/24/32/48/64/128/256 px) plus `Assets/stripkit.png` (256 px, the window icon),
-generated from the master `stripkitIcon01.png`. SkiaSharp can resize but **cannot encode
+generated from the master `stripkiticon02.png`. SkiaSharp can resize but **cannot encode
 ICO**, so the `.ico` container is assembled by hand: resize the master to each size into
 `Bgra8888`/unpremul, then write `ICONDIR` + one `ICONDIRENTRY` + one `BITMAPINFOHEADER`
 DIB (height doubled for the AND mask, which is left all-zero so the alpha channel drives
-transparency) per size. To regenerate after changing the master, re-run that conversion
-and rebuild — `dotnet build` embeds the `.ico` via `<ApplicationIcon>` and fails the build
-(CS7064) if the container is malformed.
+transparency) per size. The master is non-square, so each size is **contain-fit** (centred,
+aspect-preserved) rather than stretched. To regenerate after changing the master, re-run
+that conversion and rebuild — `dotnet build` embeds the `.ico` via `<ApplicationIcon>` and
+fails the build (CS7064) if the container is malformed.

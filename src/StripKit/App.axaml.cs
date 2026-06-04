@@ -45,10 +45,6 @@ public partial class App : Application
             provider.GetRequiredService<FileDialogService>().Owner = window;
 
             desktop.MainWindow = window;
-
-            // Check the GitHub update feed in the background. No-ops unless this is
-            // a Velopack-installed build; any update is staged and applied on exit.
-            _ = UpdateService.CheckAndApplyAsync();
         }
 
         base.OnFrameworkInitializationCompleted();

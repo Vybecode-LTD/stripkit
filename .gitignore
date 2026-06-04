@@ -16,9 +16,15 @@ tests/**/output/
 # Rider
 *.sln.iml
 
-# Publish / packaging
+# Publish / packaging — transient build outputs are ignored. The staged
+# installer under releases/latest/ IS tracked: pushing it is what triggers the
+# release workflow (.github/workflows/auto-release.yml).
 publish/
-releases/
+installer/Output/
+releases/*
+!releases/latest/
+releases/latest/*
+!releases/latest/*.exe
 *.app
 
 # Large binary design sources (keep in design storage / Git LFS, not the code repo)

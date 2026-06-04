@@ -12,6 +12,9 @@
     <RootNamespace>StripKit</RootNamespace>
     <AssemblyName>StripKit</AssemblyName>
     <ApplicationIcon>Assets\stripkit.ico</ApplicationIcon>
+    <!-- Version is the single source of truth; scripts/Invoke-Release.ps1 bumps it in
+         lockstep with the Inno .iss and the CHANGELOG on "release it". -->
+    <Version>0.6.0</Version>
     <!-- OutputType is WinExe so no console window pops up on Windows. On
          macOS/Linux this behaves like a normal GUI Exe. -->
   </PropertyGroup>
@@ -41,7 +44,6 @@
          align this with Avalonia's transitive version (list the transitive
          packages with the dotnet list package command and match SkiaSharp). -->
     <PackageReference Include="SkiaSharp" Version="3.119.0" />
-    <PackageReference Include="Velopack" Version="1.1.1" />
   </ItemGroup>
 
 </Project>

@@ -1,5 +1,4 @@
 using Avalonia;
-using Velopack;
 
 namespace StripKit;
 
@@ -11,11 +10,6 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        // Velopack must run first: it handles the install / update / uninstall
-        // lifecycle hooks (and may briefly take over the process on those events)
-        // before the GUI starts. A no-op during a normal run.
-        VelopackApp.Build().Run();
-
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
     }
 

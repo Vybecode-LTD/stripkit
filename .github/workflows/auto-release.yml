@@ -1,0 +1,119 @@
+name: Auto Release
+
+# Stage 2 of SOFTWARE_RELEASE.md: the SINGLE, race-free release creator.
+# scripts/Invoke-Release.ps1 (Stage 1) builds + stages the installer under
+# releases/latest/ and pushes. That push fires this workflow, which scans the
+# installer with VirusTotal and creates the GitHub Release. Nothing else ever
+# calls `gh release create`.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'releases/latest/*.exe'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Identify installer + version
+        id: meta
+        run: |
+          file=$(ls releases/latest/*.exe | head -n1)
+          base=$(basename "$file")
+          ver=$(echo "$base" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -n1)
+          {
+            echo "file=$file"
+            echo "base=$base"
+            echo "version=$ver"
+          } >> "$GITHUB_OUTPUT"
+          echo "Installer: $base  (v$ver)"
+
+      - name: Skip if release already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view "v${{ steps.meta.outputs.version }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "Release v${{ steps.meta.outputs.version }} already exists - skipping."
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: VirusTotal scan
+        if: steps.exists.outputs.exists == 'false'
+        id: vt
+        env:
+          VT_API_KEY: ${{ secrets.VT_API_KEY }}
+        run: |
+          set -e
+          file="${{ steps.meta.outputs.file }}"
+          sha=$(sha256sum "$file" | cut -d' ' -f1)
+          gui="https://www.virustotal.com/gui/file/$sha"
+          verdict="scan skipped (no API key configured)"
+          if [ -n "$VT_API_KEY" ]; then
+            echo "Requesting large-file upload URL..."
+            up=$(curl -s --request GET --url https://www.virustotal.com/api/v3/files/upload_url --header "x-apikey: $VT_API_KEY" | jq -r .data)
+            echo "Uploading installer for analysis..."
+            aid=$(curl -s --request POST --url "$up" --header "x-apikey: $VT_API_KEY" --form file=@"$file" | jq -r .data.id)
+            echo "Analysis id: $aid"
+            verdict="scan inconclusive (timed out)"
+            for i in $(seq 1 30); do
+              sleep 10
+              resp=$(curl -s --url "https://www.virustotal.com/api/v3/analyses/$aid" --header "x-apikey: $VT_API_KEY")
+              status=$(echo "$resp" | jq -r '.data.attributes.status // "queued"')
+              echo "  poll $i: $status"
+              if [ "$status" = "completed" ]; then
+                mal=$(echo "$resp" | jq -r '.data.attributes.stats.malicious // 0')
+                susp=$(echo "$resp" | jq -r '.data.attributes.stats.suspicious // 0')
+                undet=$(echo "$resp" | jq -r '.data.attributes.stats.undetected // 0')
+                verdict="$mal malicious, $susp suspicious, $undet clean"
+                break
+              fi
+            done
+          fi
+          {
+            echo "sha256=$sha"
+            echo "gui=$gui"
+            echo "verdict=$verdict"
+          } >> "$GITHUB_OUTPUT"
+          echo "VirusTotal: $verdict"
+
+      - name: Build release notes from CHANGELOG
+        if: steps.exists.outputs.exists == 'false'
+        id: notes
+        run: |
+          ver="${{ steps.meta.outputs.version }}"
+          section=$(awk -v v="$ver" '
+            $0 ~ ("^## \\[" v "\\]") { p=1; next }
+            p && /^## \[/ { p=0 }
+            p { print }
+          ' docs/CHANGELOG.md)
+          {
+            echo "body<<RELEOF"
+            if [ -n "$section" ]; then echo "$section"; else echo "Release v$ver."; fi
+            echo ""
+            echo "---"
+            echo "**Download:** \`${{ steps.meta.outputs.base }}\` — a per-user Windows installer (choose your install folder; optional desktop + Start-Menu shortcuts; clean uninstall)."
+            echo ""
+            echo "**VirusTotal:** ${{ steps.vt.outputs.verdict }} — [full report](${{ steps.vt.outputs.gui }})"
+            echo "SHA-256: \`${{ steps.vt.outputs.sha256 }}\`"
+            echo "RELEOF"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create GitHub Release
+        if: steps.exists.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "v${{ steps.meta.outputs.version }}" \
+            "${{ steps.meta.outputs.file }}" \
+            --title "StripKit ${{ steps.meta.outputs.version }}" \
+            --notes "${{ steps.notes.outputs.body }}"
+          echo "Created release v${{ steps.meta.outputs.version }}"

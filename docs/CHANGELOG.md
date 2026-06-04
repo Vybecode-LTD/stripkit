@@ -21,18 +21,30 @@
   dividers with near-white subtitles). Design confirmed on-screen by the owner.
 
 ### Added
-- **Knob/cap alignment tools.** The renderer now centres art on its *content* centre
-  (`SourceCenterX/Y`, normalized; 0.5,0.5 = previous behaviour) and rotates about that
-  point, so an off-centre knob spins in place instead of orbiting. New `ContentAnalysis`
-  auto-detects the opaque-content centre; the Create tab gains **Auto-center**, a
-  **draggable crosshair guide** over the source, numeric **Center X/Y**, **Reset**, and
-  **Pin centre to image** (commits the crosshair mark and flips the preview to the
-  re-centred result); knobs auto-center on load. Same content-centring for fader/slider
-  caps. Mirrored in `FilmstripEngine.cs`.
-- **Phase 7 packaging.** Velopack 1.1.1 integrated (`VelopackApp.Run()`); a self-contained
-  `win-x64` publish runs without the .NET SDK; `vpk pack` builds an unsigned installer
-  (`StripKit-win-Setup.exe`) + update feed. In-app **GitHub auto-update** (`UpdateService`
-  → `Vybecode-LTD/stripkit`; no-op in dev/portable/tests). See `docs/PACKAGING.md`.
+- **Alignment tools (pivot-only).** The renderer centres art on its detected *content*
+  centre (`SourceCenterX/Y`, normalized; 0.5,0.5 reproduces prior output) and rotates about
+  that point, so an off-centre knob spins in place instead of orbiting. A persistent
+  **Enable crosshair** toggle marks the spin centre with live drag — the art itself never
+  moves — and the preview always renders at **1024 virtual steps** so alignment isn't
+  quantized to the export frame count. Plus **Auto-center**, numeric **Center X/Y**,
+  **Reset**, and auto-centring of knobs on load. New `ContentAnalysis` auto-detects the
+  opaque-content centre. Same content-centring for fader/slider caps. Mirrored in
+  `FilmstripEngine.cs`.
+- **Preview transport.** Step back / Play–Stop / step forward / **Reset** (returns to the
+  centred start); Play keeps working while the crosshair is enabled.
+- **Header wordmark + About.** A wordmark logo on the header's right; a **?** About flyout
+  showing the brandmark, version, https://stripkit.pro, VybeCode Software, and
+  https://vybeco.de.
+- **Windows installer + release pipeline.** An **Inno Setup** installer (per-user; choose
+  the install dir; optional desktop + Start-Menu shortcuts; a registry-wiping uninstaller;
+  both the StripKit brandmark and the VybeCode logo in the wizard). `scripts/Invoke-Release.ps1`
+  (Stage 1: bump version across csproj / .iss / CHANGELOG, test-gate, self-contained publish,
+  ISCC package, stage under `releases/latest/`, commit + tag + push) and
+  `.github/workflows/auto-release.yml` (Stage 2: VirusTotal scan, then the single GitHub
+  Release creator). The self-contained `win-x64` publish runs without the .NET SDK. See
+  `docs/PACKAGING.md`.
+- **Landing-page website.** A separate medium-light themed site (features grid, GitHub-driven
+  download + changelog, privacy / terms / contact, VybeCode footer) under `StripKit-Website`.
 - **App icon + favicon.** A multi-resolution `.ico` (16–256 px) embedded via
   `<ApplicationIcon>` and used for the window/taskbar; a compact `brand/favicon.ico`
   (16/32/48/64) for the future website. Generated from `stripkiticon02.png` (contain-fit,
@@ -42,11 +54,16 @@
 - Off-centre knob PNGs no longer "wobble"/orbit during the sweep — the rotation pivot is
   the art's detected content centre, not the image-rectangle centre.
 
+### Removed
+- **Velopack in-app auto-update** (`UpdateService`, `VelopackApp.Run()`, the package
+  reference) — replaced by the Inno installer + website-download model. An Inno-installed
+  app can't use Velopack's updater; updates now come via the website and GitHub Releases.
+
 ### Tests
-- +7 (48 passing): 4 `ContentAnalysis` detection tests, 2 alignment render tests (an
-  off-centre disc stays pinned to the frame centre across frames; a sanity test confirms
-  it orbits without the fix), 1 auto-center-on-load VM test. Existing golden baselines
-  unchanged (the fix is backward-compatible at the default 0.5,0.5 centre).
+- **49 passing.** `ContentAnalysis` detection, alignment render (off-centre art stays pinned
+  to the frame centre across frames; a sanity test confirms it orbits without the fix),
+  auto-center-on-load, and crosshair-toggle persistence. Golden baselines unchanged (the
+  default 0.5,0.5 centre reproduces prior output).
 
 ## [0.5.0] — 2026-06-03 — Meter mode
 
