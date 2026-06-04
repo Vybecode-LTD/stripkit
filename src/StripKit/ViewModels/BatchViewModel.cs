@@ -28,7 +28,7 @@ public partial class BatchViewModel : ViewModelBase
 
     // ---- combo choices (shared shape with the Create tab) ----
     public ComponentType[] ComponentTypes { get; } =
-        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider];
+        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter];
     public StackDirection[] StackDirections { get; } = [StackDirection.Vertical, StackDirection.Horizontal];
     public int[] SupersampleOptions { get; } = [1, 2, 4, 8];
 
@@ -109,6 +109,7 @@ public partial class BatchViewModel : ViewModelBase
     [RelayCommand(CanExecute = nameof(CanRun))]
     private async Task RunAsync()
     {
+        _cts?.Dispose();
         _cts = new CancellationTokenSource();
         IsRunning = true;
         ResultSummary = "";
@@ -159,6 +160,10 @@ public partial class BatchViewModel : ViewModelBase
     private FilmstripSettings BuildSettings()
     {
         double half = SweepDegrees / 2.0;
+        // Note: meter-specific fields (SegmentCount, FillDirection, SegmentOnColor,
+        // SegmentOffColor, SegmentGapFraction, ContinuousMeter) are not exposed in the
+        // batch template UI — they use the FilmstripSettings defaults when ComponentType
+        // is Meter (procedural, BottomToTop fill, default colours, 12 segments).
         return new FilmstripSettings
         {
             ComponentType = ComponentType,

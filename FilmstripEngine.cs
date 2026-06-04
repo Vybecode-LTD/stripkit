@@ -42,7 +42,7 @@
 //      using var fs    = File.Create("knob_64frames.png");
 //      data.SaveTo(fs);
 //
-//  License: use freely within your own projects. Origin: VybeCod.ing / StripKit.
+//  MIT License — Copyright (c) 2026 VybeCode Software. See LICENSE at https://github.com/Vybecode-LTD/stripkit
 // =============================================================================
 
 using SkiaSharp;

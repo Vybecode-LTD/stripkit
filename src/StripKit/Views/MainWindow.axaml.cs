@@ -34,6 +34,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _playTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
         _playTimer.Tick += OnPlayTick;
+        Closed += (_, _) => _playTimer.Stop();
 
         // File drag-and-drop onto the preview only. Handlers are scoped to
         // PreviewBorder (which has AllowDrop set in XAML) so they don't collide with

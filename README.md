@@ -87,6 +87,8 @@ copy-paste-portable copy of the renderer.
 Requires the [**.NET 9 SDK**](https://dotnet.microsoft.com/download). Builds and runs on
 Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 
+> **Note:** The frosted acrylic glass effect is Windows-only. macOS and Linux use a solid dark fallback — the app is fully functional but visually different.
+
 ```bash
 git clone https://github.com/Vybecode-LTD/stripkit.git
 cd stripkit

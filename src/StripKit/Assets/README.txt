@@ -1,11 +1,19 @@
-Drop bundled assets here (icons, fonts).
+Assets folder — bundled app resources.
 
-To embed JetBrains Mono instead of relying on it being installed system-wide:
-  1. Copy JetBrainsMono-Regular.ttf (and other weights) into this folder.
-  2. They are picked up automatically by the <AvaloniaResource Include="Assets/**" /> entry in the .csproj.
-  3. Reference it in App.axaml, e.g.:
-       <FontFamily x:Key="AppFont">avares://StripKit/Assets/JetBrainsMono-Regular.ttf#JetBrains Mono</FontFamily>
-     then set the window FontFamily to {StaticResource AppFont}.
+Contents
+--------
+  stripkit.ico   Multi-resolution Windows icon (16/32/48/64/256 px, 32-bit DIB).
+                 Wired to <ApplicationIcon> in the .csproj; appears on the exe,
+                 the taskbar, and the installer.
 
-The app currently uses the font fallback chain "JetBrains Mono, Cascadia Code,
-Consolas, monospace", which resolves to JetBrains Mono when it is installed.
+  stripkit.png   High-resolution PNG icon (used for the window title bar).
+
+  software_logo.png
+                 The StripKit wordmark / brand lockup. Used in the About section
+                 and the installer.
+
+Font stack
+----------
+StripKit uses the system sans-serif fallback chain:
+    Verdana, Segoe UI, Arial, sans-serif
+No fonts are bundled here. All fonts are resolved from the host OS.
