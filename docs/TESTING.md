@@ -18,6 +18,15 @@ dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 
 Current status: **49 passed / 0 failed / 0 skipped** (~0.8 s).
 
+## CI (automated testing)
+
+`.github/workflows/ci.yml` runs the full suite automatically on every push and every
+pull-request targeting `main`. The job (`build-and-test`) runs on `windows-latest`
+and uses the .NET 9 SDK (`9.0.x`). Steps: `dotnet restore` → `dotnet build -c Debug`
+→ `dotnet test --no-build -c Debug`. A red build or any failing test blocks the
+branch. The separate `auto-release.yml` workflow handles the release pipeline
+(VirusTotal scan + `gh release create`); it is not part of the test gate.
+
 ## Frameworks
 
 | Package | Version | Role |
@@ -160,3 +169,10 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 - **`FilmstripEngine.cs`** (the standalone portable renderer) is not under test — it
   is a hand-maintained mirror of `SkiaFilmstripRenderer`; the in-app renderer is the
   tested one.
+- **`BatchViewModel` meter-settings fields are not tested in a batch context.**
+  `ComponentType.Meter` was added to `BatchViewModel.ComponentTypes` this session, but
+  the meter-specific fields (`SegmentCount`, `FillDirection`, `SegmentOnColor`,
+  `SegmentOffColor`, `SegmentGap`, `ContinuousFill`) are not yet surfaced in the Batch
+  tab UI and therefore have no batch-path test coverage. The meter renderer itself is
+  covered by `MeterRenderTests` and the Create-tab VM path; the gap is specifically
+  the Batch tab template carrying meter settings through to `BatchProcessor`.

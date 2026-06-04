@@ -2,14 +2,15 @@
 
 > Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
-**Open bugs: 0.** **Resolved: 4.**
+**Open bugs: 0.** **Resolved: 7.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
 Phase 0 — neither was caused by the FilmstripForge → StripKit rename. BUG-003/004
 were **release-tooling defects** caught during the first v0.6.0 release and fixed
 forward (they corrupted published docs / blocked the release pipeline, not the app
-binary).
+binary). BUG-005/006/007 were **code-quality defects** found by audit and fixed in
+commit `0aaa257` (resource leaks and a silent product gap).
 
 ---
 
@@ -77,6 +78,49 @@ binary).
 - **Regression guard:** none (CI-workflow issue, not unit-testable) — the re-run
   produced the release cleanly, confirming the fix.
 
+### BUG-005 — CancellationTokenSource leak in BatchViewModel ✅
+- **Severity:** Low (GC eventually collects; WaitHandle leak + bad contributor pattern).
+- **Component:** `src/StripKit/ViewModels/BatchViewModel.cs`.
+- **Reported / Fixed:** 2026-06-04 (code audit).
+- **Symptom:** each `RunAsync()` call created a new `CancellationTokenSource` without
+  disposing the previous one, leaking the underlying `WaitHandle` until GC collected
+  the instance.
+- **Root cause:** missing `_cts?.Dispose()` before reassignment in `RunAsync()`.
+- **Fix (commit `0aaa257`):** added `_cts?.Dispose();` immediately before
+  `_cts = new CancellationTokenSource();` in `RunAsync()`.
+- **Regression guard:** 49/49 green; no dedicated automated regression test — the fix
+  is a one-line pattern check; future reviewers can verify by inspection.
+
+### BUG-006 — DispatcherTimer not stopped on window close ✅
+- **Severity:** Low (timer fires after disposal in tests and edge-case window
+  teardown scenarios).
+- **Component:** `src/StripKit/Views/MainWindow.axaml.cs`.
+- **Reported / Fixed:** 2026-06-04 (code audit).
+- **Symptom:** `_playTimer` (`DispatcherTimer`) had no cleanup path when the window
+  was closed, leaving the timer running against a disposed view.
+- **Root cause:** missing `Closed` event subscription in the constructor.
+- **Fix (commit `0aaa257`):** added
+  `Closed += (_, _) => _playTimer.Stop();` in the `MainWindow` constructor.
+- **Regression guard:** 49/49 green.
+
+### BUG-007 — ComponentType.Meter missing from BatchViewModel ✅
+- **Severity:** Medium (silent product gap — users cannot batch-render meters via the
+  Batch tab; no error is shown, the option simply does not exist).
+- **Component:** `src/StripKit/ViewModels/BatchViewModel.cs`.
+- **Reported / Fixed:** 2026-06-04 (code audit).
+- **Symptom:** `BatchViewModel.ComponentTypes` listed only `RotaryKnob`,
+  `VerticalFader`, and `HorizontalSlider`; `Meter` was absent from the batch template
+  selector.
+- **Root cause:** `ComponentType.Meter` was added to the Create tab (Phase 6 / v0.5.0)
+  after `BatchViewModel` was already built; the Batch view model was never updated to
+  include it.
+- **Fix (commit `0aaa257`):** added `ComponentType.Meter` to the `ComponentTypes`
+  array in `BatchViewModel`. Added a comment in `BuildSettings()` noting that
+  meter-specific fields (`SegmentCount`, `FillDirection`, etc.) are not yet exposed in
+  the batch template UI and will render using `FilmstripSettings` defaults until a
+  dedicated batch-meter UI is added.
+- **Regression guard:** 49/49 green.
+
 ---
 
 ## Notes
@@ -90,3 +134,5 @@ binary).
 - Known *limitations* (not bugs) live in `docs/ROADMAP.md` / `docs/ARCHITECTURE.md`:
   importer detection is a dimension-based guess (editable + verified), the importer
   cannot yet resample frame *count*, and the manifest UI emits a single control.
+  Meter-specific fields (segment count, fill direction, colours) are not yet
+  configurable in the Batch tab template UI (see BUG-007 fix note).

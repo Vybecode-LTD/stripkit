@@ -6,6 +6,45 @@
 
 ---
 
+## 2026-06-04 — Session handoff: full doc overhaul + OSS hardening + code audit (v0.6.0)
+
+**Type:** Session handoff
+
+**Scope:** Full doc overhaul + OSS hardening + code audit. Checked: `ARCHITECTURE.md`,
+`PACKAGING.md`, `ROADMAP.md`, `BUGS.md`, `TESTING.md`, `HANDOFF.md`, `CLAUDE.md`,
+and source code (`auto-release.yml`, `BatchViewModel`, `MainWindow`, `FilmstripEngine.cs`,
+`Assets/README.txt`).
+
+### Findings
+
+| # | Severity | Area | Finding |
+|---|----------|------|---------|
+| H1 | HIGH | CI | `auto-release.yml` missing — CI pipeline absent from repo |
+| H2 | HIGH | Docs | Stale font reference in documentation (JetBrains Mono) |
+| H3 | HIGH | Repo | No community files (LICENSE, public README, metadata) |
+| M1 | MEDIUM | Code | CTS (CancellationTokenSource) leak in `BatchViewModel` |
+| M2 | MEDIUM | Code | `DispatcherTimer` not stopped on window close |
+| M3 | MEDIUM | Docs | Meter mode missing from `ARCHITECTURE.md` component table |
+| M4 | MEDIUM | Docs | `KICKOFF.md` test count stale (41, should be 49) |
+| L1 | LOW | Repo | Community files now fixed (LICENSE.md, public README) |
+| L4 | LOW | Docs | Cross-platform caveat not documented (Inno Setup = Windows only) |
+| L5 | LOW | CI | `actions/checkout@v3` — should be `@v4` |
+
+### Actions taken
+
+- **All High findings resolved:** CI workflow restored; font references corrected;
+  LICENSE + public README + repo metadata added (OSS hardening complete).
+- **All Medium findings resolved:** CTS disposed in `BatchViewModel`; timer stopped
+  on window close; meter mode added to `ARCHITECTURE.md`; `KICKOFF.md` count updated.
+- **Low findings:** L1 resolved (community files added). L4 cross-platform caveat
+  added to `PACKAGING.md`. L5 (`checkout@v4`) deferred — non-breaking, separate PR.
+
+### Verdict
+
+**Green.** All docs consistent. 49/49 tests pass. Repo OSS-ready.
+
+---
+
 ## 2026-06-04 — Full doc reconciliation against ground truth (v0.6.0)
 
 **Scope:** cross-check every managed doc (`CLAUDE.md`, `docs/ROADMAP.md`, `BUGS.md`,

@@ -1,5 +1,7 @@
 # SOURCE_MAP — StripKit
 
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
 does each thing live" companion.
@@ -10,6 +12,8 @@ does each thing live" companion.
 - `CLAUDE.md` — project context: stack, architecture, conventions, last task.
 - `README.md` — human-facing build/run/use instructions.
 - `KICKOFF.md` — pointer to `docs/KICKOFF.md` (single source of truth for the kickoff).
+- `LICENSE` — MIT license (Copyright VybeCode Software 2026).
+- `CONTRIBUTING.md` — contributor guide: setup, workflow, house conventions, renderer rules.
 - `FilmstripEngine.cs` — standalone, copy-paste-portable renderer (namespace
   `StripKit.Engine`, SkiaSharp-only). **Not compiled by the app** — a hand-maintained
   mirror of `Services/SkiaFilmstripRenderer.cs` + the `Models`, for reuse in a CLI /
@@ -23,8 +27,11 @@ does each thing live" companion.
   `installer/Output/` is the git-ignored ISCC output.
 - `scripts/` — `Invoke-Release.ps1`, the Stage-1 local release driver (test-gate →
   bump → publish → ISCC → stage `releases/latest/` → commit + tag + push). See `docs/PACKAGING.md`.
-- `.github/workflows/` — `auto-release.yml`, the Stage-2 CI release creator (VirusTotal
-  scan + the sole `gh release create`, triggered by a pushed `releases/latest/*.exe`).
+- `.github/workflows/` — `ci.yml` (build + test on every push/PR to main, windows-latest,
+  .NET 9) + `auto-release.yml` (Stage-2 CI release creator: VirusTotal scan + the sole
+  `gh release create`, triggered by a pushed `releases/latest/*.exe`).
+- `.github/ISSUE_TEMPLATE/` — `bug_report.md` + `feature_request.md`.
+- `.github/pull_request_template.md` — PR checklist enforcing the house conventions.
 - `releases/latest/` — the staged installer that triggers a release (the only tracked
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).

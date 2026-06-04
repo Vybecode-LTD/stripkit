@@ -35,6 +35,15 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
   `.github/workflows/auto-release.yml` — see `docs/PACKAGING.md`.
+- CI: `.github/workflows/ci.yml` runs build + full test suite on every push and PR.
+
+## OSS / Contributing
+
+- License: **MIT** (`LICENSE` at repo root).
+- Public README with badges (`README.md`).
+- `CONTRIBUTING.md` — contribution guide.
+- `.github/ISSUE_TEMPLATE/` — `bug_report.md` + `feature_request.md`.
+- `.github/pull_request_template.md` — PR checklist.
 
 ## Run / build
 
@@ -142,6 +151,31 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-04 (documentation overhaul + audit + OSS hardening)** — Three doc sets
+  fully rewritten from source-verified content: **`docs/ARCHITECTURE.md`** (complete
+  deep-dive: alignment system + `SourceCenterX/Y`/`ContentAnalysis`, meter renderer —
+  procedural vs. layered modes, all four fill directions, MVVM `OnPropertyChanged`
+  funnel, Obsidian design tokens, DI wiring, compiled bindings, test infrastructure);
+  **`docs/PACKAGING.md`** (exhaustive ~640-line agent-facing release-pipeline reference:
+  every script flag, every CI step, two DO-NOT-REINTRODUCE bug guards for the
+  mojibake + shell-injection bugs, full runbook for cutting a release, signing notes,
+  VirusTotal false-positive context); **`docs/ROADMAP.md`** (master roadmap with phases
+  0-8 confirmed done, full prioritised vNext feature set — starred items: code export
+  to JUCE/CLAP snippets, layer-aware animation, value-arc generator, boolean triggers
+  P2, design-system linter, frame-budget optimizer, web/WASM export). Open-sourced
+  under **MIT**: `LICENSE`, public `README.md` with shields.io badges, `CONTRIBUTING.md`,
+  `.github/workflows/ci.yml` (build + test on every push/PR), `.github/ISSUE_TEMPLATE/`
+  (`bug_report.md` + `feature_request.md`), `.github/pull_request_template.md`; GitHub
+  repo About sidebar set. Website: `StripKit-Website/README.md` added (site maintenance
+  guide); OSS badge repositioned below/centred under hero screenshot. Audit code fixes:
+  `BatchViewModel` `CancellationTokenSource` disposal fixed + `ComponentType.Meter` added
+  to the type list (BUG-005/007); `MainWindow` `_playTimer` stopped on `Closed` event
+  (BUG-006); `FilmstripEngine.cs` MIT header added; `Assets/README.txt` corrected
+  (JetBrains Mono reference removed); `docs/KICKOFF.md` root test count corrected
+  41→49. **49/49 green throughout.** **Next steps:** deploy website to **stripkit.pro**;
+  add **code-signing cert** (clears VirusTotal FPs + SmartScreen); expose Meter
+  settings in the Batch tab template UI (`ComponentType.Meter` is registered but the
+  template fields are not yet surfaced); vNext features per `docs/ROADMAP.md`.
 - **2026-06-04 (v0.6.0 shipped — Inno pipeline + website)** — Replaced **Velopack** with
   an **Inno Setup** installer (`installer/StripKit.iss`: per-user — `PrivilegesRequired=lowest`,
   `{autopf}`; choose-dir; optional desktop + Start-Menu shortcuts; registry-wiping

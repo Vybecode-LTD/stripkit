@@ -1,80 +1,102 @@
-# HANDOFF — StripKit
+---
+document: HANDOFF
+version: 0.6.0
+last-updated: 2026-06-04
+last-audit: 2026-06-04
+managed-by: session-orchestrator/handoff-builder
+---
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
->
-> Pick-up notes for the next session. Read `CLAUDE.md` and `docs/SOURCE_MAP.md`
-> first, then this.
+# Session Handoff — StripKit
 
-## Current state
+## Quick Context
 
-- **v0.6.0 is SHIPPED and live:** https://github.com/Vybecode-LTD/stripkit/releases/tag/v0.6.0
-  (asset `StripKit-Setup-0.6.0-x64.exe`, ~33.5 MB, self-contained — runs with no .NET SDK).
-  VirusTotal ~4/71 heuristic false-positives **because it is unsigned** (not a real bug).
-- **Tests green:** `dotnet test` → **49 / 49**.
-- **Packaging is now Inno Setup** (Velopack was removed). The two-stage release
-  pipeline is proven end-to-end this session — see "How to ship" below.
-- **Website repo exists + pushed:** `Vybecode-LTD/StripKit-Website` (landing page,
-  GitHub-driven download, Formspree contact form, VirusTotal shield). **Not yet
-  deployed** to stripkit.pro.
-- **Open bugs:** 0 (`docs/BUGS.md`).
+StripKit is a C#/Avalonia desktop tool that renders transparent PNGs into
+animated filmstrip sprite sheets for audio-plugin GUI controls (knobs, faders,
+sliders, meters). Stack: .NET 9 / Avalonia 11.3 / SkiaSharp / Inno Setup.
 
-## How to ship the next release ("release it")
+**Phase:** Post-ship (v0.6.0 live). Repo is public, MIT-licensed.
+
+## Last Session (2026-06-04)
+
+### What was done
+- Rewrote ARCHITECTURE.md (full source-verified deep-dive), PACKAGING.md
+  (~640 lines, exhaustive release-pipeline reference with two DO-NOT-REINTRODUCE
+  bug guards), and ROADMAP.md (completed-phases history + vNext feature backlog).
+- Added website README.md (site-maintenance guide) to StripKit-Website.
+- Open-sourced under MIT: LICENSE, public README, .csproj metadata,
+  CONTRIBUTING.md, CI workflow, issue/PR templates, repo About sidebar (commit 41050a5).
+- Audit code fixes (commit 0aaa257): BatchViewModel CTS disposal, Meter type added
+  to batch ComponentTypes, MainWindow timer cleanup on close, Assets/README.txt
+  corrected, KICKOFF.md frame-count corrected, FilmstripEngine.cs MIT header.
+- All 7 historical bugs resolved; 0 open bugs.
+
+### Decisions made
+- Inno Setup replaces Velopack permanently. No in-app auto-update.
+- Website changelog (updates.json) is intentionally decoupled from docs/CHANGELOG.md.
+- Meter-specific fields (SegmentCount, FillDirection, colours) render from
+  FilmstripSettings defaults in batch until a dedicated batch-meter UI is built.
+
+### What was NOT finished
+- Website not deployed (stripkit.pro is still a placeholder).
+- Batch-meter UI is unbuilt (meter type exists in dropdown; field exposure is vNext).
+
+## Current State
+
+### Working
+- v0.6.0 live: https://github.com/Vybecode-LTD/stripkit/releases/tag/v0.6.0
+  (StripKit-Setup-0.6.0-x64.exe, ~33.5 MB, self-contained, no SDK needed).
+- Tests: 49/49 green. CI runs on every push/PR.
+- 3-stage release pipeline proven end-to-end (scripts/Invoke-Release.ps1 + auto-release.yml).
+- Website repo Vybecode-LTD/StripKit-Website: built and pushed, not deployed.
+
+### Known Issues / Limitations (not bugs)
+- VirusTotal ~4/71 heuristic FPs on the unsigned installer. Not a real bug.
+- Batch tab: meter-specific settings fields not yet exposed in the template UI.
+- Importer cannot resample frame *count* (dimension-based detection only).
+- Manifest UI emits a single control only.
+
+## How to Ship the Next Release
 
 ```powershell
-pwsh scripts/Invoke-Release.ps1            # patch bump → 0.6.1
-pwsh scripts/Invoke-Release.ps1 -Bump minor   # feature release
-gh run watch                               # watch CI scan + publish
+pwsh scripts/Invoke-Release.ps1          # default: patch bump -> 0.6.1
+pwsh scripts/Invoke-Release.ps1 -Bump minor
+gh run watch                             # CI is the sole release creator
 ```
 
-Two stages, **CI is the sole release creator** (never create it locally):
+Full flow: Stage 1 (local script) -> Stage 2 (CI VirusTotal + gh release create) ->
+Stage 3 (website reads live release). Details: docs/PACKAGING.md.
 
-1. **`scripts/Invoke-Release.ps1`** (`-Bump none|patch|minor|major`): test-gate → bump
-   version across `csproj`/`.iss`/`CHANGELOG` → self-contained win-x64 publish → ISCC
-   package → stage installer under `releases/latest/` → commit + tag `vX.Y.Z` + push.
-   It does NOT create the GitHub Release.
-2. **`.github/workflows/auto-release.yml`**: triggered by the pushed
-   `releases/latest/*.exe` (or `workflow_dispatch`); VirusTotal scan (`VT_API_KEY`
-   secret, already set) → creates the GitHub Release with notes from the
-   `docs/CHANGELOG.md` `[version]` section.
+## Next Steps (priority order)
 
-Inno Setup 6.7.3 is installed at `%LOCALAPPDATA%\Programs\Inno Setup 6` (the script
-auto-detects it). Flow details: `docs/PACKAGING.md`.
+1. Deploy website to stripkit.pro — enable GitHub Pages on StripKit-Website or
+   point domain. (User action, no code change.)
+2. Code-signing certificate — clears VirusTotal FPs and SmartScreen prompt.
+   The .iss has a SignTool hook; see docs/PACKAGING.md section 13.
+3. Per-release upkeep — add a plain-language entry to StripKit-Website/updates.json
+   alongside each docs/CHANGELOG.md entry. One manual cross-repo step per release.
+4. vNext features (see docs/ROADMAP.md). Top three by priority:
+   - Code/component export (copy-pasteable JUCE/web LookAndFeel boilerplate)
+   - Layer-aware animation + auto-pointer extraction
+   - Procedural value-arc / fill-ring generator
 
-## Next steps (suggested priority)
+## Warnings for Next Agent
 
-1. **Deploy the website to stripkit.pro** — enable GitHub Pages on `StripKit-Website`
-   or point the domain at your host. *(user action)*
-2. **Code-signing certificate** — clears the VirusTotal false-positives + the Windows
-   SmartScreen prompt. The `.iss` already has a SignTool hook (`docs/PACKAGING.md`).
-   Shipping unsigned until then.
-3. **Per-release website upkeep** — add a plain-language entry to the website's
-   `updates.json` alongside each technical `docs/CHANGELOG.md` entry. This is the one
-   manual coupling between the two repos (their changelogs are intentionally decoupled).
-4. **Remaining product features** — importer frame-count resampling, multi-control
-   manifests, meter peak-hold / stereo.
-
-## Warnings / gotchas for the next session
-
-- **Release scripts must read/write files as UTF-8.** PowerShell 5.1 `Get-Content`
-  without `-Encoding UTF8` corrupts the changelog's em-dashes (bit us once; fixed in
-  `f1b68d3`). Use `pwsh` (PS 7) and explicit UTF-8.
-- **Never interpolate the changelog body into a shell command** — its backticks
-  trigger command substitution. Use `--notes-file` (fixed in `a408bc9`).
-- **Stray untracked file:** `C:\DEV\StripKit\teststrip01.png` (test artifact in the
-  working tree) — delete it or add to `.gitignore`.
-- `actions/checkout@v4` runs on Node 20 (GitHub deprecation mid-2026) — minor; upgrade
-  when convenient.
-- Commits are authored as **VybeCode** (`info@apmonster.ai`), co-authored Claude.
-- **`FilmstripEngine.cs` (repo root) is a hand-maintained mirror** of
-  `Services/SkiaFilmstripRenderer.cs` + `Models`; NOT compiled by the app. If you
-  change renderer math, update it too. In sync as of this audit.
-- **Do not** rewrite `SkiaFilmstripRenderer`, change the `(N-1)` angle divisor, move VM
+- **UTF-8 discipline in release scripts.** PS 5.1 Get-Content without -Encoding UTF8
+  corrupts em-dashes. Fixed in f1b68d3, documented in PACKAGING.md section 9.
+  Always use `pwsh` (PS 7) and explicit UTF-8.
+- **Never inline changelog body into gh release create --notes "..."**. Backticks
+  trigger shell command substitution. Always use --notes-file. Fixed in a408bc9.
+- **FilmstripEngine.cs (repo root) is a hand-maintained mirror** of
+  SkiaFilmstripRenderer + Models. It is NOT compiled by the app. Sync it if
+  renderer math changes.
+- actions/checkout@v4 runs Node 20 (GitHub deprecation mid-2026) — upgrade to v5
+  at next convenience.
+- Do NOT rewrite SkiaFilmstripRenderer, change the (N-1) angle divisor, move VM
   logic into code-behind, or reference Avalonia UI types from view models.
 
-## Files to read first
+## Files to Read First
 
-1. `CLAUDE.md` — project context + conventions.
+1. `CLAUDE.md` — project context, conventions, house rules.
 2. `docs/SOURCE_MAP.md` — where everything lives.
-3. `scripts/Invoke-Release.ps1` + `.github/workflows/auto-release.yml` — the release
-   pipeline (most-changed area this session).
-4. `docs/PACKAGING.md` — publish → ISCC → GitHub Release → sign flow.
+3. `docs/ARCHITECTURE.md` — deep design reference (updated this session).
+4. `docs/PACKAGING.md` — full release-pipeline reference with bug guards.
