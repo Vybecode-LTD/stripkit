@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -154,6 +154,16 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-04 (v0.7.0 shipped + handoff)** — Cut **v0.7.0** with the two ★ features below
+  (value-arc + code-export). `Invoke-Release.ps1 -Bump minor`: test gate **72/72** → bump
+  0.6.0→0.7.0 → publish → Inno installer → commit `fe24ca3` + tag `v0.7.0` + push; CI
+  VirusTotal-scanned and created the **public release** (verified live, 33.5 MB installer).
+  All managed docs reconciled to 0.7.0 (HANDOFF rewritten, AUDIT-LOG entry added, test count
+  49→72). Working tree clean; `main` == origin; 0 open bugs. **Next: vNext ★ #3 —
+  layer-aware animation** (owner wants all three input modes eventually; build order:
+  **base+pointer PNGs → auto-pointer-extract from flat art → PSD/SVG import**). Also pending:
+  React/Web-Component + Unity/Godot code targets (P2), deploy website to stripkit.pro +
+  add its v0.7.0 `updates.json` entry, code-signing cert, Batch-tab meter UI.
 - **2026-06-04 (vNext ★ #2 — code / component export)** — Second of the three ★ bets, the
   "close the loop" feature: an export can also emit **ready-to-paste loader code** so there's
   no hand-wiring step. New **pure** `CodeSnippetService` (`Generate`/`FileName`/`SaveAsync`,

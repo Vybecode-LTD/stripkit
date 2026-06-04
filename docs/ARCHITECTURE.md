@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > The deep, file-and-flow reference for how the **StripKit desktop app** is built.
 > `docs/SOURCE_MAP.md` says *where* things live; this says *how and why* they work.

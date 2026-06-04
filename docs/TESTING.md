@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (49 tests)
+dotnet test                                      # whole suite (72 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **49 passed / 0 failed / 0 skipped** (~0.8 s).
+Current status: **72 passed / 0 failed / 0 skipped** (~0.8 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (49)
+## Test inventory (72)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -59,6 +59,13 @@ Locks the renderer's pixel output against committed baselines.
   `meter_layered_up_mid`.
 - 4 pixel-logic: procedural fills from the bottom (Up) / top (Down) / left
   (LeftToRight), and the layered reveal shows on-art only up to the fill.
+
+### `ValueArcRenderTests.cs` — 8 (value-arc / fill-ring renderer)
+- 4 golden baselines: `arc_knob_{min,mid,max}` (the lit arc growing across the sweep)
+  and `arc_knob_gradient_glow_mid` (gradient + glow at supersample 4).
+- 4 pixel-logic: the arc is empty when off; the lit sweep grows from the start angle
+  to the right side only at maximum and never enters the bottom wedge; the dim track
+  covers the unlit remainder; the arc is a no-op for non-knob components.
 
 ### `LoadPathTests.cs` — 7 (`MainWindowViewModel`, NSubstitute)
 The shared Create-tab load path (used by both the button and drag-drop), plus the
@@ -110,6 +117,17 @@ knob spinning in place instead of orbiting.
 - `Serialized_manifest_conforms_to_the_skill_schema` (JSON-Schema conformance).
 - `Optional_fields_are_omitted_when_absent`.
 
+### `CodeSnippetServiceTests.cs` — 15 (code/component export)
+Per-target loader-code generation (`CodeSnippetService`), all pure string assertions.
+- JUCE: knob → a rotary `LookAndFeel`; fader → a linear `LookAndFeel`; meter → a
+  `Component` with `setLevel`; the source rect follows the stack axis.
+- CSS/HTML: a `<style>`+`<script>` sprite with a value setter; the axis and the HiDPI
+  `@media` block follow the inputs.
+- iPlug2: knob → `IBKnobControl`; fader → `IBSliderControl` with the right `EDirection`.
+- HISE: a `ScriptPanel` paint routine (`loadImage` + `setPaintRoutine`).
+- Identifiers are sanitised; `FileName` maps each target (Theory, 4 rows); `SaveAsync`
+  writes the snippet to disk matching `Generate`.
+
 ### `BatchProcessorTests.cs` — 4 (integration, real services + temp files)
 - `Renders_a_strip_for_each_input` (3 inputs → 3 correctly-sized strips; match-to-source).
 - `Records_a_failure_for_an_undecodable_file_and_keeps_going` (failure isolation).
@@ -123,9 +141,10 @@ knob spinning in place instead of orbiting.
 ## Golden-image regression (`ImageAssert` + `image-regression-testing` skill)
 
 - **Baselines:** `tests/StripKit.Tests/baselines/*.png`, **committed** — they are the
-  assertion; a changed baseline shows up as a visual diff in review. Eleven baselines:
+  assertion; a changed baseline shows up as a visual diff in review. Fifteen baselines:
   `knob_default_{min,mid,max}`, `knob_strip8`, `vfader_default_mid`, `hslider_default_mid`,
-  `meter_proc_up_{empty,mid,full}`, `meter_proc_lr_mid`, `meter_layered_up_mid`.
+  `meter_proc_up_{empty,mid,full}`, `meter_proc_lr_mid`, `meter_layered_up_mid`,
+  `arc_knob_{min,mid,max}`, `arc_knob_gradient_glow_mid`.
 - **Tolerance:** a pixel "differs" if any channel differs by > 2/255; the test fails
   if > 0.1 % of pixels differ. Absorbs anti-aliasing jitter, catches real changes.
 - **On mismatch:** writes `expected`/`actual`/`diff` PNGs to

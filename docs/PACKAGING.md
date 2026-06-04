@@ -1,6 +1,6 @@
 # PACKAGING.md — StripKit release-automation reference
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
 **Audience: an agent (or human) who has never seen this repo and must build,
 debug, or extend StripKit's release pipeline without breaking it.** This is the

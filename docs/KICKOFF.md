@@ -1,6 +1,6 @@
 # KICKOFF — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04
 >
 > Paste the prompt below into a fresh Claude Code session at the repo root. It
 > orients the agent at the **current** state. The full plan lives in
@@ -25,16 +25,17 @@ skills named in `CLAUDE.md`.
 
 ### Current state — shipped product, not a scaffold
 
-The planned roadmap (Phases 0–8) is **complete** and **v0.6.0 has shipped** as the
-first public GitHub Release: ✅ verify · ✅ drag-and-drop · ✅ importer (Import tab) ·
-✅ manifest export · ✅ golden-image tests · ✅ batch (Batch tab) · ✅ meter (Create-tab
-"Meter" type) · ✅ packaging (Inno Setup + release pipeline) · ✅ landing-page website.
-`dotnet build` is 0/0 and `dotnet test` is **49/49 green**. Establish that baseline
-first:
+The planned roadmap (Phases 0–8) is **complete**, and **v0.7.0 has shipped** (the
+latest public GitHub Release). Done: ✅ verify · ✅ drag-and-drop · ✅ importer (Import
+tab) · ✅ manifest export · ✅ golden-image tests · ✅ batch (Batch tab) · ✅ meter ·
+✅ packaging (Inno Setup + release pipeline) · ✅ landing-page website · ✅ **value-arc /
+fill-ring** (Create-tab knob arc) · ✅ **code/component export** (JUCE/CSS/iPlug2/HISE
+loader snippets). `dotnet build` is 0/0 and `dotnet test` is **72/72 green**. Establish
+that baseline first:
 
 ```bash
 dotnet build StripKit.sln -c Debug   # expect 0/0
-dotnet test                          # expect 49/49
+dotnet test                          # expect 72/72
 ```
 
 If red, fix that before anything else.
@@ -67,17 +68,24 @@ installer, stages it under `releases/latest/`, and pushes. That push triggers
 - Remember `FilmstripEngine.cs` (repo root) is a hand-maintained mirror of the
   renderer — keep it in sync if you touch the math.
 
-### Open work (the core roadmap is done — this is polish / maintenance)
+### Open work — next feature + maintenance
 
-- **Deploy the website to stripkit.pro** (enable GitHub Pages on the
-  `Vybecode-LTD/StripKit-Website` repo, or point the domain at your host) — user action.
-- **Code-signing certificate** for the installer — clears the VirusTotal
-  false-positives (~4/71, because it's unsigned) and the Windows SmartScreen prompt;
+**Primary next task: vNext ★ #3 — layer-aware animation.** Accept layered input so only
+the pointer rotates (the body stays crisp). Owner-agreed build order: **base+pointer PNGs
+→ auto-pointer extraction from flat art → PSD/SVG import**. It is a deep renderer/model
+change — extend `RenderFrame` to composite a layer list, keep `FilmstripEngine.cs` in sync,
+and gate behind defaults so existing single-source output is unchanged (as value-arc did).
+See `docs/ROADMAP.md` + `docs/HANDOFF.md`.
+
+Also open:
+- **More code-export targets** — React / Web Component, Unity / Godot (extend `CodeTarget`
+  + a generator + tests; `CodeSnippetService` is built to grow).
+- **Deploy the website to stripkit.pro** + add its v0.7.0 `updates.json` entry (user action;
+  one cross-repo edit per release).
+- **Code-signing certificate** — clears the VirusTotal FPs (~4/71, unsigned) + SmartScreen;
   the `.iss` has a `SignTool` hook (see `docs/PACKAGING.md`).
-- **Per release**, add a plain-language entry to the website's `updates.json`
-  alongside the technical `docs/CHANGELOG.md` entry (the one cross-repo coupling).
-- **Optional features** (unbuilt): importer frame-count resampling, multi-control
-  manifests, meter peak-hold / stereo.
+- **Batch-tab meter settings UI**; importer frame-count resampling; multi-control manifests;
+  meter peak-hold / stereo; bump `actions/checkout@v4 → v5`.
 
 ### Already-resolved decisions
 

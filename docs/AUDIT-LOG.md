@@ -1,8 +1,50 @@
 # AUDIT-LOG — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-04 — vNext ★ #1 + #2 shipped (v0.7.0) + handoff
+
+**Type:** Feature delivery + release + session handoff
+
+**Scope:** Built the first two ★ vNext features, shipped v0.7.0 via the pipeline, and
+reconciled all managed docs.
+
+### Delivered (code)
+- **Value-arc / fill-ring** (knobs): new `RenderValueArc` + `StrokePaint` in
+  `SkiaFilmstripRenderer`, 11 Skia-free `FilmstripSettings` arc fields gated on
+  `ShowValueArc` (default off → existing goldens byte-identical), Create-tab "VALUE ARC"
+  panel, mirrored in `FilmstripEngine.cs`. +8 tests.
+- **Code / component export:** new `Models/CodeModels.cs` (`CodeTarget` +
+  `CodeSnippetRequest`), pure `ICodeSnippetService`/`CodeSnippetService` (JUCE / CSS-HTML /
+  iPlug2 / HISE), DI registration, VM wiring (`ExportCode` + per-target toggles + live
+  `GeneratedCode`), Create-tab "CODE EXPORT" panel + copy-to-clipboard. +15 tests.
+
+### Mini-audit of new code
+- No `async void` except the `OnCopyCode` event handler; no `.Result`/`.Wait()`/
+  `System.Drawing`. The new services are Avalonia-free (`CodeSnippetService` is BCL-only).
+  Renderer additions are gated/knob-scoped so existing output is unchanged. VM funnel keeps
+  code-only inputs (`ParameterId`, `CodePreviewTarget`) off the image-render path.
+  `FilmstripEngine.cs` mirror updated (arc path) and consistent by inspection.
+
+### Release
+- `Invoke-Release.ps1 -Bump minor`: test gate **72/72**, version 0.6.0 → 0.7.0 across
+  csproj / .iss / CHANGELOG, self-contained publish, Inno installer, commit `fe24ca3` +
+  tag `v0.7.0` + push. CI `auto-release.yml` VirusTotal-scanned and created the public
+  release (verified live; 33.5 MB installer asset).
+
+### Doc reconciliation
+- All managed docs bumped to **0.7.0** (CLAUDE, HANDOFF, ROADMAP, ARCHITECTURE, SOURCE_MAP,
+  CHANGELOG, TESTING, BUGS, AUDIT-LOG). ARCHITECTURE gained §5.5 (value arc) + §9.1 (code
+  export); SOURCE_MAP + TESTING list the new files/suites (count 49 → 72); ROADMAP marks the
+  two ★ items done. `.gitignore` now ignores `tests/**/TestResults/`.
+
+### Verdict
+**Green.** Build 0/0, 72/72 tests, app boots clean, working tree clean, `main` == origin,
+0 open bugs, v0.7.0 live. Next: vNext ★ #3 — layer-aware animation (base+pointer MVP first).
 
 ---
 

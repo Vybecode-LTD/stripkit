@@ -1,6 +1,6 @@
 # ROADMAP — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**; they are
