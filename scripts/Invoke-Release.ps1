@@ -137,3 +137,15 @@ git -C $root push origin "v$new"
 Step "Done"
 Write-Host "Pushed v$new. GitHub Actions (auto-release.yml) will now VirusTotal-scan the"
 Write-Host "installer and create the GitHub Release. Watch it with:  gh run watch"
+Write-Host ""
+Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
+Write-Host " REMINDER: add a plain-language entry to the WEBSITE changelog!"   -ForegroundColor Yellow
+Write-Host ""                                                                   -ForegroundColor Yellow
+Write-Host "  File : StripKit-Website/updates.json  (sibling repo)"            -ForegroundColor Yellow
+Write-Host "  Add  : a new entry for v$new at the TOP of the array."           -ForegroundColor Yellow
+Write-Host "  Shape: { version, date, summary, changes:[{type,text}] }"        -ForegroundColor Yellow
+Write-Host "  Types: new | improved | fix"                                      -ForegroundColor Yellow
+Write-Host ""                                                                   -ForegroundColor Yellow
+Write-Host "  The download button updates automatically from GitHub Releases;"  -ForegroundColor Yellow
+Write-Host "  the changelog section ONLY updates when you edit updates.json."  -ForegroundColor Yellow
+Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
