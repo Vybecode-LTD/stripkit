@@ -14,21 +14,33 @@ does each thing live" companion.
   `StripKit.Engine`, SkiaSharp-only). **Not compiled by the app** — a hand-maintained
   mirror of `Services/SkiaFilmstripRenderer.cs` + the `Models`, for reuse in a CLI /
   build step / another app. Keep in sync if the renderer math changes.
-- `.gitignore` — .NET/Avalonia/test-output ignores (bin, obj, IDE, tests/**/output).
+- `.gitignore` — .NET/Avalonia/test-output + packaging ignores (bin, obj, IDE,
+  tests/**/output, publish/, installer/Output/; tracks only `releases/latest/*.exe`).
 - `docs/` — `ARCHITECTURE.md` (deep dive), this map, `ROADMAP.md`, `TESTING.md`,
-  `CHANGELOG.md`, `BUGS.md`, `HANDOFF.md`, `AUDIT-LOG.md`, `KICKOFF.md`.
+  `CHANGELOG.md`, `BUGS.md`, `HANDOFF.md`, `AUDIT-LOG.md`, `KICKOFF.md`, `PACKAGING.md`.
+- `installer/` — `StripKit.iss` (Inno Setup script) + `wizard-large.bmp` /
+  `wizard-small.bmp` (install-wizard art: StripKit brandmark + VybeCode logo).
+  `installer/Output/` is the git-ignored ISCC output.
+- `scripts/` — `Invoke-Release.ps1`, the Stage-1 local release driver (test-gate →
+  bump → publish → ISCC → stage `releases/latest/` → commit + tag + push). See `docs/PACKAGING.md`.
+- `.github/workflows/` — `auto-release.yml`, the Stage-2 CI release creator (VirusTotal
+  scan + the sole `gh release create`, triggered by a pushed `releases/latest/*.exe`).
+- `releases/latest/` — the staged installer that triggers a release (the only tracked
+  path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (41): renderer golden-image (with committed
-  `baselines/`), view-model load-path, importer engine + VM, manifest, batch processor
-  + VM, meter renderer, and a headless drop-zone test. See `docs/TESTING.md`.
+- `tests/StripKit.Tests/` — xUnit tests (49): renderer golden-image (with committed
+  `baselines/`), `ContentAnalysis` + alignment render, view-model load-path, importer
+  engine + VM, manifest, batch processor + VM, meter renderer, and a headless drop-zone
+  test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 
 - `Program.cs` — entry point; builds the Avalonia app (`UsePlatformDetect`,
   `WithInterFont`).
-- `App.axaml` / `App.axaml.cs` — application styles (dark Fluent theme, `#e8440a`
-  accent) and the **composition root**: all DI registrations live here, and the
+- `App.axaml` / `App.axaml.cs` — the **Obsidian glassmorphism** design tokens (Fluent
+  base, `#e8440a` accent, acrylic/glass brushes, Verdana sans-serif) and the
+  **composition root**: all DI registrations live here, and the
   `MainWindow` is created with its view model and given to the dialog service.
 - `app.manifest` — Windows per-monitor-v2 DPI awareness.
 
@@ -109,8 +121,9 @@ does each thing live" companion.
 
 ### `Assets/`
 
-- `README.txt` — where to drop a bundled font/icon; the app currently uses a
-  JetBrains Mono font-family fallback chain rather than an embedded font.
+- `README.txt` — where to drop a bundled font/icon. The app uses a **Verdana-led
+  sans-serif** fallback chain (Obsidian design; JetBrains Mono was removed) and ships
+  `stripkit.ico` / `stripkit.png` for the window / taskbar / installer icon.
 
 ## Project skills (`.claude/skills/`)
 

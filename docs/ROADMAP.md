@@ -1,5 +1,7 @@
 # ROADMAP — StripKit
 
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+
 A phased plan for taking StripKit from its current v1 scaffold to a complete
 tool. Each phase is sized to compile and run on its own, names the skill that
 should guide it, and states a done-condition. Work the phases in order; do not
@@ -67,7 +69,8 @@ intentional render change is caught by a failing test with a diff image.
 **Status:** ✅ Brought forward to 2026-06-03 (alongside Phase 1, to close the
 drop-test gap). `tests/StripKit.Tests` has 6 committed baselines (3 knob frames, an
 8-frame strip, fader + slider mids) plus VM and headless tests; `ImageAssert` emits
-expected/actual/diff PNGs on mismatch. **11/11 green.**
+expected/actual/diff PNGs on mismatch. **11/11 green** at that point (the suite has
+since grown to 49 across later phases).
 
 ## Phase 5 — Batch processing
 
@@ -83,7 +86,7 @@ result). The **Batch** tab picks an input + output folder and a render template,
 shows a progress bar + per-file text + a results summary, and has a working Cancel.
 Per-knob frame sizing via "Square knob frames to each source"; optional @2x + manifest
 per strip. Failures are isolated (one bad file doesn't abort the run). Covered by
-4 processor integration tests + 2 VM gating tests. **31/31 green.**
+4 processor integration tests + 2 VM gating tests. **31/31 green** at that point.
 
 ## Phase 6 — Meter mode (design first)
 
@@ -100,32 +103,60 @@ art) when art is present — auto-selected. All four fill directions (Up/Down/Le
 Right→Left); discrete by default with a continuous toggle. Create-tab "Meter" type +
 METER settings; preview/export/manifest(`"meter"`)/batch reuse the existing paths;
 a procedural meter exports without a source. Mirrored in `FilmstripEngine.cs`. Covered
-by 9 renderer tests (5 golden baselines + 4 pixel-logic) + 1 VM test. **41/41 green.**
+by 9 renderer tests (5 golden baselines + 4 pixel-logic) + 1 VM test. **41/41 green**
+at that point.
 Deferred: peak-hold, dual/stereo meters, dB segment spacing, per-segment colour ramps.
 
 ## Phase 7 — Packaging and distribution
 
-Produce a signed, single-file Windows build (and optionally an installer) so the
-tool ships to non-developers.
+Produce a single-file Windows build (and an installer) so the tool ships to
+non-developers. *(Code signing is a follow-up — shipping unsigned for now.)*
 **Skill:** `dotnet-installer-publishing` (global).
 **Done when:** a single-file exe runs on a clean Windows machine without the SDK.
-**Status:** 🔶 In progress (2026-06-03). A self-contained `win-x64` publish runs
-without the SDK; **Velopack 1.1.1** is integrated (`VelopackApp.Run()` first in
-`Main`, verified by the packer) and an **unsigned installer**
-(`StripKit-win-Setup.exe`) + update feed (`*-full.nupkg` + `RELEASES`) build via
-`vpk pack`. In-app update check (`UpdateService`) targets a **GitHub Releases** feed
-(no-op until the repo URL is set + a release is published). Remaining: the app
-**icon** (supplied PNG → multi-res `.ico` → `<ApplicationIcon>` + window + `vpk -i`),
-fill the real repo URL, and a `docs/PACKAGING.md` workflow doc. Code signing is
-deferred (the `signtool` step will be documented).
+**Status:** ✅ Done (2026-06-04). Distribution switched from Velopack to an **Inno
+Setup installer** (`installer/StripKit.iss`): per-user install, choose install dir,
+optional desktop + Start-Menu shortcuts, a registry-wiping uninstaller, and both the
+StripKit brandmark and the VybeCode logo. A full **3-stage release pipeline** is in
+place per `SOFTWARE_RELEASE.md`: `scripts/Invoke-Release.ps1` (Stage 1, local build)
++ `.github/workflows/auto-release.yml` (Stage 2 — VirusTotal scan, the **sole** release
+creator). The self-contained `win-x64` publish runs without the SDK. The **first
+GitHub Release, v0.6.0, is live** (`StripKit-Setup-0.6.0-x64.exe`). Code signing is
+deferred (shipping unsigned for now → VirusTotal heuristic false-positives + Windows
+SmartScreen prompt until a cert is added). Full flow: `docs/PACKAGING.md`.
 
-## Phase 8 — Landing page website (future)
+## Phase 8 — Landing page website
 
 A public landing/marketing page for StripKit: what it does, screenshots/mockups, a
 download button for the latest release, and links to the docs. Static site or a
-small framework, SEO/GEO-optimized per `SEO_OPTIMIZATION.md`. Deferred — scoped once
-packaging ships.
+small framework, SEO/GEO-optimized per `SEO_OPTIMIZATION.md`.
 **Done when:** a deployed page describes StripKit and links to the current download.
+**Status:** ✅ Done (2026-06-04) — built and pushed in a separate repo,
+**`Vybecode-LTD/StripKit-Website`**: a medium-light landing page (hero, features, a
+GitHub-driven download button, a simplified changelog read from `updates.json`
+— decoupled from the technical `docs/CHANGELOG.md` — privacy/terms/contact with a
+Formspree form, a VybeCode footer, and a VirusTotal shield badge). **Not yet deployed
+to `stripkit.pro`** (enable GitHub Pages on the website repo or point the domain —
+see "Next / upcoming").
+
+## Next / upcoming
+
+Open items after the v0.6.0 packaging + website ship:
+
+- 🚫 **Deploy the website to `stripkit.pro`** — enable GitHub Pages on
+  `Vybecode-LTD/StripKit-Website` or point the domain. **User step.**
+- ⏳ **Code-signing certificate** for the installer — clears the VirusTotal
+  false-positives and the Windows SmartScreen prompt. Currently shipping unsigned.
+- ⏳ **Per-release maintenance** — add a plain-language entry to the website's
+  `updates.json` alongside the technical `docs/CHANGELOG.md` entry, each release.
+- ⏳ **Minor: bump `actions/checkout`** — `actions/checkout@v4` runs on the
+  soon-deprecated Node 20 (GitHub deprecation mid-2026).
+
+### Remaining product features (unbuilt)
+
+- Importer **frame-count resampling** (downsampling N) — noted in Phase 2.
+- **Multi-control manifests** — supported by the model, not yet surfaced in the UI.
+- Meter **peak-hold / stereo** (and dB segment spacing, per-segment colour ramps) —
+  deferred from Phase 6.
 
 ## Standing conventions for every phase
 

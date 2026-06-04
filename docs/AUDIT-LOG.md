@@ -1,8 +1,65 @@
 # AUDIT-LOG — StripKit
 
-> Version 0.5.0 · last-updated 2026-06-03 · last-audit 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-04 — Full doc reconciliation against ground truth (v0.6.0)
+
+**Scope:** cross-check every managed doc (`CLAUDE.md`, `docs/ROADMAP.md`, `BUGS.md`,
+`TESTING.md`, `CHANGELOG.md`, `HANDOFF.md`, `PACKAGING.md`, `AUDIT-LOG.md`) against each
+other and the codebase for drift after the v0.6.0 ship (Inno Setup pipeline + website).
+Triggered by the doc-reconciler.
+
+### Checked
+
+- **Header style** across all managed docs (the StripKit convention is the single `>`
+  line, not YAML frontmatter).
+- **Ground truth:** v0.6.0 is the first GitHub Release (Inno installer; Velopack fully
+  removed from `src/`), 49/49 tests pass, 0 open bugs (BUG-003/004 fixed), website repo
+  pushed but not deployed, installer unsigned (VirusTotal ~4/71 heuristic FPs).
+- **Code verification:** searched `src/` for `Velopack|VelopackApp|vpk pack|UpdateService`
+  — **0 matches** (Velopack genuinely gone). `StripKit.csproj` `<Version>` = **0.6.0**,
+  `SkiaSharp` 3.119.0. `dotnet test` — **49 passed / 0 failed / 0 skipped** (45
+  `[Fact]`/`[Theory]` methods; 2 Theories expand 3 rows each — 43 + 3 + 3 = 49).
+  Pipeline present: `installer/StripKit.iss`, `scripts/Invoke-Release.ps1`,
+  `.github/workflows/auto-release.yml`.
+- **Cross-doc story:** ROADMAP (P7 + P8 ✅), BUGS (0 open / 4 resolved), TESTING (49),
+  CHANGELOG (`[0.6.0]` present + dated), CLAUDE last-task, HANDOFF state — all agree.
+- **Website changelog split** (`updates.json` simplified, decoupled from the technical
+  `docs/CHANGELOG.md`) — described consistently in CLAUDE / ROADMAP / HANDOFF / PACKAGING.
+
+### Drift found — fixed
+
+| # | Severity | Document | Issue | Resolution |
+|---|----------|----------|-------|------------|
+| 1 | MEDIUM | `docs/ROADMAP.md` | Header used a **YAML frontmatter block** — diverged from the single-`>`-line convention all siblings use; `last-audit` lagged at 2026-06-03. | Replaced with `> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04`. |
+| 2 | LOW | `docs/ROADMAP.md` | Phase 4/5/6 status said `11/11` / `31/31` / `41/41` green with no time anchor (reads as the current suite size; actually 49). | Appended "**at that point**" to each; noted the suite is now 49. |
+| 3 | LOW | `docs/ROADMAP.md` | Phase 7 done-condition said "**signed**, single-file" (the build ships **unsigned**). | Reworded to single-file with signing as a follow-up; status already noted unsigned. |
+| 4 | LOW | `docs/ARCHITECTURE.md` | "Extension points" listed **Phase 7: signed single-file build** (no ✅), but it is **done and unsigned**. | Marked ✅ done; described the Inno-installer + GitHub-Release reality (unsigned); pointed to `docs/PACKAGING.md`. |
+| 5 | LOW | `README.md` | "`dotnet test` # **41 tests**" — stale count. | Updated to **49 tests**. |
+
+### Flagged for the doc-versioner (not changed here, per scope)
+
+- **`docs/CHANGELOG.md`** header dates are `2026-06-03` (both) while CLAUDE / TESTING /
+  HANDOFF are `2026-06-04`. Version 0.6.0 is correct; the `[0.6.0]` section is also dated
+  2026-06-03. Versioner to decide whether to advance to 06-04.
+- **`docs/BUGS.md`** header `last-audit` is `2026-06-03` (this audit is 2026-06-04).
+- **`docs/PACKAGING.md`** header has **no `last-audit`** field and `last-updated` lags at
+  `2026-06-03`; siblings carry `last-audit 2026-06-04`.
+- **NON-MANAGED, stale (separate pass):** `docs/KICKOFF.md` (Version **0.5.0**; says
+  "`41/41`", Phase 7 is "**next task**", produce a "**signed**" build, conventions still
+  list "**JetBrains Mono**") and `docs/ARCHITECTURE.md` header (Version **0.5.0**). Not in
+  the managed-reconcile set; KICKOFF needs a full rewrite to the v0.6.0 state.
+
+### Verdict
+
+**In line after fixes.** Findings: 5 (0 critical, 0 high, 1 medium, 4 low); **5 auto-fixed,**
+0 needing manual code review. Velopack / auto-update / `vpk` appear only as clearly-historical
+"Removed" / "superseded" notes — nothing presents them as current. 49/49 green, 0 open
+bugs, v0.6.0 shipped. Recommended doc-version increment: **PATCH** (stamp finalize only).
 
 ---
 

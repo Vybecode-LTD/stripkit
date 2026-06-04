@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 0.5.0 · last-updated 2026-06-03 · last-audit 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > The deep, file-and-flow reference for how StripKit is built. `docs/SOURCE_MAP.md`
 > says *where* things live; this says *how and why* they work. Read alongside
@@ -450,6 +450,6 @@ writes PNG → (@2x) → (manifest via `ManifestService`) → status updated.
 - **Phase 5 — Batch:** ✅ done (§8.1). `BatchProcessor` + `BatchViewModel` + `BatchView`.
 - **Phase 6 — Meter mode:** ✅ done (§5.4). `ComponentType.Meter` + `RenderMeterFrame`
   (procedural + layered), four fill directions, discrete/continuous.
-- **Phase 7 — Packaging:** signed single-file Windows build (`dotnet-installer-publishing`).
+- **Phase 7 — Packaging:** ✅ done. Self-contained `win-x64` publish + an **Inno Setup** installer, shipped as a GitHub Release (unsigned for now). See `docs/PACKAGING.md`.
 - The manifest model already supports multi-control skins and value ranges — surface
   them when a multi-asset workflow lands.

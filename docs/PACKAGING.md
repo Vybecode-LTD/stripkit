@@ -1,6 +1,6 @@
 # PACKAGING.md — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
 How StripKit is built into a Windows installer and shipped. StripKit follows the
 three-stage model in `SOFTWARE_RELEASE.md`: a **local script builds + stages** the

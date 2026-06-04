@@ -1,6 +1,6 @@
 # CHANGELOG — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-03 · last-audit 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.

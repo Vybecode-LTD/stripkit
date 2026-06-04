@@ -39,7 +39,7 @@ The exe lands in `src/StripKit/bin/Release/net9.0/win-x64/publish/`.
 ## Run the tests
 
 ```bash
-dotnet test                       # 41 tests: renderer golden-image, VM, importer, manifest, batch, meter
+dotnet test                       # 49 tests: renderer golden-image, VM, importer, manifest, batch, meter, alignment
 UPDATE_BASELINES=1 dotnet test    # regenerate golden-image baselines (review before committing)
 ```
 

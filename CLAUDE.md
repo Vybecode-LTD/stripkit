@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 0.6.0 · last-updated 2026-06-03 · last-audit 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -21,7 +21,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
    current state + next task; `docs/ROADMAP.md` is the full phased plan;
    `docs/KICKOFF.md` is the paste-in prompt for a new session.
 3. Other managed docs: `docs/TESTING.md`, `docs/CHANGELOG.md`, `docs/BUGS.md`,
-   `docs/AUDIT-LOG.md`.
+   `docs/AUDIT-LOG.md`. Packaging + release flow: `docs/PACKAGING.md`.
 4. The skills in `.claude/skills/` are scoped to this repo — use them.
 
 ## Stack
@@ -31,6 +31,10 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`).
+- Packaging: self-contained `win-x64` publish → **Inno Setup** installer
+  (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
+  auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
+  `.github/workflows/auto-release.yml` — see `docs/PACKAGING.md`.
 
 ## Run / build
 
@@ -40,6 +44,18 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
   (`dotnet list package --include-transitive`).
 - Use `python -m pip` style invocation in any Python helper scripts (bare
   `pip`/`python` are not on PATH in this environment).
+
+## Release (Inno Setup + GitHub) — full detail in `docs/PACKAGING.md`
+
+Three stages, **one release creator**. **Stage 1** `scripts/Invoke-Release.ps1`:
+test-gate → bump `Version` in `src/StripKit/StripKit.csproj`, `MyAppVersion` in
+`installer/StripKit.iss`, and `docs/CHANGELOG.md` → `dotnet publish` → `ISCC` builds
+`releases/latest/StripKit-Setup-<ver>-x64.exe` → commit + tag `vX.Y.Z` + push. **Stage
+2** `.github/workflows/auto-release.yml` (triggered by the tracked `releases/latest/*.exe`,
+or `workflow_dispatch`): VirusTotal scan (`VT_API_KEY` secret) → the **sole**
+`gh release create` (notes via `--notes-file`, never inline `--notes`). **Stage 3** the
+website reads the live GitHub Release. Unsigned for now (SmartScreen / VirusTotal
+heuristic FPs until a code-signing cert is added).
 
 ## Architecture (one idea, four component types) — full detail in `docs/ARCHITECTURE.md`
 
@@ -126,6 +142,28 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-04 (v0.6.0 shipped — Inno pipeline + website)** — Replaced **Velopack** with
+  an **Inno Setup** installer (`installer/StripKit.iss`: per-user — `PrivilegesRequired=lowest`,
+  `{autopf}`; choose-dir; optional desktop + Start-Menu shortcuts; registry-wiping
+  uninstaller; both logos) and built the **3-stage release pipeline** per
+  `@SOFTWARE_RELEASE.md`. **Stage 1** `scripts/Invoke-Release.ps1`: test-gate → bump
+  `csproj`/`.iss`/`CHANGELOG` → publish → `ISCC` → stage `releases/latest/` → commit + tag
+  + push. **Stage 2** `.github/workflows/auto-release.yml`: VirusTotal scan via the
+  `VT_API_KEY` secret → the **sole** `gh release create`. `releases/latest/*.exe` is
+  git-tracked (the CI trigger). **Shipped the first GitHub Release, v0.6.0**
+  (`StripKit-Setup-0.6.0-x64.exe`, ~33.5 MB self-contained; live at
+  `github.com/Vybecode-LTD/stripkit/releases/tag/v0.6.0`; VirusTotal ~4/71 heuristic
+  false-positives — unsigned). Created + pushed the landing-page repo
+  **`Vybecode-LTD/StripKit-Website`** (hero, features, GitHub-driven download, a
+  **simplified** changelog in `updates.json` decoupled from the technical
+  `docs/CHANGELOG.md`, Formspree contact, a VirusTotal shield) — **not yet deployed to
+  stripkit.pro**. Fixed two release-tooling bugs: PS 5.1 `Get-Content` read the UTF-8
+  CHANGELOG as ANSI → mojibake (fixed with `-Encoding UTF8`, `f1b68d3`); CI
+  `gh release create --notes "..."` ran the changelog's backticks as shell
+  command-substitution (fixed via env vars + `--notes-file` + `workflow_dispatch`,
+  `a408bc9`). **49/49 green.** **Next step:** deploy the website to **stripkit.pro**; add a
+  **code-signing cert** (clears the VirusTotal FPs + SmartScreen); per release, add a
+  plain-language entry to the website's `updates.json` alongside `docs/CHANGELOG.md`.
 - **2026-06-03 (alignment: Pin centre)** — Added a **"Pin centre to image"** button to
   the alignment guide (in the preview overlay): drag the crosshair to mark the knob
   centre, click **Pin** → it commits `SourceCenterX/Y` and exits guide mode so the
@@ -168,6 +206,8 @@ component types are knob, vertical fader, horizontal slider, and **meter**
   Builds clean, **41/41 green**. **Next step:** publish a GitHub Release from the `vpk`
   output (`releases/`) so auto-update goes live; sign with `signtool` once a cert exists
   (shipping unsigned for now); then Phase 8 — the landing-page website (now on the roadmap).
+  *(Superseded 2026-06-04: Velopack/`vpk` + in-app auto-update were replaced by the Inno
+  Setup installer + GitHub-Release download pipeline; the website did ship.)*
 - **2026-06-03 (design system)** — Applied the **Obsidian glassmorphism** design
   (the chosen one of two presented as rendered mockups): acrylic frosted window
   (`TransparencyLevelHint="AcrylicBlur"` + `ExperimentalAcrylicBorder`, with

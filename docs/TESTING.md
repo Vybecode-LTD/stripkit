@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 0.5.0 · last-updated 2026-06-03 · last-audit 2026-06-03
+> Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (41 tests)
+dotnet test                                      # whole suite (49 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **41 passed / 0 failed / 0 skipped** (~0.5 s).
+Current status: **49 passed / 0 failed / 0 skipped** (~0.8 s).
 
 ## Frameworks
 
@@ -34,7 +34,7 @@ Current status: **41 passed / 0 failed / 0 skipped** (~0.5 s).
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (41)
+## Test inventory (49)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -51,13 +51,33 @@ Locks the renderer's pixel output against committed baselines.
 - 4 pixel-logic: procedural fills from the bottom (Up) / top (Down) / left
   (LeftToRight), and the layered reveal shows on-art only up to the fill.
 
-### `LoadPathTests.cs` — 5 (`MainWindowViewModel`, NSubstitute)
-The shared Create-tab load path (used by both the button and drag-drop).
+### `LoadPathTests.cs` — 7 (`MainWindowViewModel`, NSubstitute)
+The shared Create-tab load path (used by both the button and drag-drop), plus the
+knob-alignment auto-centring it now performs on load.
 - `LoadSourceFromPath_sets_source_state_and_squares_the_frame_for_a_knob`.
 - `LoadSourceFromPath_reports_an_error_when_the_image_cannot_be_decoded`.
 - `OpenSource_button_uses_the_same_load_path_as_a_drop` (asserts no duplication).
 - `Export_is_disabled_until_a_source_is_loaded` (command gating).
 - `Export_is_enabled_for_a_procedural_meter_even_without_a_source`.
+- `Loading_an_offcenter_knob_auto_centers_on_its_content` (auto-centre on load).
+- `Source_center_persists_when_the_guide_is_toggled_off` (the "reverts when the
+  crosshair is removed" report — the centre survives toggling the guide).
+
+### `ContentAnalysisTests.cs` — 4 (opaque-content centre detection)
+Unit tests for `ContentAnalysis.DetectContentCenter`, which backs the alignment tools
+(Auto-center, the draggable crosshair guide, knob auto-centring on load).
+- `Centered_content_detects_near_half`.
+- `Offset_content_detects_offset_center`.
+- `Fully_transparent_falls_back_to_half`.
+- `Null_bitmap_falls_back_to_half`.
+
+### `AlignmentRenderTests.cs` — 2 (renderer, content-centre pivot)
+Proves the alignment fix: pivoting on the detected content centre keeps an off-centre
+knob spinning in place instead of orbiting.
+- `Pivoting_on_content_centre_keeps_an_offcenter_knob_spinning_in_place` — content
+  centre stays on the frame centre across the sweep.
+- `Without_centering_the_offcenter_knob_orbits` — sanity guard: the (0.5, 0.5) default
+  orbits, so the test above genuinely exercises the fix.
 
 ### `DropZoneViewTests.cs` — 1 (`[AvaloniaFact]`, headless)
 - `Preview_border_opts_into_file_drops` — builds `MainWindow`, asserts
@@ -116,6 +136,13 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 
 ## Known gaps (honest)
 
+- **The release pipeline is validated by execution, not by automated tests.** The
+  release script (`scripts/Invoke-Release.ps1`) and the GitHub Actions workflow
+  (CI YAML) are PowerShell / pipeline glue, not application code; they are verified
+  by running them (the latest two release-tooling fixes were confirmed by re-running
+  the pipeline end-to-end) rather than by unit tests. The packaging switch to Inno
+  Setup likewise removed `UpdateService` (Velopack), which carried no tests, so the
+  suite count was unchanged by that work.
 - **The literal OS drag gesture is not auto-tested.** Avalonia.Headless cannot
   construct a synthetic `DragEventArgs` (the type's constructors are internal), so the
   drop is covered indirectly: the VM load path (`LoadPathTests`/`ImporterViewModelTests`)

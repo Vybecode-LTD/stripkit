@@ -5,6 +5,7 @@ out/
 
 # Test artifacts (committed baselines stay; diff output is transient)
 tests/**/output/
+/teststrip*.png
 
 # IDE
 .vs/
