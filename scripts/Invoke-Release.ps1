@@ -84,15 +84,15 @@ if (-not $SkipTests) {
 # --- Bump versions ----------------------------------------------------------
 Step "Bumping version to $new across csproj / .iss / CHANGELOG"
 
-$csprojText = Get-Content $csproj -Raw
+$csprojText = Get-Content $csproj -Raw -Encoding UTF8
 $csprojText = [regex]::Replace($csprojText, '(<Version>)[^<]+(</Version>)', "`${1}$new`${2}")
 Save-Text $csproj $csprojText
 
-$issText = Get-Content $iss -Raw
+$issText = Get-Content $iss -Raw -Encoding UTF8
 $issText = [regex]::Replace($issText, '(#define MyAppVersion ")[^"]+(")', "`${1}$new`${2}")
 Save-Text $iss $issText
 
-$clText = Get-Content $changelog -Raw
+$clText = Get-Content $changelog -Raw -Encoding UTF8
 $header = "## [$new] $emdash $date"
 if ($clText -match '(?m)^##\s*\[Unreleased\].*$') {
     $clText = [regex]::Replace($clText, '(?m)^##\s*\[Unreleased\].*$', $header, 1)
