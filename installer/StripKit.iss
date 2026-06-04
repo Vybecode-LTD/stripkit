@@ -1,5 +1,5 @@
 ; ============================================================================
-;  StripKit — Inno Setup script
+;  StripKit â€” Inno Setup script
 ;  Built by scripts/Invoke-Release.ps1 (which bumps MyAppVersion in lockstep
 ;  with the .csproj and CHANGELOG). Packages the self-contained publish in
 ;  ..\publish into a per-user installer with a desktop-icon option, a Start-Menu
@@ -56,7 +56,7 @@ Name: "{autodesktop}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; Tasks: de
 
 [Registry]
 ; The only registry footprint, removed in full on uninstall (the uninstaller also
-; removes Inno's own uninstall key automatically — so nothing is left behind).
+; removes Inno's own uninstall key automatically â€” so nothing is left behind).
 Root: HKA; Subkey: "Software\VybeCode\StripKit"; ValueType: string; ValueName: "InstallPath"; ValueData: "{app}"; Flags: uninsdeletekey
 Root: HKA; Subkey: "Software\VybeCode"; Flags: uninsdeletekeyifempty
 
