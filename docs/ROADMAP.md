@@ -2,145 +2,77 @@
 
 > Version 0.6.0 · last-updated 2026-06-04 · last-audit 2026-06-04
 
-A phased plan for taking StripKit from its current v1 scaffold to a complete
-tool. Each phase is sized to compile and run on its own, names the skill that
-should guide it, and states a done-condition. Work the phases in order; do not
-jump ahead without confirming the open questions in `docs/KICKOFF.md`.
+The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
+ship — Inno installer, release pipeline, and website) are **complete**; they are
+recorded below as shipped history. The **vNext — Future features** section
+captures the product-brainstorm backlog, grouped by theme and priority. The three
+★ items are the highest-leverage next bets.
 
-## Phase 0 — Verify the scaffold (do first)
+**Status icons:** ✅ Done · 🔄 Active · ⏳ Next / queued · 🚫 Blocked · ❌ Cancelled.
 
-Build and run the existing project, load a PNG, confirm the live preview animates
-and Export writes a strip. Fix only what blocks the build (most likely a SkiaSharp
-transitive-version conflict — align per `README.md`).
-**Done when:** `dotnet run --project src/StripKit` opens the window and a
-round-trip (load → preview → export) works.
+---
 
-## Phase 1 — Drag-and-drop input
+## Done / shipped — Phases 0–8 (v1 scaffold → v0.6.0)
 
-Let the user drop a PNG onto the preview area (or window) to load it as the source.
-Reuse the existing view-model load logic; do not duplicate it.
-**Skill:** `avalonia-drag-drop-files`.
-**Done when:** dropping a PNG loads and previews it exactly as the Load button does.
-**Status:** ✅ Done (2026-06-03) — the preview `Border` is a drop zone; the button
-and the drop handler share `MainWindowViewModel.LoadSourceFromPath`. Covered by VM
-load-path tests and a headless drop-zone test.
+All eight foundational phases are complete. Each was sized to compile and run on
+its own, named the guiding skill, and met a done-condition. Condensed history:
 
-## Phase 2 — Filmstrip importer
+- ✅ **Phase 0 — Verify the scaffold** (2026-06-03). `dotnet run --project
+  src/StripKit` opens the window; the load → preview → export round-trip works.
+  Fixed two pre-existing scaffold build blockers (an illegal `--` in a `.csproj`
+  comment; a missing `Microsoft.Extensions.DependencyInjection` reference).
+- ✅ **Phase 1 — Drag-and-drop input** (2026-06-03). The preview `Border` is a drop
+  zone; the Load button and the drop handler share `MainWindowViewModel.LoadSourceFromPath`
+  (no duplicated load logic). Covered by VM load-path tests + a headless drop-zone
+  test. *Skill: `avalonia-drag-drop-files`.*
+- ✅ **Phase 2 — Filmstrip importer** (2026-06-03), as a second tab (confirmed).
+  `FilmstripImporter` (SkiaSharp) detects frame count / orientation / kind from
+  dimensions and flags ambiguous cases; the **Import** tab shows the detection, an
+  editable count, a frame scrubber, and extract / re-stack-orientation export.
+  Verified visually (a 64×6500 strip → 100 frames, sliced + re-stacked correctly).
+  *Skill: `filmstrip-importer-engine`.*
+- ✅ **Phase 3 — Manifest export** (2026-06-03). The Create-tab export has an "Also
+  write a skin.json manifest" toggle + a parameter-id field; on export it writes a
+  schema-valid `<name>.skin.json` next to the PNG (one control, relative
+  `asset`/`asset2x`, frames, frame size, stack, base-resolution `bounds`) via
+  `ManifestService` (System.Text.Json, camelCase). Conformance-tested against the
+  skill's JSON Schema. *Skill: `plugin-asset-manifest`.*
+- ✅ **Phase 4 — Golden-image tests** (brought forward to 2026-06-03 alongside
+  Phase 1). `tests/StripKit.Tests` (xUnit + NSubstitute + FluentAssertions +
+  Avalonia.Headless): committed golden baselines, VM tests, headless view tests;
+  `ImageAssert` emits expected/actual/diff PNGs on mismatch. *Skill:
+  `image-regression-testing`.*
+- ✅ **Phase 5 — Batch processing** (2026-06-03), as a third tab (**Batch**).
+  `BatchProcessor` (SkiaSharp, no Avalonia) runs the loop via `Task.Run` (off the
+  UI thread), reports per-item progress, and cancels between items without
+  throwing; per-file failures are isolated. Optional @2x + manifest per strip.
+  *Skills: `live-preview-render-loop`, `csharp-mastery`.*
+- ✅ **Phase 6 — Meter mode** (2026-06-03), design signed off first. New
+  `ComponentType.Meter` + `MeterFillDirection` + meter fields on `FilmstripSettings`.
+  `RenderMeterFrame` does procedural segment bars or a layered on/off-art reveal
+  (auto-selected); all four fill directions; discrete default + continuous toggle.
+  Mirrored in `FilmstripEngine.cs`.
+- ✅ **Phase 7 — Packaging and distribution** (2026-06-04). Switched from Velopack to
+  an **Inno Setup installer** (`installer/StripKit.iss`: per-user, choose-dir,
+  optional shortcuts, registry-wiping uninstaller). A **3-stage release pipeline**
+  per `SOFTWARE_RELEASE.md`: `scripts/Invoke-Release.ps1` (Stage 1, local build) +
+  `.github/workflows/auto-release.yml` (Stage 2 — VirusTotal scan, the **sole**
+  release creator). The self-contained `win-x64` publish runs without the SDK. The
+  **first GitHub Release, v0.6.0, is live** (`StripKit-Setup-0.6.0-x64.exe`). Full
+  flow: `docs/PACKAGING.md`. *Skill: `dotnet-installer-publishing`.*
+- ✅ **Phase 8 — Landing page website** (2026-06-04). Built and pushed as
+  **`Vybecode-LTD/StripKit-Website`**: hero, features, a GitHub-driven download
+  button, a simplified changelog from `updates.json` (decoupled from the technical
+  `docs/CHANGELOG.md`), privacy/terms/contact with a Formspree form, a VybeCode
+  footer, and a VirusTotal shield. SEO/GEO per `SEO_OPTIMIZATION.md`.
 
-Add the ability to open an *existing* strip (KnobMan export, purchased pack),
-detect its frame count and layout, and either extract a single frame or re-stack
-it at a new orientation. Confirm with the user whether this is a second tab or a
-separate window before building the UI.
-**Skill:** `filmstrip-importer-engine`.
-**Done when:** an existing strip's frame count is detected, displayed, editable,
-and a frame can be extracted; detection is verified visually, not trusted blindly.
-**Status:** ✅ Done (2026-06-03) as a second tab (confirmed). `FilmstripImporter`
-(SkiaSharp) detects count/orientation/kind from dimensions + flags ambiguous cases;
-the **Import** tab shows the detection, an editable count, a frame scrubber, and
-extract / re-stack-orientation export. Covered by importer-engine + VM tests, and
-verified visually (a 64×6500 strip → 100 frames, frames sliced + re-stacked
-correctly). Frame-count *resampling* (downsampling N) noted in the skill but not
-yet built.
+**Test suite:** 49/49 green at the v0.6.0 ship.
 
-## Phase 3 — Manifest export
+---
 
-When exporting, optionally also emit a `skin.json` entry (or a full manifest) that
-binds the strip to a parameter id, with frame count, frame size, stack direction,
-and bounds — so a skinning engine / JUCE LookAndFeel can auto-load it.
-**Skill:** `plugin-asset-manifest`.
-**Done when:** export can produce a valid manifest fragment alongside the PNG,
-validated against the schema in the skill.
-**Status:** ✅ Done (2026-06-03). The Create-tab export has an "Also write a
-skin.json manifest" toggle + a parameter-id field; on export it writes
-`<name>.skin.json` next to the PNG (one control, relative `asset`/`asset2x`,
-frames, frame size, stack, base-resolution `bounds`). `ManifestService` (System.Text.Json,
-camelCase) builds + serializes it; tests assert the mapping and conformance to the
-skill's JSON Schema (required keys, enums, types). Multi-control skins and the
-optional `valueMin/Max` are supported by the model but not yet surfaced in the UI.
+## Operational follow-ups (post-v0.6.0 ship)
 
-## Phase 4 — Golden-image tests
-
-Stand up a small test project and lock the renderer's output with golden-image
-tests so later refactors cannot silently change the pixels. Baseline the three
-component types at default settings plus the min/last-frame edge cases.
-**Skill:** `image-regression-testing`. Confirm the test framework (xUnit assumed).
-**Done when:** `dotnet test` passes against committed baselines, and an
-intentional render change is caught by a failing test with a diff image.
-**Status:** ✅ Brought forward to 2026-06-03 (alongside Phase 1, to close the
-drop-test gap). `tests/StripKit.Tests` has 6 committed baselines (3 knob frames, an
-8-frame strip, fader + slider mids) plus VM and headless tests; `ImageAssert` emits
-expected/actual/diff PNGs on mismatch. **11/11 green** at that point (the suite has
-since grown to 49 across later phases).
-
-## Phase 5 — Batch processing
-
-Process a folder of source images into many filmstrips in one run, with progress
-and cancellation. Keep the render off the UI thread.
-**Skills:** `live-preview-render-loop` (threading patterns), `csharp-mastery`.
-**Done when:** a folder of N PNGs exports N strips with a progress indicator and a
-working cancel.
-**Status:** ✅ Done (2026-06-03) as a third tab (**Batch**). `BatchProcessor`
-(SkiaSharp, no Avalonia) runs the whole loop via `Task.Run` (off the UI thread),
-reports progress per item, and cancels between items without throwing (returns a
-result). The **Batch** tab picks an input + output folder and a render template,
-shows a progress bar + per-file text + a results summary, and has a working Cancel.
-Per-knob frame sizing via "Square knob frames to each source"; optional @2x + manifest
-per strip. Failures are isolated (one bad file doesn't abort the run). Covered by
-4 processor integration tests + 2 VM gating tests. **31/31 green** at that point.
-
-## Phase 6 — Meter mode (design first)
-
-Extend the engine to level/VU meters (progressive segment lighting; a needle is
-just a rotary). Design the segment model before coding — this is a new render
-mode, not a tweak. Note that the existing `filmstrip-asset-engineering` skill
-already covers meter frames and is the reference here.
-**Done when:** a meter filmstrip renders with N lit states and previews correctly.
-**Status:** ✅ Done (2026-06-03), design signed off first. New `ComponentType.Meter`
-+ `MeterFillDirection` enum + meter fields on `FilmstripSettings`. The renderer's
-`RenderMeterFrame` does **procedural** segment bars (On/Off colour + gap) when no art
-is loaded, or a **layered** reveal (source = on-state art over the background off-state
-art) when art is present — auto-selected. All four fill directions (Up/Down/Left→Right/
-Right→Left); discrete by default with a continuous toggle. Create-tab "Meter" type +
-METER settings; preview/export/manifest(`"meter"`)/batch reuse the existing paths;
-a procedural meter exports without a source. Mirrored in `FilmstripEngine.cs`. Covered
-by 9 renderer tests (5 golden baselines + 4 pixel-logic) + 1 VM test. **41/41 green**
-at that point.
-Deferred: peak-hold, dual/stereo meters, dB segment spacing, per-segment colour ramps.
-
-## Phase 7 — Packaging and distribution
-
-Produce a single-file Windows build (and an installer) so the tool ships to
-non-developers. *(Code signing is a follow-up — shipping unsigned for now.)*
-**Skill:** `dotnet-installer-publishing` (global).
-**Done when:** a single-file exe runs on a clean Windows machine without the SDK.
-**Status:** ✅ Done (2026-06-04). Distribution switched from Velopack to an **Inno
-Setup installer** (`installer/StripKit.iss`): per-user install, choose install dir,
-optional desktop + Start-Menu shortcuts, a registry-wiping uninstaller, and both the
-StripKit brandmark and the VybeCode logo. A full **3-stage release pipeline** is in
-place per `SOFTWARE_RELEASE.md`: `scripts/Invoke-Release.ps1` (Stage 1, local build)
-+ `.github/workflows/auto-release.yml` (Stage 2 — VirusTotal scan, the **sole** release
-creator). The self-contained `win-x64` publish runs without the SDK. The **first
-GitHub Release, v0.6.0, is live** (`StripKit-Setup-0.6.0-x64.exe`). Code signing is
-deferred (shipping unsigned for now → VirusTotal heuristic false-positives + Windows
-SmartScreen prompt until a cert is added). Full flow: `docs/PACKAGING.md`.
-
-## Phase 8 — Landing page website
-
-A public landing/marketing page for StripKit: what it does, screenshots/mockups, a
-download button for the latest release, and links to the docs. Static site or a
-small framework, SEO/GEO-optimized per `SEO_OPTIMIZATION.md`.
-**Done when:** a deployed page describes StripKit and links to the current download.
-**Status:** ✅ Done (2026-06-04) — built and pushed in a separate repo,
-**`Vybecode-LTD/StripKit-Website`**: a medium-light landing page (hero, features, a
-GitHub-driven download button, a simplified changelog read from `updates.json`
-— decoupled from the technical `docs/CHANGELOG.md` — privacy/terms/contact with a
-Formspree form, a VybeCode footer, and a VirusTotal shield badge). **Not yet deployed
-to `stripkit.pro`** (enable GitHub Pages on the website repo or point the domain —
-see "Next / upcoming").
-
-## Next / upcoming
-
-Open items after the v0.6.0 packaging + website ship:
+Open items carried from the v0.6.0 release — small, mostly non-feature:
 
 - 🚫 **Deploy the website to `stripkit.pro`** — enable GitHub Pages on
   `Vybecode-LTD/StripKit-Website` or point the domain. **User step.**
@@ -151,12 +83,85 @@ Open items after the v0.6.0 packaging + website ship:
 - ⏳ **Minor: bump `actions/checkout`** — `actions/checkout@v4` runs on the
   soon-deprecated Node 20 (GitHub deprecation mid-2026).
 
-### Remaining product features (unbuilt)
+---
 
-- Importer **frame-count resampling** (downsampling N) — noted in Phase 2.
-- **Multi-control manifests** — supported by the model, not yet surfaced in the UI.
-- Meter **peak-hold / stereo** (and dB segment spacing, per-segment colour ramps) —
-  deferred from Phase 6.
+## vNext — Future features
+
+The product backlog, grouped by theme. Each item has a 1–2 sentence description
+and a priority tag (**P1** highest → **P3** lowest). The three ★ items are the
+highest-leverage bets across all groups; pursue them first.
+
+### Close the loop (asset → working control)
+
+- ★ **Code / component export** — every export also emits ready-to-paste loader
+  code for the target framework: JUCE `LookAndFeel` / film-strip `Slider`, iPlug2
+  bitmap control, HISE, a CSS `steps()` web knob, a React / Web Component, and
+  Unity / Godot. Eliminates the dev wiring step entirely. **(P1, ★)**
+- ⏳ **Multi-control manifests** — surface in the UI what the model already
+  supports: bind several strips to several parameters in one `skin.json`. Pairs
+  directly with theme/skin variants and code export. **(P2)** *(carryover — model
+  exists, UI not yet built.)*
+
+### Render quality / the first mile
+
+- ★ **Layer-aware animation + auto-pointer extraction** — accept layered input
+  (SVG / PSD or base + pointer) and tag per-layer behavior (rotate / stay /
+  opacity-ramp / translate) so only the pointer rotates while the body stays
+  crisp, re-renderable at any resolution. Plus auto-detect the indicator in FLAT
+  legacy art (seed from the existing `ContentAnalysis`). **(P1, ★)**
+- ★ **Procedural value-arc / fill-ring generator** — composite a modern
+  Serum/Vital-style fill arc or ring that tracks the value frame-by-frame onto the
+  knob: configurable color, gradient, glow, thickness, start angle, and end caps.
+  **(P1, ★)**
+
+### Correctness (the sweep matches reality)
+
+- ⏳ **Parameter-law-aware frame mapping** — map parameter → frame via a curve (log
+  / skew / custom easing) so the visual sweep matches the plugin's actual parameter
+  law (log frequency, dB) instead of a linear divisor. **(P2)**
+- ⏳ **Frame-budget optimizer** — perceptually recommend the minimum frame count
+  that looks identical to the eye, and show the file-size saving. **(P3)**
+
+### Scale / design systems
+
+- ⏳ **Theme / skin variant batch** — recolor or re-skin a control (or a whole
+  folder) into a product's full theme set (light / dark / N skins) in one pass,
+  wired into a multi-control manifest. **(P2)**
+- ⏳ **Filmstrip design-system linter + frame diff** — audit a folder for
+  consistency (frame counts, cell sizes, sweep angles, alignment), diff old vs new
+  exports to catch regressions, and flag bad frames with a wobble / jump detector.
+  **(P2)**
+
+### QA (lock the output)
+
+*(See also the linter + frame-diff above, which doubles as a QA tool.)*
+
+- ⏳ **Importer frame-count resampling** — downsample (or resample) an imported
+  strip's frame count N, not just re-stack orientation. **(P3)** *(carryover —
+  noted in the Phase 2 skill, not yet built.)*
+
+### Reach beyond audio / handoff
+
+- ⏳ **Web & animation exports** — CSS sprite (`steps()`), APNG / WebP / MP4, and
+  Lottie (true vector Lottie when the source is layered). Takes StripKit's output
+  well past JUCE filmstrips. **(P2)**
+- ⏳ **Interactive shareable preview** — export a tiny self-contained HTML of the
+  interactive control for client sign-off / docs: hand off a link, not a flat PNG.
+  **(P2)**
+- ⏳ **In-context mockup preview** — drop a screenshot of the plugin panel, place
+  the control on it, and watch it animate in situ before exporting. **(P3)**
+
+### New control types
+
+- ⏳ **Boolean trigger components** — buttons and toggles with an on/off state:
+  momentary vs latching, two-state and multi-state selectors, rendered as
+  discrete-state filmstrips from layered art or N source PNGs. **(P2)** *(new —
+  explicitly requested.)*
+- ⏳ **Meter peak-hold / stereo** — peak-hold indicators, dual / stereo meters, dB
+  segment spacing, and per-segment colour ramps. **(P3)** *(carryover — deferred
+  from Phase 6.)*
+
+---
 
 ## Standing conventions for every phase
 
