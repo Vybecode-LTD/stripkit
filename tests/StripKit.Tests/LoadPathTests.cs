@@ -137,21 +137,6 @@ public class LoadPathTests
         vm.SourceCenterY.Should().Be(0.18);
     }
 
-    [Fact]
-    public void Pin_center_keeps_the_mark_and_exits_align_mode()
-    {
-        var (vm, load, _) = Build();
-        load.Load("k.png").Returns(OffCenter(100, 100));
-        vm.LoadSourceFromPath("k.png");
-        vm.ShowCenterGuide = true;
-        vm.SourceCenterX = 0.66;
-
-        vm.PinCenterCommand.Execute(null);
-
-        vm.ShowCenterGuide.Should().BeFalse();  // exited align → preview shows the result
-        vm.SourceCenterX.Should().Be(0.66);     // kept the mark
-    }
-
     // An image whose opaque content sits in the top-left, not the centre.
     static SKBitmap OffCenter(int w, int h)
     {

@@ -44,7 +44,7 @@ public class AlignmentRenderTests
     };
 
     [Fact]
-    public void Auto_centered_offcenter_knob_stays_centered_across_frames()
+    public void Pivoting_on_content_centre_keeps_an_offcenter_knob_spinning_in_place()
     {
         using var src = OffCenterDisc(120, 0.30f, 0.35f, 0.18f);
         var (cx, cy) = ContentAnalysis.DetectContentCenter(src);
@@ -54,12 +54,16 @@ public class AlignmentRenderTests
         settings.SourceCenterX = cx;
         settings.SourceCenterY = cy;
 
-        foreach (int i in new[] { 0, 5, 10, 15 })
+        // The art is NOT moved; pivoting on its content centre means the disc's centre
+        // stays put across the whole sweep (spins in place, no orbit).
+        using var f0 = renderer.RenderFrame(settings, src, null, 0, 1.0);
+        var (x0, y0) = ContentCenter(f0);
+        foreach (int i in new[] { 4, 8, 12, 15 })
         {
             using var frame = renderer.RenderFrame(settings, src, null, i, 1.0);
-            var (fx, fy) = ContentCenter(frame);
-            fx.Should().BeApproximately(40, 2.5); // frame centre X
-            fy.Should().BeApproximately(40, 2.5); // frame centre Y
+            var (x, y) = ContentCenter(frame);
+            x.Should().BeApproximately(x0, 1.5);
+            y.Should().BeApproximately(y0, 1.5);
         }
     }
 

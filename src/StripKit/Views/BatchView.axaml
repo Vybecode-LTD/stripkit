@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:StripKit.ViewModels"
+             xmlns:controls="clr-namespace:StripKit.Controls"
              x:Class="StripKit.Views.BatchView"
              x:DataType="vm:BatchViewModel">
 
@@ -16,14 +17,14 @@
                     <TextBlock Text="Render one filmstrip per source image in a folder, using one template."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
-                    <TextBlock Classes="section" Text="COMPONENT TYPE" />
+                    <controls:SectionHeader Text="COMPONENT TYPE" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding ComponentTypes}" SelectedItem="{Binding ComponentType}" />
 
-                    <TextBlock Classes="section" Text="FRAMES" />
+                    <controls:SectionHeader Text="FRAMES" />
                     <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1" />
 
-                    <TextBlock Classes="section" Text="FRAME SIZE (1x, px)" />
+                    <controls:SectionHeader Text="FRAME SIZE (1x, px)" />
                     <Grid ColumnDefinitions="*,8,*">
                         <StackPanel Grid.Column="0">
                             <TextBlock Classes="label" Text="Width" />
@@ -37,13 +38,13 @@
                     <CheckBox Content="Square knob frames to each source" IsChecked="{Binding MatchKnobFrameToSource}" Margin="0,6,0,0" />
 
                     <StackPanel IsVisible="{Binding IsRotary}" Spacing="2">
-                        <TextBlock Classes="section" Text="ROTATION" />
+                        <controls:SectionHeader Text="ROTATION" />
                         <TextBlock Classes="label" Text="Sweep (degrees)" />
                         <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
                         <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,4,0,0" />
                     </StackPanel>
 
-                    <TextBlock Classes="section" Text="QUALITY &amp; OUTPUT" />
+                    <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
                     <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding SupersampleOptions}" SelectedItem="{Binding Supersample}" />
@@ -61,13 +62,13 @@
         <Grid Grid.Column="1" RowDefinitions="Auto,Auto,*" Margin="6,12,12,12">
 
             <StackPanel Grid.Row="0" Spacing="2" IsEnabled="{Binding !IsRunning}">
-                <TextBlock Classes="section" Text="INPUT FOLDER" />
+                <controls:SectionHeader Text="INPUT FOLDER" />
                 <Button Content="Choose input folder…" HorizontalAlignment="Stretch"
                         Command="{Binding ChooseInputFolderCommand}" />
                 <TextBlock Classes="label" Text="{Binding InputFolder}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 <TextBlock Classes="label" Text="{Binding InputSummary}" />
 
-                <TextBlock Classes="section" Text="OUTPUT FOLDER" />
+                <controls:SectionHeader Text="OUTPUT FOLDER" />
                 <Button Content="Choose output folder…" HorizontalAlignment="Stretch"
                         Command="{Binding ChooseOutputFolderCommand}" />
                 <TextBlock Classes="label" Text="{Binding OutputFolder}" TextWrapping="Wrap" Margin="0,4,0,0" />

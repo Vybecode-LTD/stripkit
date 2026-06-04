@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:StripKit.ViewModels"
+             xmlns:controls="clr-namespace:StripKit.Controls"
              x:Class="StripKit.Views.ImporterView"
              x:DataType="vm:ImporterViewModel">
 
@@ -16,12 +17,12 @@
                     <TextBlock Text="Open a KnobMan / purchased filmstrip, detect its frames, extract or re-stack."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
-                    <TextBlock Classes="section" Text="SOURCE STRIP" />
+                    <controls:SectionHeader Text="SOURCE STRIP" />
                     <Button Content="Load filmstrip…" HorizontalAlignment="Stretch"
                             Command="{Binding OpenStripCommand}" />
                     <TextBlock Classes="label" Text="{Binding StripInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
-                    <TextBlock Classes="section" Text="DETECTED LAYOUT" />
+                    <controls:SectionHeader Text="DETECTED LAYOUT" />
                     <TextBlock Classes="label" Text="{Binding DetectedInfo}" TextWrapping="Wrap" />
 
                     <Border IsVisible="{Binding LowConfidence}" Background="#33E8440A"
@@ -31,11 +32,11 @@
                                    Foreground="#FFE8A07A" FontSize="11" TextWrapping="Wrap" />
                     </Border>
 
-                    <TextBlock Classes="section" Text="FRAME COUNT (editable)" />
+                    <controls:SectionHeader Text="FRAME COUNT (editable)" />
                     <NumericUpDown Value="{Binding FrameCount}" Minimum="1" Maximum="1024" Increment="1" />
                     <TextBlock Classes="label" Text="{Binding FrameSizeInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
-                    <TextBlock Classes="section" Text="EXPORT" />
+                    <controls:SectionHeader Text="EXPORT" />
                     <Button Content="Extract current frame…" HorizontalAlignment="Stretch"
                             Command="{Binding ExtractCurrentFrameCommand}" />
                     <Button Content="Re-stack (flip orientation)…" HorizontalAlignment="Stretch" Margin="0,6,0,0"

@@ -1,5 +1,6 @@
 using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Avalonia;
@@ -55,20 +56,51 @@ public partial class MainWindow : Window
 
     private void OnPlayClick(object? sender, RoutedEventArgs e)
     {
-        if (Vm is null)
-            return;
-
-        if (_playTimer.IsEnabled)
-        {
-            _playTimer.Stop();
-            Vm.IsPlaying = false;
-            PlayButton.Content = "▶ Play";
-        }
+        if (Vm is null) return;
+        if (_playTimer.IsEnabled) StopPlay();
         else
         {
             _playTimer.Start();
             Vm.IsPlaying = true;
             PlayButton.Content = "⏸ Stop";
+        }
+    }
+
+    private void StopPlay()
+    {
+        if (!_playTimer.IsEnabled) return;
+        _playTimer.Stop();
+        if (Vm is not null) Vm.IsPlaying = false;
+        PlayButton.Content = "▶ Play";
+    }
+
+    private void OnStepBack(object? sender, RoutedEventArgs e) { StopPlay(); StepPreview(-1); }
+    private void OnStepForward(object? sender, RoutedEventArgs e) { StopPlay(); StepPreview(1); }
+
+    private void OnResetPreview(object? sender, RoutedEventArgs e)
+    {
+        StopPlay();
+        if (Vm is not null) Vm.PreviewValue = 0.5; // the centred, un-rotated start view
+    }
+
+    // Step the preview by one EXPORT frame. The preview renders continuously, but the step
+    // buttons snap to the real output frames so you can inspect them one at a time.
+    private void StepPreview(int delta)
+    {
+        if (Vm is null) return;
+        int n = Math.Max(2, Vm.FrameCount);
+        int cur = (int)Math.Round(Vm.PreviewValue * (n - 1));
+        int next = Math.Clamp(cur + delta, 0, n - 1);
+        Vm.PreviewValue = (double)next / (n - 1);
+    }
+
+    // Open an About-box link (URL in the element's Tag) in the default browser.
+    private void OnAboutLinkTapped(object? sender, PointerPressedEventArgs e)
+    {
+        if (sender is Control { Tag: string url } && !string.IsNullOrWhiteSpace(url))
+        {
+            try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
+            catch { /* couldn't open the browser — ignore */ }
         }
     }
 
@@ -138,9 +170,15 @@ public partial class MainWindow : Window
         }
     }
 
-    // ---- alignment crosshair (drag to set the source content centre) ----
+    // ---- alignment crosshair (drag to set the spin centre) ----
 
     private MainWindowViewModel? _guideVm;
+
+    // Live-drag render coalescing: the crosshair follows the pointer instantly on every event,
+    // but the (expensive) preview re-render is applied at most once per UI cycle — otherwise a
+    // fast drag queues hundreds of renders and the UI falls seconds behind.
+    private double _pendingX, _pendingY;
+    private bool _hasPendingCenter, _centerRenderScheduled;
 
     private void OnDataContextChangedForGuide(object? sender, EventArgs e)
     {
@@ -159,7 +197,7 @@ public partial class MainWindow : Window
             or nameof(MainWindowViewModel.ShowCenterGuide)
             or nameof(MainWindowViewModel.PreviewImage))
         {
-            // The source image re-lays-out when shown; reposition after layout settles.
+            // Reposition after layout settles (the frame re-lays-out when it changes).
             Dispatcher.UIThread.Post(PositionCrosshair, DispatcherPriority.Background);
         }
     }
@@ -181,38 +219,64 @@ public partial class MainWindow : Window
 
     private void OnGuideReleased(object? sender, PointerReleasedEventArgs e) => e.Pointer.Capture(null);
 
+    // A pointer drag sets the spin centre (normalized within the drawn art). The crosshair
+    // follows the pointer immediately (cheap); the preview re-render is coalesced to one per
+    // UI cycle so a fast drag stays responsive instead of queuing a render per move.
     private void SetCenterFromPointer(Point p)
     {
-        var rect = LetterboxRect();
-        if (rect is null || Vm is null) return;
-        var (left, top, w, h) = rect.Value;
+        if (Vm is null) return;
+        var art = ArtRectOnScreen();
+        if (art is null) return;
+        var (left, top, w, h) = art.Value;
         if (w <= 0 || h <= 0) return;
-        Vm.SourceCenterX = Math.Clamp((p.X - left) / w, 0, 1);
-        Vm.SourceCenterY = Math.Clamp((p.Y - top) / h, 0, 1);
+        double nx = Math.Clamp((p.X - left) / w, 0, 1);
+        double ny = Math.Clamp((p.Y - top) / h, 0, 1);
+
+        PlaceCrosshair(left + nx * w, top + ny * h);   // instant
+
+        _pendingX = nx; _pendingY = ny; _hasPendingCenter = true;
+        if (_centerRenderScheduled) return;
+        _centerRenderScheduled = true;
+        Dispatcher.UIThread.Post(ApplyPendingCenter, DispatcherPriority.Background);
+    }
+
+    private void ApplyPendingCenter()
+    {
+        _centerRenderScheduled = false;
+        if (!_hasPendingCenter || Vm is null) return;
+        _hasPendingCenter = false;
+        Vm.SetSourceCenter(_pendingX, _pendingY);   // one batched preview render
     }
 
     private void PositionCrosshair()
     {
         if (Vm is null || !Vm.ShowCenterGuide) return;
-        var rect = LetterboxRect();
-        if (rect is null) return;
-        var (left, top, w, h) = rect.Value;
-        double cx = left + Vm.SourceCenterX * w;
-        double cy = top + Vm.SourceCenterY * h;
+        var art = ArtRectOnScreen();
+        if (art is null) return;
+        var (al, at, aw, ah) = art.Value;
+        PlaceCrosshair(al + Vm.SourceCenterX * aw, at + Vm.SourceCenterY * ah);
+    }
 
-        CrossH.Width = w;
-        Canvas.SetLeft(CrossH, left);
+    // Position the crosshair (full-frame guide lines crossing at the ring) at a screen point.
+    private void PlaceCrosshair(double cx, double cy)
+    {
+        var frame = LetterboxRect();
+        if (frame is null) return;
+        var (fl, ft, fW, fH) = frame.Value;
+
+        CrossH.Width = fW;
+        Canvas.SetLeft(CrossH, fl);
         Canvas.SetTop(CrossH, cy - CrossH.Height / 2);
 
-        CrossV.Height = h;
+        CrossV.Height = fH;
         Canvas.SetLeft(CrossV, cx - CrossV.Width / 2);
-        Canvas.SetTop(CrossV, top);
+        Canvas.SetTop(CrossV, ft);
 
         Canvas.SetLeft(CrossRing, cx - CrossRing.Width / 2);
         Canvas.SetTop(CrossRing, cy - CrossRing.Height / 2);
     }
 
-    // The displayed (letterboxed) rect of the Uniform-fit source within the overlay,
+    // The displayed (letterboxed) rect of the rendered preview FRAME within the overlay,
     // in GuideCanvas coordinates — which share the preview Image's bounds and margin.
     private (double Left, double Top, double Width, double Height)? LetterboxRect()
     {
@@ -223,5 +287,23 @@ public partial class MainWindow : Window
         double s = Math.Min(cw / iw, ch / ih);
         double w = iw * s, h = ih * s;
         return ((cw - w) / 2, (ch - h) / 2, w, h);
+    }
+
+    // On-screen rect of the drawn ART (Contain-fit, rectangle-centred) within the rendered
+    // frame — the renderer places the source this way, so the crosshair must map to it
+    // (not the whole cell) for the mark to land on the knob.
+    private (double Left, double Top, double Width, double Height)? ArtRectOnScreen()
+    {
+        if (Vm is null) return null;
+        var frame = LetterboxRect();
+        if (frame is null) return null;
+        double fw = Vm.FrameWidth, fh = Vm.FrameHeight, sw = Vm.SourcePixelWidth, sh = Vm.SourcePixelHeight;
+        if (fw <= 0 || fh <= 0 || sw <= 0 || sh <= 0) return null;
+        double cs = Math.Min(fw / sw, fh / sh);     // "contain" scale, matching the renderer
+        double drawW = sw * cs, drawH = sh * cs;
+        double drawX = (fw - drawW) / 2, drawY = (fh - drawH) / 2;
+        var (fl, ft, fW, fH) = frame.Value;
+        double sx = fW / fw, sy = fH / fh;           // frame (1x) → screen
+        return (fl + drawX * sx, ft + drawY * sy, drawW * sx, drawH * sy);
     }
 }

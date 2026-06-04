@@ -20,8 +20,6 @@ public partial class MainWindowViewModel : ViewModelBase
     private SKBitmap? _source;
     private SKBitmap? _background;
     private string? _sourcePath;
-    private AvBitmap? _sourceAv;      // cached Avalonia copy of _source for the align overlay
-    private SKBitmap? _sourceAvOf;    // the _source that _sourceAv was built from
 
     // Suppresses the preview/recompute funnel while we set several properties at
     // once (e.g. applying type defaults), so we refresh only once afterwards.
@@ -135,6 +133,11 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>The "load a source" overlay shows only when there is nothing to preview;
     /// a procedural meter renders without a source.</summary>
     public bool ShowLoadHint => !HasSource && !IsMeter;
+
+    /// <summary>Source pixel size (0 when none) — the alignment overlay uses it to map the
+    /// crosshair onto the drawn art within the preview frame.</summary>
+    public int SourcePixelWidth => _source?.Width ?? 0;
+    public int SourcePixelHeight => _source?.Height ?? 0;
 
     /// <summary>
     /// Single funnel: any meaningful input change recomputes derived values and
@@ -307,7 +310,6 @@ public partial class MainWindowViewModel : ViewModelBase
         _source?.Dispose();
         _source = bmp;
         _sourcePath = path;
-        _sourceAv = null;             // invalidate the cached align-overlay bitmap
         HasSource = true;
         SourceInfo = $"{Path.GetFileName(path)} — {bmp.Width}×{bmp.Height}px";
 
@@ -424,17 +426,21 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
-    /// <summary>
-    /// Commits the crosshair mark as the centre. The drag has already set
-    /// <see cref="SourceCenterX"/>/<see cref="SourceCenterY"/>; leaving align mode flips
-    /// the preview from the raw source back to the rendered, re-centred result — so the
-    /// chosen point is visibly "pinned" as the centre and stays put.
-    /// </summary>
-    [RelayCommand]
-    private void PinCenter()
+    /// <summary>The crosshair is a persistent toggle. The preview shows the same frame with
+    /// or without it (the knob is never moved and Play keeps animating), so toggling it never
+    /// shifts the image — only the crosshair overlay appears/disappears.</summary>
+    partial void OnShowCenterGuideChanged(bool value) =>
+        StatusMessage = value ? "Crosshair on — drag it onto the knob's centre." : "Crosshair off.";
+
+    /// <summary>Sets the spin centre in one batch (a single preview render). The live crosshair
+    /// drag calls this so a fast drag triggers one render per move, not one per axis.</summary>
+    public void SetSourceCenter(double x, double y)
     {
-        StatusMessage = $"Centre pinned at ({SourceCenterX * 100:0}%, {SourceCenterY * 100:0}%).";
-        ShowCenterGuide = false;   // exit align mode → RefreshPreview renders the re-centred frame
+        _suspendRefresh = true;
+        SourceCenterX = Math.Clamp(x, 0.0, 1.0);
+        SourceCenterY = Math.Clamp(y, 0.0, 1.0);
+        _suspendRefresh = false;
+        RefreshPreview();
     }
 
     private bool CanExport() => HasSource || IsMeter;   // a procedural meter needs no source
@@ -513,27 +519,18 @@ public partial class MainWindowViewModel : ViewModelBase
 
         try
         {
-            // Alignment mode: show the raw source so the view can overlay a draggable
-            // centre crosshair. Cache the Avalonia copy so dragging doesn't re-encode.
-            if (ShowCenterGuide && source is not null)
-            {
-                if (_sourceAv is null || !ReferenceEquals(_sourceAvOf, source))
-                {
-                    _sourceAv = SkiaImageInterop.ToAvaloniaBitmap(source);
-                    _sourceAvOf = source;
-                }
-                PreviewImage = _sourceAv;
-                return;
-            }
-
-            int n = Math.Max(1, FrameCount);
-            int idx = Math.Clamp((int)Math.Round(PreviewValue * (n - 1)), 0, n - 1);
-
-            // Render the preview at display size for crispness, and cap supersample
-            // at 2 so scrubbing and playback stay responsive (export uses the full
-            // supersample setting).
             var settings = BuildSettings();
-            settings.Supersample = Math.Min(settings.Supersample, 2);
+            // Alignment is interactive (live crosshair drag + playback), so drop supersampling
+            // while the crosshair is on to keep it snappy; the normal preview keeps quality and
+            // export always uses the full supersample setting.
+            settings.Supersample = ShowCenterGuide ? 1 : Math.Min(settings.Supersample, 2);
+
+            // Continuous preview: a fixed, fine virtual frame resolution (1024) so the preview
+            // and the aligned position are smooth and NOT quantised to the (possibly coarse)
+            // export frame steps. Export still uses the sidebar frame count — this is preview-only.
+            int previewN = Math.Max(FrameCount, 1024);
+            settings.FrameCount = previewN;
+            int idx = Math.Clamp((int)Math.Round(PreviewValue * (previewN - 1)), 0, previewN - 1);
 
             double scale = PreviewDisplaySize / Math.Max(1, Math.Max(FrameWidth, FrameHeight));
 

@@ -2,6 +2,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:StripKit.ViewModels"
         xmlns:views="clr-namespace:StripKit.Views"
+        xmlns:controls="clr-namespace:StripKit.Controls"
         x:Class="StripKit.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="StripKit — Animated Control Filmstrip Maker"
@@ -43,19 +44,19 @@
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
                     <!-- Source -->
-                    <TextBlock Classes="section" Text="SOURCE IMAGE" />
+                    <controls:SectionHeader Text="SOURCE IMAGE" />
                     <Button Content="Load source image…" HorizontalAlignment="Stretch"
                             Command="{Binding OpenSourceCommand}" />
                     <TextBlock Classes="label" Text="{Binding SourceInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                     <!-- Component type -->
-                    <TextBlock Classes="section" Text="COMPONENT TYPE" />
+                    <controls:SectionHeader Text="COMPONENT TYPE" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding ComponentTypes}"
                               SelectedItem="{Binding ComponentType}" />
 
                     <!-- Frames -->
-                    <TextBlock Classes="section" Text="FRAMES" />
+                    <controls:SectionHeader Text="FRAMES" />
                     <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1" />
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
                         <Button Content="32" Command="{Binding SetFrames32Command}" />
@@ -64,7 +65,7 @@
                     </StackPanel>
 
                     <!-- Frame size -->
-                    <TextBlock Classes="section" Text="FRAME SIZE (1x, px)" />
+                    <controls:SectionHeader Text="FRAME SIZE (1x, px)" />
                     <Grid ColumnDefinitions="*,8,*">
                         <StackPanel Grid.Column="0">
                             <TextBlock Classes="label" Text="Width" />
@@ -80,7 +81,7 @@
 
                     <!-- Rotary -->
                     <StackPanel IsVisible="{Binding IsRotary}" Spacing="2">
-                        <TextBlock Classes="section" Text="ROTATION" />
+                        <controls:SectionHeader Text="ROTATION" />
                         <TextBlock Classes="label" Text="Sweep (degrees)" />
                         <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
                         <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
@@ -90,10 +91,10 @@
                         </StackPanel>
                         <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,6,0,0" />
 
-                        <TextBlock Classes="section" Text="CENTER (alignment)" />
+                        <controls:SectionHeader Text="CENTER (alignment)" />
                         <Button Content="Auto-center on content" HorizontalAlignment="Stretch"
                                 Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
-                        <CheckBox Content="Show guide — drag the crosshair onto the centre"
+                        <CheckBox Content="Enable crosshair"
                                   IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
                         <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
                             <StackPanel Grid.Column="0">
@@ -108,7 +109,7 @@
                         <Button Content="Reset to image centre" HorizontalAlignment="Left"
                                 Command="{Binding ResetCenterCommand}" Margin="0,4,0,0" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="Knobs auto-center on load. If yours still wobbles, hit Auto-center — or turn on the guide, drag the crosshair onto the knob's centre, and Pin it." />
+                                   Text="The spin centre is auto-detected on load. If a knob still wobbles, enable the crosshair and drag it onto the knob's true centre — it updates live and the art stays put. Switch it off when done." />
 
                         <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
                             <StackPanel Spacing="2">
@@ -132,21 +133,21 @@
 
                     <!-- Linear -->
                     <StackPanel IsVisible="{Binding IsLinear}" Spacing="2">
-                        <TextBlock Classes="section" Text="TRAVEL" />
+                        <controls:SectionHeader Text="TRAVEL" />
                         <TextBlock Classes="label" Text="Edge margin (px)" />
                         <NumericUpDown Value="{Binding EdgeMargin}" Minimum="0" Maximum="512" Increment="1" />
                         <TextBlock Classes="label" Text="Cap cross-axis offset (px)" />
                         <NumericUpDown Value="{Binding CapCrossOffset}" Minimum="-512" Maximum="512" Increment="1" />
                         <Button Content="Auto-center cap on content" HorizontalAlignment="Stretch" Margin="0,6,0,0"
                                 Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
-                        <CheckBox Content="Show alignment guide" IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
+                        <CheckBox Content="Enable crosshair" IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="The loaded image is the moving cap. Frame size above is the full track area." />
                     </StackPanel>
 
                     <!-- Meter -->
                     <StackPanel IsVisible="{Binding IsMeter}" Spacing="2">
-                        <TextBlock Classes="section" Text="METER" />
+                        <controls:SectionHeader Text="METER" />
                         <TextBlock Classes="label" Text="Segments" />
                         <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1" />
                         <TextBlock Classes="label" Text="Fill direction" Margin="0,6,0,0" />
@@ -168,7 +169,7 @@
                     </StackPanel>
 
                     <!-- Background -->
-                    <TextBlock Classes="section" Text="STATIC BACKGROUND (optional)" />
+                    <controls:SectionHeader Text="STATIC BACKGROUND (optional)" />
                     <Button Content="Load background layer…" HorizontalAlignment="Stretch"
                             Command="{Binding OpenBackgroundCommand}" />
                     <Button Content="Clear background" HorizontalAlignment="Stretch" Margin="0,4,0,0"
@@ -176,7 +177,7 @@
                     <TextBlock Classes="label" Text="{Binding BackgroundInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                     <!-- Quality / output -->
-                    <TextBlock Classes="section" Text="QUALITY &amp; OUTPUT" />
+                    <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
                     <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding SupersampleOptions}"
@@ -188,7 +189,7 @@
                     <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0" />
 
                     <!-- Manifest -->
-                    <TextBlock Classes="section" Text="MANIFEST (optional)" />
+                    <controls:SectionHeader Text="MANIFEST (optional)" />
                     <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}" />
                     <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
                     <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)" />
@@ -228,14 +229,10 @@
                                  Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" />
                     </Canvas>
 
-                    <StackPanel IsVisible="{Binding ShowCenterGuide}" Margin="0,12" Spacing="6"
-                                HorizontalAlignment="Center" VerticalAlignment="Top">
-                        <TextBlock Text="Drag the crosshair onto the knob's centre, then pin it"
-                                   HorizontalAlignment="Center"
-                                   Foreground="{DynamicResource Text2Brush}" FontSize="12" />
-                        <Button Content="Pin centre to image" Classes="accent" HorizontalAlignment="Center"
-                                Command="{Binding PinCenterCommand}" IsEnabled="{Binding HasSource}" />
-                    </StackPanel>
+                    <TextBlock Text="Drag the crosshair onto the knob's centre — it updates live"
+                               IsVisible="{Binding ShowCenterGuide}" Margin="0,12"
+                               HorizontalAlignment="Center" VerticalAlignment="Top"
+                               Foreground="{DynamicResource Text2Brush}" FontSize="12" />
 
                     <TextBlock Text="Load a source image to begin — or drop a PNG here"
                                IsVisible="{Binding ShowLoadHint}"
@@ -247,7 +244,12 @@
             <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
-                        <Button Grid.Column="0" x:Name="PlayButton" Content="▶ Play" Click="OnPlayClick" Width="92" />
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
+                            <Button Content="◀" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
+                            <Button x:Name="PlayButton" Content="▶ Play" Click="OnPlayClick" Width="84" />
+                            <Button Content="▶" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
+                            <Button Content="Reset" Click="OnResetPreview" ToolTip.Tip="Reset to the centred start frame" />
+                        </StackPanel>
                         <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
                         <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right" />
@@ -276,5 +278,34 @@
         </TabItem>
 
         </TabControl>
+
+        <!-- Header right side: app wordmark + an About (?) button, across from the tabs. -->
+        <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal"
+                    Margin="0,18,18,0" Spacing="12">
+            <Image Source="/Assets/software_logo.png" Height="26" VerticalAlignment="Center"
+                   IsHitTestVisible="False" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <Button Content="?" Width="28" Height="28" CornerRadius="14" Padding="0" FontSize="15"
+                    VerticalAlignment="Center" ToolTip.Tip="About StripKit">
+                <Button.Flyout>
+                    <Flyout Placement="BottomEdgeAlignedRight">
+                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="8">
+                            <Image Grid.Column="0" Grid.RowSpan="4" Source="/Assets/stripkit.png"
+                                   Width="56" Height="56" Margin="0,0,16,0" VerticalAlignment="Center"
+                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
+                            <TextBlock Grid.Column="1" Grid.Row="0" Text="StripKit Filmstrip Generator v0.6.0"
+                                       FontWeight="SemiBold" Foreground="White" />
+                            <TextBlock Grid.Column="1" Grid.Row="1" Text="https://stripkit.pro" Tag="https://stripkit.pro"
+                                       Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
+                                       Foreground="{DynamicResource AccentHiBrush}" Margin="0,3,0,0" />
+                            <TextBlock Grid.Column="1" Grid.Row="2" Text="VybeCode Software"
+                                       Foreground="{DynamicResource Text2Brush}" Margin="0,7,0,0" />
+                            <TextBlock Grid.Column="1" Grid.Row="3" Text="https://vybeco.de" Tag="https://vybeco.de"
+                                       Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
+                                       Foreground="{DynamicResource AccentHiBrush}" Margin="0,3,0,0" />
+                        </Grid>
+                    </Flyout>
+                </Button.Flyout>
+            </Button>
+        </StackPanel>
     </Panel>
 </Window>

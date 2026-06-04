@@ -1,5 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:controls="clr-namespace:StripKit.Controls"
              x:Class="StripKit.App"
              RequestedThemeVariant="Dark">
 
@@ -37,15 +38,25 @@
             <GradientStop Offset="1" Color="#FFFF7A42" />
         </LinearGradientBrush>
 
-        <!-- Recolor Fluent input states to translucent glass (no flat-grey hover flash).
-             Controls resolve these per-control keys via DynamicResource, so an
-             app-level override propagates to every ComboBox / TextBox / NumericUpDown. -->
-        <SolidColorBrush x:Key="ComboBoxBackground" Color="#10FFFFFF" />
-        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#22FFFFFF" />
-        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#0AFFFFFF" />
-        <SolidColorBrush x:Key="TextControlBackground" Color="#10FFFFFF" />
-        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#22FFFFFF" />
-        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#22FFFFFF" />
+        <!-- Inputs read as recessed dark wells with a clear light border, so they stand
+             out from the panel instead of blending in. Controls resolve these per-control
+             keys via DynamicResource, so an app-level override hits every ComboBox /
+             TextBox / NumericUpDown. Darker fills + lighter borders + (below) a drop shadow. -->
+        <SolidColorBrush x:Key="ComboBoxBackground" Color="#38000000" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#2A000000" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#4A000000" />
+        <SolidColorBrush x:Key="TextControlBackground" Color="#38000000" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#2A000000" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#4A000000" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#5AFFFFFF" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#82FFFFFF" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#5AFFFFFF" />
+        <SolidColorBrush x:Key="TextControlBorderBrush" Color="#5AFFFFFF" />
+        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#82FFFFFF" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FFE8440A" />
+
+        <!-- Section header text: dark grey, legible on the light-tinted glass. -->
+        <SolidColorBrush x:Key="SectionTextBrush" Color="#FF202024" />
 
         <!-- Slightly rounded controls + dropdown popups everywhere (Fluent reads these). -->
         <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
@@ -141,14 +152,37 @@
                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
             </Style>
         </ControlTheme>
+
+        <!-- Section header: a dark label with a 3px accent divider that overhangs ~25%
+             past the text (a horizontal scale on the line) for an artistic flourish. -->
+        <ControlTheme x:Key="{x:Type controls:SectionHeader}" TargetType="controls:SectionHeader">
+            <Setter Property="Margin" Value="0,14,0,4" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="Template">
+                <ControlTemplate>
+                    <Grid HorizontalAlignment="Left">
+                        <TextBlock x:Name="PART_Text" Text="{TemplateBinding Text}" Margin="0,0,0,6"
+                                   Foreground="{DynamicResource SectionTextBrush}"
+                                   FontWeight="SemiBold" FontSize="11" />
+                        <Border Height="3" VerticalAlignment="Bottom" HorizontalAlignment="Stretch"
+                                CornerRadius="1.5" Background="{DynamicResource AccentBrush}"
+                                RenderTransformOrigin="0%,50%">
+                            <Border.RenderTransform>
+                                <ScaleTransform ScaleX="1.25" />
+                            </Border.RenderTransform>
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter>
+        </ControlTheme>
     </Application.Resources>
 
     <Application.Styles>
         <FluentTheme />
 
-        <!-- Section headers + secondary labels, shared by every view. -->
+        <!-- Fallback for any plain section TextBlock (headers now use controls:SectionHeader). -->
         <Style Selector="TextBlock.section">
-            <Setter Property="Foreground" Value="{DynamicResource AccentBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource SectionTextBrush}" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Margin" Value="0,14,0,4" />
@@ -190,6 +224,14 @@
         <!-- Let the acrylic show through the tab host. -->
         <Style Selector="TabControl">
             <Setter Property="Background" Value="Transparent" />
+        </Style>
+
+        <!-- Subtle depth on input fields: a soft drop shadow on the field's border. -->
+        <Style Selector="TextBox /template/ Border#PART_BorderElement">
+            <Setter Property="BoxShadow" Value="0 2 5 0 #59000000" />
+        </Style>
+        <Style Selector="ComboBox /template/ Border#Background">
+            <Setter Property="BoxShadow" Value="0 2 5 0 #59000000" />
         </Style>
     </Application.Styles>
 </Application>

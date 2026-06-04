@@ -36,20 +36,22 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         {
             case ComponentType.RotaryKnob:
             {
-                // Aspect-fit the art into the frame, then place it so its *content*
-                // centre (SourceCenterX/Y) lands on the frame centre and rotate about
-                // that same point — so an off-centre knob stays centred in the cell and
-                // spins in place instead of orbiting. (0.5, 0.5) = plain rectangle
-                // centring. Give knob art ~10% transparent margin so corners don't clip.
+                // The art keeps its natural (aspect-fit, rectangle-centred) position in the
+                // cell — it is NOT moved. We only rotate about its *content* centre
+                // (SourceCenterX/Y within the drawn art) so an off-centre knob spins in
+                // place instead of orbiting. (0.5, 0.5) pivots at the frame centre = the
+                // classic behaviour. Give knob art ~10% transparent margin so corners
+                // don't clip as it rotates.
                 var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
-                float drawX = fw / 2f - (float)settings.SourceCenterX * drawW;
-                float drawY = fh / 2f - (float)settings.SourceCenterY * drawH;
+                float drawX = (fw - drawW) / 2f;
+                float drawY = (fh - drawH) / 2f;
 
                 double angle = settings.StartAngleDegrees
                              + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t;
 
-                float pivotX = fw / 2f + (float)settings.PivotOffsetX;
-                float pivotY = fh / 2f + (float)settings.PivotOffsetY;
+                // Pivot = the marked content point in frame coordinates (+ manual nudge).
+                float pivotX = drawX + (float)settings.SourceCenterX * drawW + (float)settings.PivotOffsetX;
+                float pivotY = drawY + (float)settings.SourceCenterY * drawH + (float)settings.PivotOffsetY;
 
                 return new FrameTransform(drawX, drawY, drawW, drawH, (float)angle, pivotX, pivotY);
             }
