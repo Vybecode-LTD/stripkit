@@ -7,6 +7,32 @@
 
 ## [Unreleased]
 
+### Added
+- **Code / component export.** Every export can also emit ready-to-paste **loader code** for
+  the target framework, so there's no hand-wiring step: **JUCE** (`LookAndFeel` filmstrip
+  `Slider` for knob/fader/slider, or a meter `Component`), **CSS/HTML** (a self-contained
+  `background-position` sprite + a 0..1 value setter), **iPlug2** (`IBKnobControl` /
+  `IBSliderControl` / `IBitmapControl` + `LoadBitmap`), and **HISE** (a `ScriptPanel` paint
+  routine). All share the universal rule `frame = clamp(round(value·(N−1)), 0, N−1)` and pick
+  the source axis from the stack direction. New `CodeTarget` enum + `CodeSnippetRequest` model
+  and a **pure** `CodeSnippetService` (`Generate` / `FileName` / `SaveAsync` — no Skia/Avalonia),
+  mirroring `ManifestService`. Create tab: a **"CODE EXPORT"** panel (per-target tick boxes →
+  one file each next to the PNG, e.g. `.juce.h` / `.html` / `.iplug2.cpp` / `.hise.js`) plus a
+  live **preview / copy-to-clipboard** expander. Identifiers are sanitised per language.
+  **+15 tests (`CodeSnippetServiceTests`), suite 72.** *(React / Web Component and Unity / Godot
+  targets remain on the roadmap.)*
+- **Value arc / fill ring (knobs).** An optional Serum/Vital-style fill arc composited onto
+  each knob frame that tracks the value: the lit arc sweeps from the start angle to the
+  current frame's angle, concentric with the rotation pivot. Configurable radius, thickness,
+  colour, round/butt end caps, an optional dim full-sweep track, an optional sweep gradient
+  (two colours), and an optional glow. Eleven Skia-free `FilmstripSettings` fields (packed
+  `0xAARRGGBB` colours), gated on `ShowValueArc` (**off by default — existing output is
+  byte-identical**); rendered into the oversampled work surface (`RenderValueArc`) so it
+  stays crisp; surfaced in a "VALUE ARC" panel in the Create tab's rotary section. The arc
+  inherits the knob's rotation sweep (no separate start-angle field) and is knob-only.
+  Mirrored in the standalone `FilmstripEngine.cs`. **+8 tests (4 golden baselines incl.
+  gradient+glow, 4 pixel-logic), suite 57 passing.**
+
 ### Changed
 - **Open-sourced under the MIT license.** Added a `LICENSE` (MIT), a public-facing
   `README.md` (badges, screenshot, tech stack, a contributing guide, and release-download

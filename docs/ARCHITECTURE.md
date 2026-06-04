@@ -94,6 +94,7 @@ owns a `Window` for the storage pickers).
 - **Linear:** `EdgeMargin` (4) — gap left at each end of the cap's travel; `CapCrossOffset` (0) — offset on the non-travel axis.
 - **Quality/output:** `Supersample` (4; clamped 1–8 by the renderer), `StackDirection` (`Vertical`).
 - **Meter:** `SegmentCount` (12), `FillDirection` (`Up`), `ContinuousFill` (false), `SegmentGap` (3, px), `OnColorArgb` (`0xFFE8440A`, the house accent), `OffColorArgb` (`0xFF2A2A2A`, dim). Colours are packed `0xAARRGGBB` so the model keeps no Skia dependency.
+- **Value arc (knob, §5.5):** `ShowValueArc` (false — the master gate), `ArcRadius` (0.88, fraction of the inscribed radius), `ArcThickness` (4, px), `ArcRoundCaps` (true), `ArcColorArgb` (`0xFFE8440A`), `ArcGradient` (false) + `ArcColor2Argb` (`0xFFFFC107`, amber), `ArcTrack` (true) + `ArcTrackColorArgb` (`0x33FFFFFF`, faint white), `ArcGlow` (false) + `ArcGlowSize` (6, px). All packed `0xAARRGGBB` / primitives — Skia-free.
 
 ### 3.2 `Services/` — the engine and I/O
 
@@ -103,6 +104,7 @@ owns a `Window` for the storage pickers).
 | `ContentAnalysis` (static) | `DetectContentCenter` — pixel analysis backing the alignment tools (§7). | No |
 | `IFilmstripImporter` / `FilmstripImporter` | `Detect` (layout from dimensions), `ExtractFrame`, `Restack`. | No |
 | `IManifestService` / `ManifestService` | `BuildSingleControl`, `Serialize`, `SaveAsync`. | No |
+| `ICodeSnippetService` / `CodeSnippetService` | `Generate` / `FileName` / `SaveAsync` — emit JUCE / CSS / iPlug2 / HISE loader code (§9.1). | No |
 | `IBatchProcessor` / `BatchProcessor` | render a folder of sources → many strips off-thread, with progress + cancel (§8). | No |
 | `IImageLoadService` / `ImageLoadService` | decode a file → `SKBitmap` (premultiplied RGBA); returns null on a missing/undecodable file. | No |
 | `IExportService` / `ExportService` | encode an `SKBitmap` → PNG file (creates the directory). | No |
@@ -158,6 +160,7 @@ services.AddSingleton<IImageLoadService, ImageLoadService>();
 services.AddSingleton<IFilmstripRenderer, SkiaFilmstripRenderer>();
 services.AddSingleton<IFilmstripImporter, FilmstripImporter>();
 services.AddSingleton<IManifestService, ManifestService>();
+services.AddSingleton<ICodeSnippetService, CodeSnippetService>();
 services.AddSingleton<IBatchProcessor, BatchProcessor>();
 services.AddSingleton<IExportService, ExportService>();
 services.AddSingleton<FileDialogService>();                                   // concrete, for Owner
@@ -263,6 +266,35 @@ Two modes, auto-selected by whether a `source` (the on-state art) is present:
   whole segments snap when discrete and the boundary segment is partially lit when
   continuous. Gaps stay transparent. `SegmentRect(k, …)` lays segment `k` at
   `k·(segLen + gap)` along the axis; `FromArgb` unpacks `0xAARRGGBB` → `SKColor`.
+
+### 5.5 Value arc (`RenderValueArc`)
+
+For a **rotary knob** with `ShowValueArc` set, `RenderFrame` composites a value-tracking
+fill arc **on top of** the rotated art (after `canvas.Restore()`, before the downsample) —
+the modern Serum/Vital look. It is purely additive and **knob-only**: every other component
+type, and `ShowValueArc = false` (the default), skip it entirely, so existing output is
+byte-identical.
+
+- **Geometry.** The arc is concentric with the knob's rotation pivot (`tf.PivotX/Y · px`),
+  so it follows an off-centre / nudged knob. Its radius is `ArcRadius · ½·min(workW, workH)`
+  (a fraction of the frame's inscribed radius; ~0.88 sits just outside a typical body). The
+  stroke is `ArcThickness · px` with round or butt caps (`ArcRoundCaps`).
+- **Sweep = value.** The lit arc inherits the knob's rotation range: it spans
+  `Start → Start + (End − Start)·t` for frame *i* (`t = i/(N−1)`), i.e. the same fraction of
+  the sweep the frame represents. **Angle convention:** the app's `0°` is 12 o'clock (`+` =
+  clockwise); Skia's arc `0°` is 3 o'clock, so the start converts as `StartAngle − 90` (the
+  `−90` cancels in the sweep *delta*). Negative sweeps (counter-clockwise knobs) draw
+  correctly because `DrawArc` honours a negative sweep.
+- **Layers (each optional, drawn back-to-front).** A dim **track** (`ArcTrack`,
+  `ArcTrackColorArgb`) at the full sweep shows the unfilled remainder; a **glow**
+  (`ArcGlow`, `ArcGlowSize`) is a blurred under-stroke of the lit portion via
+  `SKMaskFilter.CreateBlur`; the **lit fill** itself is solid `ArcColorArgb`, or a
+  `SKShader.CreateSweepGradient` from `ArcColorArgb → ArcColor2Argb` across the sweep when
+  `ArcGradient` is set. Colours are packed `0xAARRGGBB` (the model stays Skia-free, as with
+  the meter). Drawn into the oversampled work surface, so the arc downsamples crisp.
+
+The arc bakes into the exported PNG; the `skin.json` manifest is unchanged (the loader just
+shows frames). `StrokePaint(color, thickness, cap)` is the shared stroked-paint helper.
 
 ---
 
@@ -462,6 +494,34 @@ The model already supports **multi-control** manifests, an optional whole-window
 `background`, `author`/`skinVersion`, and `valueMin/Max/Default` — the export UI currently
 emits a single control.
 
+### 9.1 Code export (`ICodeSnippetService` / `CodeSnippetService`)
+
+To close the loop from *asset* to *working control*, an export can also emit **ready-to-paste
+loader code** for a target framework — so the user doesn't hand-write the filmstrip boilerplate.
+The service is **pure** (BCL only — no Skia, no Avalonia), a direct sibling of `ManifestService`:
+`Generate(target, request)` → a string, `FileName(target, controlId)` → the on-disk name, and
+the thin `SaveAsync(target, request, directory)`. Input is a `CodeSnippetRequest` record
+(component type, frame count/size, stack, asset/`@2x` file names, control id, parameter id).
+
+- **Targets (`CodeTarget`).** `Juce` — a `LookAndFeel_V4` filmstrip `Slider` (`drawRotarySlider`
+  for a knob, `drawLinearSlider` for a fader/slider) or a meter `Component` with `setLevel`;
+  `Css` — a self-contained HTML/`<style>`/`<script>` sprite driven by `background-position` + a
+  0..1 value setter; `IPlug2` — `IBKnobControl` / `IBSliderControl` / `IBitmapControl` with
+  `LoadBitmap(nStates, framesAreHorizontal)`; `Hise` — a `ScriptPanel` with a filmstrip paint
+  routine. The four files use extensions `.juce.h` / `.html` / `.iplug2.cpp` / `.hise.js`.
+- **The universal rule.** Every snippet selects the frame with
+  `frame = clamp(round(value·(N−1)), 0, N−1)` and reads the source cell from the stack axis
+  (`frame·frameH` down a vertical strip, `frame·frameW` along a horizontal one) — the same
+  `(N−1)` law as the renderer. Identifiers are sanitised per language (`Pascal` for C++ class /
+  param names, a CSS-class form, JUCE `BinaryData` mangling for the embedded asset name).
+- **Wiring.** `MainWindowViewModel` exposes `ExportCode` + four per-target toggles
+  (`EmitCodeJuce/Css/IPlug2/Hise`), a `CodePreviewTarget`, and a live `GeneratedCode` string;
+  the funnel refreshes the snippet when a code-relevant input (incl. `ParameterId`) changes —
+  **without** re-rendering the image. On export, `SaveAsync` writes one file per ticked target
+  next to the PNG; the Create tab also has a **preview / copy-to-clipboard** expander (clipboard
+  access lives in `MainWindow.axaml.cs`, a view concern). The snippet is generated from the
+  baked PNG; the renderer and manifest are untouched.
+
 ---
 
 ## 10. The Import tab (`ImporterViewModel` + `FilmstripImporter`)
@@ -571,9 +631,10 @@ unchanged.
 
 It contains exactly the **render math**: the `ComponentType`, `MeterFillDirection`, and
 `StackDirection` enums; the `FrameTransform` struct; `FilmstripSettings` (including the
-`SourceCenterX/Y` alignment fields and the meter fields); and `IFilmstripRenderer` +
-`SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`, `RenderStrip`, and
-the full `RenderMeterFrame` procedural/layered path). It does **not** include the
+`SourceCenterX/Y` alignment fields, the meter fields, and the value-arc fields); and
+`IFilmstripRenderer` + `SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`,
+`RenderStrip`, the full `RenderMeterFrame` procedural/layered path, and `RenderValueArc`).
+It does **not** include the
 app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 `BatchProcessor`, the I/O services, or any view-model/view — by design.
 
@@ -581,8 +642,8 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 > `Models/{FilmstripSettings, FrameTransform, ComponentType, StackDirection,
 > MeterFillDirection}`. If the in-app renderer's math changes (transform, supersampling,
 > meter fill, alignment), update this file to match (or it silently drifts). As of this
-> audit the two are in sync — the alignment `SourceCenterX/Y` pivot and the meter path are
-> both present here.
+> audit the two are in sync — the alignment `SourceCenterX/Y` pivot, the meter path, and the
+> `RenderValueArc` value-arc path (with its `FilmstripSettings` arc fields) are all present here.
 
 ---
 
@@ -646,7 +707,11 @@ items → result summary.
 
 xUnit + NSubstitute + FluentAssertions + `Avalonia.Headless`. Coverage spans: golden-image
 renderer baselines (`RendererGoldenTests`), alignment renders (`AlignmentRenderTests`),
-meter renders (`MeterRenderTests`), `ContentAnalysisTests`, importer engine + VM
+meter renders (`MeterRenderTests`), value-arc renders (`ValueArcRenderTests` — golden
+baselines incl. gradient+glow, plus pixel-logic for the lit-sweep growth and the off /
+non-knob no-ops), code-snippet generation (`CodeSnippetServiceTests` — per-target control
+class / draw method, the frame math, stack-axis source, identifier sanitisation, file names,
+`SaveAsync`), `ContentAnalysisTests`, importer engine + VM
 (`FilmstripImporterTests`, `ImporterViewModelTests`), manifest mapping/JSON-Schema
 (`ManifestServiceTests`), batch processor + VM (`BatchProcessorTests`, `BatchViewModelTests`),
 the Create-tab load path (`LoadPathTests`), and a headless `DropZoneViewTests` (a synthetic

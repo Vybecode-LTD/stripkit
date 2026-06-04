@@ -145,6 +145,31 @@ public sealed class FilmstripSettings
     /// <summary>Procedural unlit-segment colour, 0xAARRGGBB.</summary>
     public uint OffColorArgb { get; set; } = 0xFF2A2A2A;
 
+    // ---- Value arc / fill ring (rotary knob only) ----
+    /// <summary>Composite a Serum/Vital-style value-tracking fill arc onto each knob frame
+    /// (off by default; ignored for non-knob types).</summary>
+    public bool ShowValueArc { get; set; }
+    /// <summary>Arc radius as a fraction of the frame's inscribed radius (½·min(w,h)).</summary>
+    public double ArcRadius { get; set; } = 0.88;
+    /// <summary>Arc stroke thickness, in 1x pixels.</summary>
+    public double ArcThickness { get; set; } = 4.0;
+    /// <summary>Round (true) vs butt (false) arc end caps.</summary>
+    public bool ArcRoundCaps { get; set; } = true;
+    /// <summary>Lit-arc colour, 0xAARRGGBB.</summary>
+    public uint ArcColorArgb { get; set; } = 0xFFE8440A;
+    /// <summary>Sweep-gradient the lit arc from <see cref="ArcColorArgb"/> to <see cref="ArcColor2Argb"/>.</summary>
+    public bool ArcGradient { get; set; }
+    /// <summary>Far end of the arc gradient, 0xAARRGGBB.</summary>
+    public uint ArcColor2Argb { get; set; } = 0xFFFFC107;
+    /// <summary>Draw a dim full-sweep track behind the lit fill.</summary>
+    public bool ArcTrack { get; set; } = true;
+    /// <summary>Track colour, 0xAARRGGBB.</summary>
+    public uint ArcTrackColorArgb { get; set; } = 0x33FFFFFF;
+    /// <summary>Give the lit arc a soft glow (a blurred under-stroke).</summary>
+    public bool ArcGlow { get; set; }
+    /// <summary>Glow blur size, in 1x pixels.</summary>
+    public double ArcGlowSize { get; set; } = 6.0;
+
     public FilmstripSettings Clone() => (FilmstripSettings)MemberwiseClone();
 }
 
@@ -290,6 +315,10 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
 
             canvas.DrawImage(srcImage, srcRect, dstRect, Cubic);
             canvas.Restore();
+
+            // Composite the value arc on top of the rotated art (knobs only).
+            if (settings.ShowValueArc && settings.ComponentType == ComponentType.RotaryKnob)
+                RenderValueArc(canvas, settings, tf, frameIndex, px, workW, workH);
         }
 
         // Downsample the oversampled frame to the target size. When ss == 1 this
@@ -402,4 +431,72 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
 
     private static SKColor FromArgb(uint argb) =>
         new((byte)(argb >> 16), (byte)(argb >> 8), (byte)argb, (byte)(argb >> 24));
+
+    // ---- value arc ----
+
+    /// <summary>Composites a value-tracking fill arc onto a knob frame (Serum/Vital style):
+    /// the lit arc sweeps from the start angle to the current frame's angle, concentric with
+    /// the rotation pivot, with optional dim track, sweep gradient, and glow.</summary>
+    private static void RenderValueArc(SKCanvas canvas, FilmstripSettings settings, FrameTransform tf,
+                                       int frameIndex, double px, int workW, int workH)
+    {
+        int n = Math.Max(1, settings.FrameCount);
+        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+
+        float cx = tf.PivotX * (float)px;
+        float cy = tf.PivotY * (float)px;
+
+        float inscribed = Math.Min(workW, workH) / 2f;
+        float radius = (float)settings.ArcRadius * inscribed;
+        if (radius <= 0f) return;
+
+        float thickness = Math.Max(0.5f, (float)(settings.ArcThickness * px));
+        var oval = new SKRect(cx - radius, cy - radius, cx + radius, cy + radius);
+        var cap = settings.ArcRoundCaps ? SKStrokeCap.Round : SKStrokeCap.Butt;
+
+        // App angles: 0 = up (12 o'clock), + = clockwise. Skia arc: 0 = 3 o'clock. Convert
+        // by -90; the -90 cancels in the sweep delta.
+        float fullSweep = (float)(settings.EndAngleDegrees - settings.StartAngleDegrees);
+        float skiaStart = (float)settings.StartAngleDegrees - 90f;
+        float litSweep = (float)(fullSweep * t);
+
+        if (settings.ArcTrack)
+        {
+            using var trackPaint = StrokePaint(FromArgb(settings.ArcTrackColorArgb), thickness, cap);
+            canvas.DrawArc(oval, skiaStart, fullSweep, false, trackPaint);
+        }
+
+        if (settings.ArcGlow && settings.ArcGlowSize > 0)
+        {
+            float sigma = (float)(settings.ArcGlowSize * px) * 0.5f;
+            using var glowBlur = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, sigma);
+            using var glowPaint = StrokePaint(FromArgb(settings.ArcColorArgb), thickness, cap);
+            glowPaint.MaskFilter = glowBlur;
+            canvas.DrawArc(oval, skiaStart, litSweep, false, glowPaint);
+        }
+
+        using var litPaint = StrokePaint(FromArgb(settings.ArcColorArgb), thickness, cap);
+        if (settings.ArcGradient)
+        {
+            float gA = skiaStart, gB = skiaStart + fullSweep;
+            if (gB < gA) (gA, gB) = (gB, gA);
+            litPaint.Shader = SKShader.CreateSweepGradient(
+                new SKPoint(cx, cy),
+                new[] { FromArgb(settings.ArcColorArgb), FromArgb(settings.ArcColor2Argb) },
+                new[] { 0f, 1f },
+                SKShaderTileMode.Clamp, gA, gB);
+        }
+
+        canvas.DrawArc(oval, skiaStart, litSweep, false, litPaint);
+        litPaint.Shader?.Dispose();
+    }
+
+    private static SKPaint StrokePaint(SKColor color, float thickness, SKStrokeCap cap) => new()
+    {
+        Color = color,
+        IsAntialias = true,
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = thickness,
+        StrokeCap = cap,
+    };
 }

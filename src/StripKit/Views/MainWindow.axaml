@@ -111,6 +111,42 @@
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="The spin centre is auto-detected on load. If a knob still wobbles, enable the crosshair and drag it onto the knob's true centre — it updates live and the art stays put. Switch it off when done." />
 
+                        <!-- Value arc / fill ring (Serum/Vital-style) -->
+                        <controls:SectionHeader Text="VALUE ARC (fill ring)" />
+                        <CheckBox Content="Add a value arc that tracks the value" IsChecked="{Binding ShowValueArc}" />
+                        <StackPanel IsVisible="{Binding ShowValueArc}" Spacing="2" Margin="0,4,0,0">
+                            <Grid ColumnDefinitions="*,8,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Radius (0–1)" />
+                                    <NumericUpDown Value="{Binding ArcRadius}" Minimum="0.1" Maximum="1.2" Increment="0.01" FormatString="0.00" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Thickness (px)" />
+                                    <NumericUpDown Value="{Binding ArcThickness}" Minimum="0.5" Maximum="64" Increment="0.5" FormatString="0.0" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Classes="label" Text="Arc colour (#AARRGGBB)" Margin="0,4,0,0" />
+                            <TextBox Text="{Binding ArcColorHex}" />
+                            <CheckBox Content="Round end caps" IsChecked="{Binding ArcRoundCaps}" Margin="0,6,0,0" />
+                            <CheckBox Content="Dim track behind" IsChecked="{Binding ArcTrack}" />
+                            <TextBox Text="{Binding ArcTrackColorHex}" IsVisible="{Binding ArcTrack}"
+                                     Watermark="track colour #AARRGGBB" />
+
+                            <Expander Header="Gradient &amp; glow" Margin="0,6,0,0">
+                                <StackPanel Spacing="2">
+                                    <CheckBox Content="Gradient along the arc" IsChecked="{Binding ArcGradient}" />
+                                    <TextBlock Classes="label" Text="Gradient end colour" IsVisible="{Binding ArcGradient}" />
+                                    <TextBox Text="{Binding ArcColor2Hex}" IsVisible="{Binding ArcGradient}" />
+                                    <CheckBox Content="Glow" IsChecked="{Binding ArcGlow}" Margin="0,6,0,0" />
+                                    <TextBlock Classes="label" Text="Glow size (px)" IsVisible="{Binding ArcGlow}" />
+                                    <NumericUpDown Value="{Binding ArcGlowSize}" Minimum="0" Maximum="64" Increment="0.5"
+                                                   FormatString="0.0" IsVisible="{Binding ArcGlow}" />
+                                </StackPanel>
+                            </Expander>
+                            <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Text="A modern fill arc composited onto every frame; it follows the rotation sweep above. Baked into the PNG." />
+                        </StackPanel>
+
                         <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="label" Text="Start angle (frame 0)" />
@@ -195,6 +231,36 @@
                     <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)" />
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,12"
                                Text="Writes &lt;name&gt;.skin.json next to the PNG: one control bound to this parameter, ready for a JUCE LookAndFeel / skin loader." />
+
+                    <!-- Code export — ready-to-paste loader snippets -->
+                    <controls:SectionHeader Text="CODE EXPORT (loader snippets)" />
+                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}" />
+                    <StackPanel IsVisible="{Binding ExportCode}" Spacing="2" Margin="0,4,0,0">
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="JUCE" IsChecked="{Binding EmitCodeJuce}" />
+                            <CheckBox Grid.Column="1" Content="CSS / HTML" IsChecked="{Binding EmitCodeCss}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="iPlug2" IsChecked="{Binding EmitCodeIPlug2}" />
+                            <CheckBox Grid.Column="1" Content="HISE" IsChecked="{Binding EmitCodeHise}" />
+                        </Grid>
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Text="Writes a loader file per ticked target next to the PNG (.juce.h / .html / .iplug2.cpp / .hise.js). The code loads the strip and shows one frame per value." />
+                    </StackPanel>
+
+                    <Expander Header="Preview / copy code" Margin="0,6,0,12">
+                        <StackPanel Spacing="6">
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding CodeTargets}" SelectedItem="{Binding CodePreviewTarget}" />
+                            <Border Classes="tile" Padding="2">
+                                <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Auto">
+                                    <TextBox Text="{Binding GeneratedCode}" IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                                </ScrollViewer>
+                            </Border>
+                            <Button Content="Copy to clipboard" HorizontalAlignment="Right" Click="OnCopyCode" />
+                        </StackPanel>
+                    </Expander>
 
                 </StackPanel>
             </ScrollViewer>

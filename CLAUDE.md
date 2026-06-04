@@ -81,10 +81,13 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 - `Services/SkiaFilmstripRenderer.cs` — **the heart.** `ComputeTransform` does the
   rotary/linear math; `RenderFrame` composites one frame with supersampling +
   Mitchell cubic resampling (meters fill segments via `RenderMeterFrame` — procedural
-  or layered on/off-art reveal); `RenderStrip` blits frames into the stacked PNG.
+  or layered on/off-art reveal; knobs may get a value-tracking fill arc via
+  `RenderValueArc`); `RenderStrip` blits frames into the stacked PNG.
 - `Services/FilmstripImporter.cs` — detect an existing strip's layout from its
   dimensions, extract a frame, re-stack orientation (no Avalonia dep).
 - `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json).
+- `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
+  iPlug2 / HISE) for an exported strip; pure string-gen mirroring `ManifestService`.
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
   UI thread (`Task.Run`), with per-item progress and a working cancel.
 - `Services/ImageLoadService.cs` / `ExportService.cs` — decode/encode PNG ↔ `SKBitmap`.
@@ -151,6 +154,50 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-04 (vNext ★ #2 — code / component export)** — Second of the three ★ bets, the
+  "close the loop" feature: an export can also emit **ready-to-paste loader code** so there's
+  no hand-wiring step. New **pure** `CodeSnippetService` (`Generate`/`FileName`/`SaveAsync`,
+  no Skia/Avalonia — a direct sibling of `ManifestService`) + `CodeTarget` enum and
+  `CodeSnippetRequest` record (`Models/CodeModels.cs`). **Four targets shipped:** **JUCE**
+  (`LookAndFeel_V4` `drawRotarySlider`/`drawLinearSlider`, or a meter `Component` w/ `setLevel`),
+  **CSS/HTML** (self-contained `<style>`+`<script>` `background-position` sprite + a 0..1 setter),
+  **iPlug2** (`IBKnobControl`/`IBSliderControl`/`IBitmapControl` + `LoadBitmap`), **HISE**
+  (`ScriptPanel` paint routine). Every snippet uses the universal `frame = clamp(round(value·(N−1)),
+  0, N−1)` and the stack-direction source axis; identifiers sanitised per language. VM: `ExportCode`
+  + 4 `EmitCode*` toggles + `CodePreviewTarget` + live `GeneratedCode` (funnel refreshes the
+  snippet on code-relevant input incl. `ParameterId`, **without** re-rendering the image); export
+  writes one file per ticked target next to the PNG (`.juce.h`/`.html`/`.iplug2.cpp`/`.hise.js`).
+  Create-tab **"CODE EXPORT"** panel + a **preview / copy-to-clipboard** expander (clipboard in
+  `MainWindow.axaml.cs`). DI-registered. Renderer/manifest untouched; generated snippets visually
+  reviewed for correctness. +15 tests (`CodeSnippetServiceTests`). Build **0/0**, **72/72 green**,
+  boots clean. **Next:** vNext ★ #3 — **layer-aware animation + auto-pointer extraction** (the big
+  one: a deep renderer/model change — accept base+pointer layers so only the pointer rotates, plus
+  flat-art indicator auto-detect; scope the input format first). React/Web-Component + Unity/Godot
+  code targets remain (P2). Still pending: website → stripkit.pro, code-signing cert, Batch-tab
+  meter UI.
+- **2026-06-04 (vNext ★ #1 — value-arc / fill-ring generator)** — First of the three
+  ★ roadmap bets. A Serum/Vital-style **value arc** is composited onto knob frames: the
+  lit arc sweeps from the start angle to the current frame's angle (`Start + (End−Start)·t`),
+  concentric with the rotation pivot, baked into the exported PNG. New private
+  `RenderValueArc` in `SkiaFilmstripRenderer` (called from `RenderFrame` **only for
+  `RotaryKnob` when `ShowValueArc`** — so all existing goldens are byte-identical), plus
+  the `StrokePaint` helper. **11 new Skia-free `FilmstripSettings` fields** (packed
+  `0xAARRGGBB`): `ShowValueArc`, `ArcRadius` (frac of inscribed radius), `ArcThickness`,
+  `ArcRoundCaps`, `ArcColorArgb`, `ArcGradient`+`ArcColor2Argb`, `ArcTrack`+`ArcTrackColorArgb`,
+  `ArcGlow`+`ArcGlowSize`. Optional **dim track**, **sweep gradient** (`CreateSweepGradient`),
+  and **glow** (`CreateBlur` under-stroke); round/butt caps. The arc **inherits the knob's
+  rotation sweep** (no redundant start-angle field) and is **knob-only**; the `skin.json`
+  manifest is unchanged (loader just shows frames). Angle convention handled: app 0° = 12
+  o'clock, Skia arc 0° = 3 o'clock → `StartAngle − 90` (the −90 cancels in the sweep delta).
+  VM: 11 `[ObservableProperty]` fields (hex colours via `ParseArgb`) on the funnel + a
+  **"VALUE ARC" panel** in the Create-tab rotary section (radius/thickness/colour/caps/track,
+  gradient+glow in an expander). **Mirrored in `FilmstripEngine.cs`.** +8 tests
+  (`ValueArcRenderTests`: 4 golden baselines incl. gradient+glow — visually reviewed — and
+  4 pixel-logic for lit-sweep growth + the off / non-knob no-ops). Build **0/0**, **57/57
+  green**, app boots clean. **Next steps:** vNext ★ #2 — **code/component export**
+  (JUCE/iPlug2/CSS loader snippets; a pure `CodeExportService` mirroring `ManifestService`,
+  zero renderer risk), then ★ #3 — layer-aware animation. Still pending from before: deploy
+  website to **stripkit.pro**, code-signing cert, Batch-tab meter settings UI.
 - **2026-06-04 (documentation overhaul + audit + OSS hardening)** — Three doc sets
   fully rewritten from source-verified content: **`docs/ARCHITECTURE.md`** (complete
   deep-dive: alignment system + `SourceCenterX/Y`/`ContentAnalysis`, meter renderer —

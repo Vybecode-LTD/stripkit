@@ -36,10 +36,11 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (49): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (72): renderer golden-image (with committed
   `baselines/`), `ContentAnalysis` + alignment render, view-model load-path, importer
-  engine + VM, manifest, batch processor + VM, meter renderer, and a headless drop-zone
-  test. See `docs/TESTING.md`.
+  engine + VM, manifest, batch processor + VM, meter renderer, value-arc renderer
+  (`ValueArcRenderTests`), code-snippet generation (`CodeSnippetServiceTests`), and a
+  headless drop-zone test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 
@@ -59,21 +60,25 @@ does each thing live" companion.
 - `FrameTransform.cs` — a readonly record struct describing where the source
   layer is drawn in one frame (translate, draw size, rotation, pivot).
 - `FilmstripSettings.cs` — the full render contract (frame count/size, angles,
-  pivot, margins, supersample, stack direction). Passed to the renderer.
+  pivot, content-centre alignment, margins, supersample, stack direction, meter
+  fields, and the value-arc fields). Passed to the renderer.
 - `StripDetection.cs` — the inferred layout of an *existing* strip (count, frame
   size, orientation, classified kind, low-confidence flag). Output of the importer.
 - `SkinManifest.cs` — `SkinManifest` / `ManifestControl` / `ManifestBounds` records:
   the `skin.json` schema that binds an exported strip to a plugin parameter.
 - `BatchModels.cs` — `BatchOptions` (inputs/output/template), `BatchProgress`,
   `BatchItemResult`, `BatchResult` for the Batch tab.
+- `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise`) +
+  `CodeSnippetRequest` record: the inputs for the code-export service.
 
 ### `Services/` — the engine and I/O
 
 - `IFilmstripRenderer.cs` / `SkiaFilmstripRenderer.cs` — **the heart of the app.**
   `ComputeTransform` holds the per-component math; `RenderFrame` composites one
   frame with supersampling + Mitchell cubic resampling (meters fill segments via
-  `RenderMeterFrame` — procedural bars or a layered on/off-art reveal); `RenderStrip`
-  stacks frames into the output PNG. No Avalonia dependency. Do not rewrite this.
+  `RenderMeterFrame` — procedural bars or a layered on/off-art reveal; knobs may get a
+  value-tracking fill arc via `RenderValueArc`); `RenderStrip` stacks frames into the
+  output PNG. No Avalonia dependency. Do not rewrite this.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / save-PNG / open-folder
   pickers via Avalonia `StorageProvider`. The concrete class holds the `Owner` window,
@@ -84,6 +89,9 @@ does each thing live" companion.
   extract a single frame, and re-stack to a new orientation. No Avalonia dependency.
 - `IManifestService.cs` / `ManifestService.cs` — build + serialize a `skin.json`
   manifest (System.Text.Json, camelCase) binding an exported strip to a parameter.
+- `ICodeSnippetService.cs` / `CodeSnippetService.cs` — emit ready-to-paste loader code
+  (JUCE / CSS-HTML / iPlug2 / HISE) for an exported strip: `Generate` / `FileName` (pure)
+  + a thin `SaveAsync`. No Avalonia dependency.
 - `IBatchProcessor.cs` / `BatchProcessor.cs` — render a folder of sources into many
   strips off the UI thread (`Task.Run`), with per-item progress and between-item
   cancellation; isolates per-file failures. No Avalonia dependency.

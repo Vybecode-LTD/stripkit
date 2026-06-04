@@ -41,7 +41,8 @@ public class LoadPathTests
             Substitute.For<IExportService>());
         var batch = new BatchViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IBatchProcessor>());
 
-        return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(), importer, batch), load, dialogs);
+        return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
+                                        new CodeSnippetService(), importer, batch), load, dialogs);
     }
 
     [Fact]

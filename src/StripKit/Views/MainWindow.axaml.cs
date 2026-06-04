@@ -105,6 +105,17 @@ public partial class MainWindow : Window
         }
     }
 
+    // Copy the currently-previewed loader snippet to the clipboard. Clipboard access is a
+    // view (top-level) concern, so it lives here rather than in the view model.
+    private async void OnCopyCode(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is null || string.IsNullOrEmpty(Vm.GeneratedCode)) return;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null) return;
+        await clipboard.SetTextAsync(Vm.GeneratedCode);
+        Vm.StatusMessage = $"Copied the {Vm.CodePreviewTarget} snippet to the clipboard.";
+    }
+
     private void OnPlayTick(object? sender, EventArgs e)
     {
         if (Vm is null)

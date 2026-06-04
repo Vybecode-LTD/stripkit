@@ -155,6 +155,10 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
 
             canvas.DrawImage(srcImage, srcRect, dstRect, Cubic);
             canvas.Restore();
+
+            // Composite the value arc on top of the rotated art (knobs only).
+            if (settings.ShowValueArc && settings.ComponentType == ComponentType.RotaryKnob)
+                RenderValueArc(canvas, settings, tf, frameIndex, px, workW, workH);
         }
 
         // Downsample the oversampled frame to the target size. When ss == 1 this
@@ -276,6 +280,83 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             ? new SKRect(0, start, workW, start + segLen)
             : new SKRect(start, 0, start + segLen, workH);
     }
+
+    // ---- value arc ----
+
+    /// <summary>
+    /// Composites a value-tracking fill arc onto a knob frame (Serum/Vital style). The lit
+    /// arc sweeps from the start angle to the current frame's angle, concentric with the
+    /// rotation pivot; an optional dim track shows the unfilled remainder, with optional
+    /// sweep gradient and glow. Drawn into the oversampled work surface, so it stays crisp.
+    /// </summary>
+    private static void RenderValueArc(SKCanvas canvas, FilmstripSettings settings, FrameTransform tf,
+                                       int frameIndex, double px, int workW, int workH)
+    {
+        int n = Math.Max(1, settings.FrameCount);
+        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+
+        // Concentric with the knob's rotation pivot (its content centre + any nudge).
+        float cx = tf.PivotX * (float)px;
+        float cy = tf.PivotY * (float)px;
+
+        float inscribed = Math.Min(workW, workH) / 2f;
+        float radius = (float)settings.ArcRadius * inscribed;
+        if (radius <= 0f) return;
+
+        float thickness = Math.Max(0.5f, (float)(settings.ArcThickness * px));
+        var oval = new SKRect(cx - radius, cy - radius, cx + radius, cy + radius);
+        var cap = settings.ArcRoundCaps ? SKStrokeCap.Round : SKStrokeCap.Butt;
+
+        // App angles: 0 = up (12 o'clock), positive = clockwise. Skia arc angles: 0 = 3
+        // o'clock. Convert by -90; the -90 cancels in the sweep delta, so the lit fill is
+        // the same fraction of the rotation range the frame represents.
+        float fullSweep = (float)(settings.EndAngleDegrees - settings.StartAngleDegrees);
+        float skiaStart = (float)settings.StartAngleDegrees - 90f;
+        float litSweep = (float)(fullSweep * t);
+
+        // Dim full-sweep track behind the lit fill.
+        if (settings.ArcTrack)
+        {
+            using var trackPaint = StrokePaint(FromArgb(settings.ArcTrackColorArgb), thickness, cap);
+            canvas.DrawArc(oval, skiaStart, fullSweep, false, trackPaint);
+        }
+
+        // Glow: a blurred under-stroke of the lit portion in the arc colour.
+        if (settings.ArcGlow && settings.ArcGlowSize > 0)
+        {
+            float sigma = (float)(settings.ArcGlowSize * px) * 0.5f;
+            using var glowBlur = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, sigma);
+            using var glowPaint = StrokePaint(FromArgb(settings.ArcColorArgb), thickness, cap);
+            glowPaint.MaskFilter = glowBlur;
+            canvas.DrawArc(oval, skiaStart, litSweep, false, glowPaint);
+        }
+
+        // The lit fill: a solid colour, or a sweep gradient across the rotation range.
+        using var litPaint = StrokePaint(FromArgb(settings.ArcColorArgb), thickness, cap);
+        if (settings.ArcGradient)
+        {
+            float gA = skiaStart, gB = skiaStart + fullSweep;
+            if (gB < gA) (gA, gB) = (gB, gA);  // CreateSweepGradient wants ascending angles
+            litPaint.Shader = SKShader.CreateSweepGradient(
+                new SKPoint(cx, cy),
+                new[] { FromArgb(settings.ArcColorArgb), FromArgb(settings.ArcColor2Argb) },
+                new[] { 0f, 1f },
+                SKShaderTileMode.Clamp, gA, gB);
+        }
+
+        canvas.DrawArc(oval, skiaStart, litSweep, false, litPaint);
+        litPaint.Shader?.Dispose();
+    }
+
+    /// <summary>A stroked, antialiased paint with the given colour, width and end cap.</summary>
+    private static SKPaint StrokePaint(SKColor color, float thickness, SKStrokeCap cap) => new()
+    {
+        Color = color,
+        IsAntialias = true,
+        Style = SKPaintStyle.Stroke,
+        StrokeWidth = thickness,
+        StrokeCap = cap,
+    };
 
     /// <summary>Unpacks a <c>0xAARRGGBB</c> value into an <see cref="SKColor"/>.</summary>
     private static SKColor FromArgb(uint argb) =>

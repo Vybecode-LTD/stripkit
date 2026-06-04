@@ -80,5 +80,44 @@ public sealed class FilmstripSettings
     /// <summary>Procedural meter unlit-segment colour, packed <c>0xAARRGGBB</c>.</summary>
     public uint OffColorArgb { get; set; } = 0xFF2A2A2A;   // dim
 
+    // ---- Value arc / fill ring (rotary knob only) ----
+
+    /// <summary>When true, a Serum/Vital-style fill arc that tracks the value is composited
+    /// onto each knob frame (it sweeps from the start angle to the current frame's angle).
+    /// Off by default, so existing output is unchanged. Ignored for non-knob types.</summary>
+    public bool ShowValueArc { get; set; }
+
+    /// <summary>Arc radius as a fraction of the frame's inscribed radius (½·min(width,height)).
+    /// ~0.88 sits just outside a typical knob body; 1.0 rings the frame edge.</summary>
+    public double ArcRadius { get; set; } = 0.88;
+
+    /// <summary>Arc stroke thickness, in 1x pixels.</summary>
+    public double ArcThickness { get; set; } = 4.0;
+
+    /// <summary>Round (true) vs butt (false) arc end caps.</summary>
+    public bool ArcRoundCaps { get; set; } = true;
+
+    /// <summary>Lit-arc colour, packed <c>0xAARRGGBB</c> (no Skia dep here).</summary>
+    public uint ArcColorArgb { get; set; } = 0xFFE8440A;   // house accent
+
+    /// <summary>When true the lit arc is a sweep gradient from <see cref="ArcColorArgb"/> to
+    /// <see cref="ArcColor2Argb"/> across the rotation sweep.</summary>
+    public bool ArcGradient { get; set; }
+
+    /// <summary>Far end of the arc gradient, packed <c>0xAARRGGBB</c> (used when <see cref="ArcGradient"/>).</summary>
+    public uint ArcColor2Argb { get; set; } = 0xFFFFC107;  // amber
+
+    /// <summary>When true a dim full-sweep track is drawn behind the lit fill (shows the unfilled remainder).</summary>
+    public bool ArcTrack { get; set; } = true;
+
+    /// <summary>Track colour, packed <c>0xAARRGGBB</c> (used when <see cref="ArcTrack"/>).</summary>
+    public uint ArcTrackColorArgb { get; set; } = 0x33FFFFFF;  // faint white
+
+    /// <summary>When true the lit arc gets a soft glow (a blurred under-stroke in the arc colour).</summary>
+    public bool ArcGlow { get; set; }
+
+    /// <summary>Glow blur size, in 1x pixels (used when <see cref="ArcGlow"/>).</summary>
+    public double ArcGlowSize { get; set; } = 6.0;
+
     public FilmstripSettings Clone() => (FilmstripSettings)MemberwiseClone();
 }

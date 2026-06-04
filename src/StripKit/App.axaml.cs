@@ -20,6 +20,7 @@ public partial class App : Application
         services.AddSingleton<IFilmstripRenderer, SkiaFilmstripRenderer>();
         services.AddSingleton<IFilmstripImporter, FilmstripImporter>();
         services.AddSingleton<IManifestService, ManifestService>();
+        services.AddSingleton<ICodeSnippetService, CodeSnippetService>();
         services.AddSingleton<IBatchProcessor, BatchProcessor>();
         services.AddSingleton<IExportService, ExportService>();
 

@@ -93,10 +93,14 @@ highest-leverage bets across all groups; pursue them first.
 
 ### Close the loop (asset → working control)
 
-- ★ **Code / component export** — every export also emits ready-to-paste loader
-  code for the target framework: JUCE `LookAndFeel` / film-strip `Slider`, iPlug2
-  bitmap control, HISE, a CSS `steps()` web knob, a React / Web Component, and
-  Unity / Godot. Eliminates the dev wiring step entirely. **(P1, ★)**
+- 🔄 **Code / component export** — every export can also emit ready-to-paste loader
+  code for the target framework. **Shipped 2026-06-04: JUCE** (`LookAndFeel` filmstrip
+  `Slider` / meter `Component`), **CSS/HTML** (`background-position` sprite + value setter),
+  **iPlug2** (`IBKnobControl`/`IBSliderControl`/`IBitmapControl`), and **HISE** (`ScriptPanel`
+  paint) — a pure `CodeSnippetService` mirroring `ManifestService`, a "CODE EXPORT" panel +
+  live preview/copy, +15 tests. **Remaining (P2):** a **React / Web Component** and
+  **Unity / Godot** targets. *(was P1, ★ — the second of the three ★ bets; the first two
+  targets were the recommended first wave, all four shipped.)*
 - ⏳ **Multi-control manifests** — surface in the UI what the model already
   supports: bind several strips to several parameters in one `skin.json`. Pairs
   directly with theme/skin variants and code export. **(P2)** *(carryover — model
@@ -109,10 +113,13 @@ highest-leverage bets across all groups; pursue them first.
   opacity-ramp / translate) so only the pointer rotates while the body stays
   crisp, re-renderable at any resolution. Plus auto-detect the indicator in FLAT
   legacy art (seed from the existing `ContentAnalysis`). **(P1, ★)**
-- ★ **Procedural value-arc / fill-ring generator** — composite a modern
-  Serum/Vital-style fill arc or ring that tracks the value frame-by-frame onto the
-  knob: configurable color, gradient, glow, thickness, start angle, and end caps.
-  **(P1, ★)**
+- ✅ **Procedural value-arc / fill-ring generator** (2026-06-04) — a Serum/Vital-style
+  fill arc that tracks the value frame-by-frame is composited onto knob frames:
+  configurable radius, thickness, colour, round/butt end caps, optional dim track,
+  optional sweep gradient, and optional glow. Gated on `ShowValueArc` (off by default →
+  existing output unchanged); `RenderValueArc` in the renderer + the `FilmstripEngine.cs`
+  mirror; "VALUE ARC" panel in the Create tab. The arc inherits the knob's rotation sweep.
+  **+8 tests (suite 57).** *(was P1, ★ — the first of the three ★ bets.)*
 
 ### Correctness (the sweep matches reality)
 

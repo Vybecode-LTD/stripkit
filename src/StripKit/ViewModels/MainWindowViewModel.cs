@@ -16,6 +16,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IFileDialogService _dialogs;
     private readonly IExportService _export;
     private readonly IManifestService _manifest;
+    private readonly ICodeSnippetService _codeSnippets;
 
     private SKBitmap? _source;
     private SKBitmap? _background;
@@ -31,14 +32,15 @@ public partial class MainWindowViewModel : ViewModelBase
 
     public MainWindowViewModel(IImageLoadService imageLoad, IFilmstripRenderer renderer,
                                IFileDialogService dialogs, IExportService export,
-                               IManifestService manifest, ImporterViewModel importer,
-                               BatchViewModel batch)
+                               IManifestService manifest, ICodeSnippetService codeSnippets,
+                               ImporterViewModel importer, BatchViewModel batch)
     {
         _imageLoad = imageLoad;
         _renderer = renderer;
         _dialogs = dialogs;
         _export = export;
         _manifest = manifest;
+        _codeSnippets = codeSnippets;
         Importer = importer;
         Batch = batch;
 
@@ -46,6 +48,7 @@ public partial class MainWindowViewModel : ViewModelBase
         BackgroundInfo = "None.";
         StatusMessage = "Load a source image to begin.";
         UpdateReadouts();
+        UpdateCodePreview();
     }
 
     /// <summary>The "Import" tab's view model (hosted in a second tab in the window).</summary>
@@ -65,6 +68,9 @@ public partial class MainWindowViewModel : ViewModelBase
         [MeterFillDirection.Up, MeterFillDirection.Down, MeterFillDirection.LeftToRight, MeterFillDirection.RightToLeft];
 
     public int[] SupersampleOptions { get; } = [1, 2, 4, 8];
+
+    public CodeTarget[] CodeTargets { get; } =
+        [CodeTarget.Juce, CodeTarget.Css, CodeTarget.IPlug2, CodeTarget.Hise];
 
     // ---- source / background ----
     [ObservableProperty] private string _sourceInfo = "";
@@ -118,6 +124,28 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _onColorHex = "#FFE8440A";
     [ObservableProperty] private string _offColorHex = "#FF2A2A2A";
 
+    // ---- value arc / fill ring (knob) ----
+    [ObservableProperty] private bool _showValueArc;
+    [ObservableProperty] private double _arcRadius = 0.88;
+    [ObservableProperty] private double _arcThickness = 4;
+    [ObservableProperty] private bool _arcRoundCaps = true;
+    [ObservableProperty] private string _arcColorHex = "#FFE8440A";
+    [ObservableProperty] private bool _arcGradient;
+    [ObservableProperty] private string _arcColor2Hex = "#FFFFC107";
+    [ObservableProperty] private bool _arcTrack = true;
+    [ObservableProperty] private string _arcTrackColorHex = "#33FFFFFF";
+    [ObservableProperty] private bool _arcGlow;
+    [ObservableProperty] private double _arcGlowSize = 6;
+
+    // ---- code export (loader snippets) ----
+    [ObservableProperty] private bool _exportCode;
+    [ObservableProperty] private bool _emitCodeJuce = true;
+    [ObservableProperty] private bool _emitCodeCss = true;
+    [ObservableProperty] private bool _emitCodeIPlug2;
+    [ObservableProperty] private bool _emitCodeHise;
+    [ObservableProperty] private CodeTarget _codePreviewTarget = CodeTarget.Juce;
+    [ObservableProperty] private string _generatedCode = "";
+
     // ---- preview ----
     [ObservableProperty] private double _previewValue = 0.5;
     [ObservableProperty] private AvBitmap? _previewImage;
@@ -147,6 +175,13 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         base.OnPropertyChanged(e);
 
+        // Inputs that only change the emitted loader code — refresh the snippet, never the image.
+        if (e.PropertyName is nameof(ParameterId) or nameof(CodePreviewTarget))
+        {
+            UpdateCodePreview();
+            return;
+        }
+
         switch (e.PropertyName)
         {
             case nameof(PreviewImage):
@@ -161,7 +196,12 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(ShowLoadHint):
             case nameof(IsPlaying):
             case nameof(ExportManifest):
-            case nameof(ParameterId):
+            case nameof(GeneratedCode):
+            case nameof(ExportCode):
+            case nameof(EmitCodeJuce):
+            case nameof(EmitCodeCss):
+            case nameof(EmitCodeIPlug2):
+            case nameof(EmitCodeHise):
                 return;
         }
 
@@ -175,6 +215,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ApplyTypeDefaults();
 
         UpdateReadouts();
+        UpdateCodePreview();
         RefreshPreview();
     }
 
@@ -254,6 +295,17 @@ public partial class MainWindowViewModel : ViewModelBase
         ContinuousFill = ContinuousFill,
         OnColorArgb = ParseArgb(OnColorHex, 0xFFE8440A),
         OffColorArgb = ParseArgb(OffColorHex, 0xFF2A2A2A),
+        ShowValueArc = ShowValueArc,
+        ArcRadius = ArcRadius,
+        ArcThickness = ArcThickness,
+        ArcRoundCaps = ArcRoundCaps,
+        ArcColorArgb = ParseArgb(ArcColorHex, 0xFFE8440A),
+        ArcGradient = ArcGradient,
+        ArcColor2Argb = ParseArgb(ArcColor2Hex, 0xFFFFC107),
+        ArcTrack = ArcTrack,
+        ArcTrackColorArgb = ParseArgb(ArcTrackColorHex, 0x33FFFFFF),
+        ArcGlow = ArcGlow,
+        ArcGlowSize = ArcGlowSize,
     };
 
     /// <summary>Parses a "#AARRGGBB"/"#RRGGBB" colour to packed ARGB, or the fallback.</summary>
@@ -278,6 +330,32 @@ public partial class MainWindowViewModel : ViewModelBase
         StripDimensions = ExportAt2x
             ? $"Strip: {w}×{h}px   ·   @2x: {w * 2}×{h * 2}px"
             : $"Strip: {w}×{h}px";
+    }
+
+    // ---- code export ----
+
+    /// <summary>The snippet request for the filenames the current settings would export
+    /// (the live preview uses these before an actual save path is chosen).</summary>
+    private CodeSnippetRequest BuildCodeRequest()
+    {
+        var baseName = Path.GetFileNameWithoutExtension(_sourcePath) ?? (IsMeter ? "meter" : "filmstrip");
+        var asset = $"{baseName}_{FrameCount}frames.png";
+        var asset2x = ExportAt2x ? AppendSuffix(asset, "@2x") : null;
+        var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? baseName : ParameterId.Trim();
+        return new CodeSnippetRequest(ComponentType, FrameCount, FrameWidth, FrameHeight,
+                                      StackDirection, asset, asset2x, baseName, parameterId);
+    }
+
+    private void UpdateCodePreview() =>
+        GeneratedCode = _codeSnippets.Generate(CodePreviewTarget, BuildCodeRequest());
+
+    /// <summary>The code targets ticked for emission on export.</summary>
+    private IEnumerable<CodeTarget> SelectedCodeTargets()
+    {
+        if (EmitCodeJuce) yield return CodeTarget.Juce;
+        if (EmitCodeCss) yield return CodeTarget.Css;
+        if (EmitCodeIPlug2) yield return CodeTarget.IPlug2;
+        if (EmitCodeHise) yield return CodeTarget.Hise;
     }
 
     // ---- commands ----
@@ -489,9 +567,28 @@ public partial class MainWindowViewModel : ViewModelBase
                 wroteManifest = true;
             }
 
+            int wroteCode = 0;
+            if (ExportCode)
+            {
+                var dir = Path.GetDirectoryName(path) ?? "";
+                var asset = Path.GetFileName(path);
+                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, "@2x")) : null;
+                var controlId = Path.GetFileNameWithoutExtension(path);
+                var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? controlId : ParameterId.Trim();
+
+                var request = new CodeSnippetRequest(ComponentType, FrameCount, FrameWidth, FrameHeight,
+                                                     StackDirection, asset, asset2x, controlId, parameterId);
+                foreach (var target in SelectedCodeTargets())
+                {
+                    await _codeSnippets.SaveAsync(target, request, dir);
+                    wroteCode++;
+                }
+            }
+
             StatusMessage = $"Exported {FrameCount}-frame filmstrip → {Path.GetFileName(path)}"
                           + (ExportAt2x ? " (+@2x)" : "")
-                          + (wroteManifest ? " (+skin.json)" : "");
+                          + (wroteManifest ? " (+skin.json)" : "")
+                          + (wroteCode > 0 ? $" (+{wroteCode} code file{(wroteCode == 1 ? "" : "s")})" : "");
         }
         catch (Exception ex)
         {
