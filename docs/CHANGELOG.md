@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [0.7.0] — 2026-06-04
 
 ### Added
 - **Code / component export.** Every export can also emit ready-to-paste **loader code** for
