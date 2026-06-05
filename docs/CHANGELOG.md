@@ -5,6 +5,22 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [Unreleased]
+
+### Added
+- **Auto-pointer extraction from flat art (★ #3, step 2).** An **"Auto-extract from flat
+  knob…"** button in the Create tab's layered panel splits a single FLAT knob image (body +
+  indicator baked together) into a static **base** + a rotating **pointer**, filling both
+  step-1 slots automatically. The method is **radial-symmetry residual** (`PointerExtractor`):
+  a knob body is rotationally symmetric, so the indicator is whatever breaks that symmetry —
+  the rotational average per radius (computed robustly so the indicator doesn't pollute it) is
+  the symmetric body, and the residual that deviates from each radial ring is the pointer. It
+  reports a **confidence** (small concentrated residual → high; spread-out → low, flagged so
+  the user falls back to manual). It's a starting guess the user verifies via the
+  preview/scrub (assumes the art shows the indicator at the minimum/frame-0 position). Pure
+  SkiaSharp, like `ContentAnalysis`; app-only (not in `FilmstripEngine.cs`). **+4 tests, suite
+  94→98.** *(Next: step 3 — layered PSD/SVG import.)*
+
 ## [0.8.0] — 2026-06-05
 
 ### Added

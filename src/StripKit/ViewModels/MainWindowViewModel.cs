@@ -614,6 +614,61 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
+    /// <summary>
+    /// Auto-splits a single FLAT knob image into a base body + a rotating pointer (radial-symmetry
+    /// residual, <see cref="PointerExtractor"/>) and fills both layer slots — a starting guess the
+    /// user verifies via the preview/scrub. Knob-only; assumes the art shows the indicator at the
+    /// minimum (frame-0) position.
+    /// </summary>
+    [RelayCommand]
+    private async Task AutoExtractPointerAsync()
+    {
+        var path = await _dialogs.OpenImageAsync();
+        if (path is null) return;
+
+        var flat = _imageLoad.Load(path);
+        if (flat is null)
+        {
+            StatusMessage = "Error: could not load that image.";
+            return;
+        }
+
+        var (cx, cy) = ContentAnalysis.DetectContentCenter(flat);
+        var result = PointerExtractor.Extract(flat, cx, cy);
+        flat.Dispose();   // the extractor returns fresh base/pointer bitmaps; the flat source is done
+
+        if (result is null)
+        {
+            StatusMessage = "Error: could not extract a pointer from that image.";
+            return;
+        }
+
+        _baseLayer?.Dispose();
+        _pointer?.Dispose();
+        _baseLayer = result.BaseLayer;
+        _pointer = result.PointerLayer;
+        _baseLayerPath = path;
+        HasBaseLayer = true;
+        HasPointer = true;
+        BaseLayerInfo = $"Auto-extracted body — {Path.GetFileName(path)}";
+        PointerInfo = $"Auto-extracted pointer — {result.Confidence * 100:0}% confidence";
+
+        _suspendRefresh = true;
+        FrameWidth = Math.Max(_baseLayer.Width, _baseLayer.Height);
+        FrameHeight = FrameWidth;
+        SourceCenterX = cx;
+        SourceCenterY = cy;
+        PointerPivotX = cx;
+        PointerPivotY = cy;
+        _suspendRefresh = false;
+
+        StatusMessage = result.LowConfidence
+            ? $"Pointer extracted, but confidence is low ({result.Confidence * 100:0}%) — verify the sweep. Auto-extract works best on a round knob with one indicator; otherwise load the base + pointer by hand."
+            : $"Pointer auto-extracted ({result.Confidence * 100:0}% confidence). Scrub to verify the sweep; adjust the pointer pivot if needed.";
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
     [RelayCommand] private void SetFrames32() => FrameCount = 32;
     [RelayCommand] private void SetFrames64() => FrameCount = 64;
     [RelayCommand] private void SetFrames128() => FrameCount = 128;

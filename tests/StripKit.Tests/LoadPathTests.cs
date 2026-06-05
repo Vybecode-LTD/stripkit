@@ -184,6 +184,21 @@ public class LoadPathTests
         vm.ExportCommand.CanExecute(null).Should().BeFalse("nothing is loaded to export");
     }
 
+    [Fact]
+    public async Task AutoExtractPointer_splits_a_flat_knob_into_the_base_and_pointer_slots()
+    {
+        var (vm, load, dialogs) = Build();
+        dialogs.OpenImageAsync().Returns(Task.FromResult<string?>("flatknob.png"));
+        load.Load("flatknob.png").Returns(TestImages.Knob(100));   // a flat knob: body + ring + indicator
+
+        await vm.AutoExtractPointerCommand.ExecuteAsync(null);
+
+        vm.HasBaseLayer.Should().BeTrue();
+        vm.HasPointer.Should().BeTrue();
+        vm.PointerInfo.Should().Contain("Auto-extracted");
+        vm.ExportCommand.CanExecute(null).Should().BeTrue("a layered knob is exportable");
+    }
+
     // An image whose opaque content sits in the top-left, not the centre.
     static SKBitmap OffCenter(int w, int h)
     {

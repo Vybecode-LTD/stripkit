@@ -152,6 +152,11 @@
                         <TextBlock Classes="label" TextWrapping="Wrap"
                                    Text="Optional. Load a static body and a separate pointer — only the pointer rotates, so the body stays crisp at any resolution. Leave empty to spin the single source image above as before." />
 
+                        <Button Content="Auto-extract from flat knob…" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                Command="{Binding AutoExtractPointerCommand}" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Only have a flat knob (body + indicator baked together)? This splits it into a static body + a rotating pointer for you — then verify the sweep and tweak the pivot below. Works best on a round knob with one indicator." />
+
                         <TextBlock Classes="label" Text="Base layer (static body)" Margin="0,8,0,0" />
                         <Button Content="Load base (body)…" HorizontalAlignment="Stretch"
                                 Command="{Binding OpenBaseLayerCommand}" />

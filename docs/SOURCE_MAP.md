@@ -84,6 +84,10 @@ does each thing live" companion.
   value-tracking fill arc via `RenderValueArc`, or be composited from a base+pointer layer
   stack via `RenderLayers` when `settings.Layers` + the `layerArt` are supplied); `RenderStrip`
   stacks frames into the output PNG. No Avalonia dependency. Do not rewrite this.
+- `PointerExtractor.cs` — static: `Extract` splits a flat knob into a static base + a rotating
+  pointer via the radial-symmetry residual (★ #3 step 2; auto-fills the layered-knob slots).
+  Returns a `PointerExtractionResult` (base, pointer, confidence). No Avalonia dependency;
+  app-only (not mirrored in `FilmstripEngine.cs`).
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / save-PNG / open-folder
   pickers via Avalonia `StorageProvider`. The concrete class holds the `Owner` window,

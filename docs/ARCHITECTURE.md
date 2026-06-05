@@ -105,6 +105,7 @@ owns a `Window` for the storage pickers).
 |------|---------|-----------|
 | `IFilmstripRenderer` / `SkiaFilmstripRenderer` | **the heart**: `ComputeTransform`, `RenderFrame`, `RenderStrip` (+ private `RenderMeterFrame`). | No |
 | `ContentAnalysis` (static) | `DetectContentCenter` — pixel analysis backing the alignment tools (§7). | No |
+| `PointerExtractor` (static) | `Extract` — splits a flat knob into a base + pointer via the radial-symmetry residual (§6.7). Returns a `PointerExtractionResult` (base, pointer, confidence). | No |
 | `IFilmstripImporter` / `FilmstripImporter` | `Detect` (layout from dimensions), `ExtractFrame`, `Restack`. | No |
 | `IManifestService` / `ManifestService` | `BuildSingleControl`, `Serialize`, `SaveAsync`. | No |
 | `ICodeSnippetService` / `CodeSnippetService` | `Generate` / `FileName` / `SaveAsync` — emit JUCE / CSS / iPlug2 / HISE loader code (§9.1). | No |
@@ -441,6 +442,29 @@ pointer pivot** to that centre.
 - **Funnel.** `HasBaseLayer`/`HasPointer`/`BaseLayerInfo`/`PointerInfo` are output-only
   (ignore-list, no re-render — loads call `RefreshPreview` directly); `PointerPivotX/Y` are
   **not** ignored, so editing them re-renders live.
+
+### 6.7 Auto-pointer extraction from flat art (`PointerExtractor`, ★ #3 step 2)
+
+The "Auto-extract from flat knob…" button (`AutoExtractPointerCommand`) turns a single FLAT knob
+image (body + indicator baked together) into the two layer slots automatically, so a legacy flat
+asset becomes layered without hand-splitting.
+
+- **The principle.** A knob body is rotationally symmetric about its centre, so the indicator is
+  whatever **breaks** that symmetry. `PointerExtractor.Extract(flat, cx, cy)` computes the
+  per-radius mean colour **robustly** (a second pass drops the indicator outliers so they don't
+  pollute the body estimate); that rotational average is the symmetric **base** (the indicator
+  erased, same silhouette), and the per-pixel **residual** that deviates from its radial ring —
+  a soft 0..1 mask × the original colour — is the **pointer** on a transparent canvas. It returns
+  a `PointerExtractionResult` with a **confidence** (a small, concentrated residual scores high; a
+  residual spread across the body — an asymmetric/textured knob — scores low and is flagged).
+- **The command.** Detects the centre (`ContentAnalysis.DetectContentCenter`), extracts, then fills
+  `_baseLayer` + `_pointer`, squares the frame, and seeds `SourceCenterX/Y` + the pointer pivot to
+  the centre — exactly the state two manual loads would produce, so it feeds §6.6 / §5.6 unchanged.
+  It's a **starting guess the user verifies** via the preview/scrub (importer philosophy), and it
+  assumes the art shows the indicator at the minimum (frame-0) position.
+- **Boundaries.** Pure SkiaSharp + BCL (like `ContentAnalysis`), runs once on load (not per frame),
+  knob-only, and **app-only** — it is *not* mirrored into `FilmstripEngine.cs` (which holds only
+  render math). A small central residual is inherent when the needle passes through the pivot.
 
 ---
 

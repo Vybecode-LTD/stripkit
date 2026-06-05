@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (94 tests)
+dotnet test                                      # whole suite (98 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **94 passed / 0 failed / 0 skipped** (~0.7 s).
+Current status: **98 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (94)
+## Test inventory (98)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -77,9 +77,17 @@ Layered knob = a static base body + a separate rotating pointer (the ★ #3 step
   `Layers.Count > 0`); the pointer pivot changes the render; and layers are ignored for
   non-knob components (also exercises `FilmstripSettings.Clone`'s deep-copy of `Layers`).
 
-### `LoadPathTests.cs` — 10 (`MainWindowViewModel`, NSubstitute)
+### `PointerExtractorTests.cs` — 3 (auto-pointer extraction, pure SkiaSharp)
+Splitting a flat knob into a symmetric base + the indicator via the radial-symmetry residual.
+- `Extract_splits_a_flat_knob_into_a_symmetric_body_and_the_indicator` (the white indicator
+  goes to the pointer; a body-only region yields none; the base erases the indicator and is
+  rotationally symmetric; high confidence).
+- `Extract_returns_null_for_a_missing_image`.
+- `A_plain_symmetric_disc_yields_an_essentially_empty_pointer` (nothing to extract).
+
+### `LoadPathTests.cs` — 11 (`MainWindowViewModel`, NSubstitute)
 The shared Create-tab load path (used by both the button and drag-drop), the knob-alignment
-auto-centring it performs on load, and the layered base/pointer slots.
+auto-centring it performs on load, the layered base/pointer slots, and the auto-extraction.
 - `LoadSourceFromPath_sets_source_state_and_squares_the_frame_for_a_knob`.
 - `LoadSourceFromPath_reports_an_error_when_the_image_cannot_be_decoded`.
 - `OpenSource_button_uses_the_same_load_path_as_a_drop` (asserts no duplication).
@@ -91,6 +99,8 @@ auto-centring it performs on load, and the layered base/pointer slots.
 - `LoadBaseLayerFromPath_sets_state_squares_the_frame_and_seeds_the_pointer_pivot`.
 - `LoadPointerFromPath_sets_pointer_state`.
 - `Clearing_the_base_layer_disables_export_again` (export gating for the layered slot).
+- `AutoExtractPointer_splits_a_flat_knob_into_the_base_and_pointer_slots` (the auto-extract
+  command fills both slots and enables export).
 
 ### `ContentAnalysisTests.cs` — 4 (opaque-content centre detection)
 Unit tests for `ContentAnalysis.DetectContentCenter`, which backs the alignment tools
