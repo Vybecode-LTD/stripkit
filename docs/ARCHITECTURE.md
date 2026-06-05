@@ -639,13 +639,19 @@ verified. Algorithm (per the `filmstrip-importer-engine` skill):
 > 128 frames, not 8 — **the detected count is a guess; the UI makes it editable and the
 > user verifies the sweep visually.** This is by design.
 
-### 10.2 Extraction & re-stack
+### 10.2 Extraction, re-stack & resample
 
 - `ExtractFrame(strip, layout, index)` — clamp the index, source rect from
   `layout.Vertical`, blit 1:1 (`Nearest`/no-mip sampling — exact and cheap) into a new
   `frameW×frameH` bitmap.
 - `Restack(strip, layout, destination)` — read each frame using the *source* orientation,
   write it using the *destination* orientation; lossless 1:1 blits.
+- `Resample(strip, layout, destinationCount)` — re-time the strip to a new frame count: output
+  frame *j* takes source frame `round(j·(N−1)/(M−1))` (clamped), so the endpoints land exactly
+  on the source min/max (the same `(N−1)` law as the renderer) and intermediate frames pick the
+  **nearest** source frame — a 1:1 `Nearest` blit, never a blend (a blended moving pointer would
+  ghost). Output keeps the source orientation + frame size; downsampling is lossy. Surfaced on
+  the Import tab as a "Resample frame count" target + Export resampled (off-thread, like re-stack).
 
 ### 10.3 The view model
 

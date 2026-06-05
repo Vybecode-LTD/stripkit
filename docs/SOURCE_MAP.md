@@ -91,7 +91,8 @@ does each thing live" companion.
 - `IExportService.cs` / `ExportService.cs` — encode an `SKBitmap` to a PNG file.
 - `IFilmstripImporter.cs` / `FilmstripImporter.cs` — detect an existing strip's
   layout from its dimensions (ordered candidate counts + aspect classification),
-  extract a single frame, and re-stack to a new orientation. No Avalonia dependency.
+  extract a single frame, re-stack to a new orientation, and **resample** (re-time) to a
+  different frame count via nearest-frame mapping. No Avalonia dependency.
 - `IManifestService.cs` / `ManifestService.cs` — build + serialize a `skin.json`
   manifest (System.Text.Json, camelCase): `BuildSingleControl` (one control, from the Create
   tab) and `BuildManifest` (multi-control, from the Skin tab) binding strips to parameters.

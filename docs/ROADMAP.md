@@ -150,9 +150,10 @@ highest-leverage bets across all groups; pursue them first.
 
 *(See also the linter + frame-diff above, which doubles as a QA tool.)*
 
-- ⏳ **Importer frame-count resampling** — downsample (or resample) an imported
-  strip's frame count N, not just re-stack orientation. **(P3)** *(carryover —
-  noted in the Phase 2 skill, not yet built.)*
+- ✅ **Importer frame-count resampling** (Unreleased) — the Import tab re-times a strip to a
+  new frame count (`FilmstripImporter.Resample`, nearest-frame so a moving pointer never
+  ghosts), not just re-stack orientation. **(was P3)** *(Interpolated/blended resampling
+  remains intentionally unbuilt — nearest is correct for filmstrips.)*
 
 ### Reach beyond audio / handoff
 

@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (92 tests)
+dotnet test                                      # whole suite (94 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **92 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **94 passed / 0 failed / 0 skipped** (~0.7 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (92)
+## Test inventory (94)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -112,17 +112,21 @@ knob spinning in place instead of orbiting.
 - `Preview_border_opts_into_file_drops` — builds `MainWindow`, asserts
   `DragDrop.GetAllowDrop(PreviewBorder)` (the #1 drag-drop bug).
 
-### `FilmstripImporterTests.cs` — 6 (importer engine)
+### `FilmstripImporterTests.cs` — 8 (importer engine)
 - `Detect_infers_count_orientation_and_kind` (Theory, 3 cases: knob/vfader/hslider
   with dimensions chosen so the heuristic is unambiguous).
 - `Detect_flags_low_confidence_when_a_square_strip_also_divides_by_an_adjacent_count`
   (the 64-vs-63 case).
 - `ExtractFrame_returns_one_cell_and_frames_differ_across_the_sweep`.
 - `Restack_flips_a_vertical_strip_to_horizontal_preserving_frames` (pixel-equal).
+- `Resample_retimes_the_frame_count_with_nearest_frame_mapping` (8→4; endpoints land on the
+  source min/max; each output frame equals a source frame).
+- `Resample_to_the_same_count_reproduces_every_frame` (N→N identity).
 
 ### `ImporterViewModelTests.cs` — 2 (`ImporterViewModel`, NSubstitute)
-- `LoadStripFromPath_runs_detection_and_publishes_the_layout`.
-- `Extract_and_restack_are_disabled_until_a_strip_is_loaded`.
+- `LoadStripFromPath_runs_detection_and_publishes_the_layout` (incl. the resample target
+  defaulting to the detected count + resample command enabled).
+- `Extract_restack_and_resample_are_disabled_until_a_strip_is_loaded`.
 
 ### `ManifestServiceTests.cs` — 8 (manifest)
 - `BuildSingleControl_maps_the_component_type` (Theory, 3 cases).

@@ -8,6 +8,12 @@
 ## [Unreleased]
 
 ### Added
+- **Importer frame-count resampling.** The Import tab can now **re-time** a strip to a
+  different frame count (not just re-stack orientation): a "Resample frame count" target +
+  **Export resampled…**. `FilmstripImporter.Resample` picks the **nearest** source frame for
+  each output frame (`round(j·(N−1)/(M−1))`, so the first/last frames land exactly on the
+  source min/max) — no blending, so a moving pointer never ghosts. Downsampling is lossy by
+  nature (a note says so). **+2 tests, suite 92→94.**
 - **Skin tab — multi-control `skin.json` builder.** A new fourth tab that binds several
   exported filmstrips to several parameters in one manifest, surfacing what the
   `SkinManifest` model already supported. Add controls **from a strip** (the importer

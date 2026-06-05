@@ -76,6 +76,45 @@ public class FilmstripImporterTests
         PixelsEqual(fromVertical, fromHorizontal).Should().BeTrue();
     }
 
+    [Fact]
+    public void Resample_retimes_the_frame_count_with_nearest_frame_mapping()
+    {
+        using var srcArt = TestImages.Knob();
+        using var strip = _renderer.RenderStrip(KnobStrip(8), srcArt, null, 1.0); // 80 x 640, 8 frames
+        var layout = new StripDetection(true, 8, 80, 80, ComponentType.RotaryKnob, false, new[] { 8 });
+
+        using var resampled = _importer.Resample(strip, layout, 4);
+
+        resampled.Width.Should().Be(80);
+        resampled.Height.Should().Be(80 * 4);
+
+        // The (N-1)/(M-1) law lands the endpoints exactly: dest 0 = source 0 (min),
+        // dest 3 = source 7 (max). Nearest-frame, so each output frame equals a source frame.
+        var dstLayout = new StripDetection(true, 4, 80, 80, ComponentType.RotaryKnob, false, new[] { 4 });
+        using var d0 = _importer.ExtractFrame(resampled, dstLayout, 0);
+        using var d3 = _importer.ExtractFrame(resampled, dstLayout, 3);
+        using var s0 = _importer.ExtractFrame(strip, layout, 0);
+        using var s7 = _importer.ExtractFrame(strip, layout, 7);
+        PixelsEqual(d0, s0).Should().BeTrue("the first output frame maps to the source min");
+        PixelsEqual(d3, s7).Should().BeTrue("the last output frame maps to the source max");
+    }
+
+    [Fact]
+    public void Resample_to_the_same_count_reproduces_every_frame()
+    {
+        using var srcArt = TestImages.Knob();
+        using var strip = _renderer.RenderStrip(KnobStrip(8), srcArt, null, 1.0);
+        var layout = new StripDetection(true, 8, 80, 80, ComponentType.RotaryKnob, false, new[] { 8 });
+
+        using var same = _importer.Resample(strip, layout, 8);
+
+        same.Width.Should().Be(80);
+        same.Height.Should().Be(640);
+        using var a = _importer.ExtractFrame(strip, layout, 5);
+        using var b = _importer.ExtractFrame(same, layout, 5);
+        PixelsEqual(a, b).Should().BeTrue("an N->N resample reproduces every frame");
+    }
+
     static FilmstripSettings KnobStrip(int frames) => new()
     {
         ComponentType = ComponentType.RotaryKnob,

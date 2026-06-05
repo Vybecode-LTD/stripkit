@@ -100,4 +100,36 @@ public sealed class FilmstripImporter : IFilmstripImporter
         }
         return outBmp;
     }
+
+    public SKBitmap Resample(SKBitmap strip, StripDetection layout, int destinationCount)
+    {
+        int srcN = Math.Max(1, layout.FrameCount);
+        int dstN = Math.Max(1, destinationCount);
+        int fw = layout.FrameWidth;
+        int fh = layout.FrameHeight;
+
+        bool vertical = layout.Vertical;
+        int outW = vertical ? fw : fw * dstN;
+        int outH = vertical ? fh * dstN : fh;
+
+        var outBmp = new SKBitmap(outW, outH, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var canvas = new SKCanvas(outBmp);
+        canvas.Clear(SKColors.Transparent);
+        using var img = SKImage.FromBitmap(strip);
+
+        for (int j = 0; j < dstN; j++)
+        {
+            // Nearest source frame. The (N−1)/(M−1) law lands dest 0 → source 0 (min) and dest
+            // M−1 → source N−1 (max) exactly; intermediate frames pick the closest source frame.
+            int srcIdx = dstN > 1 ? (int)Math.Round((double)j * (srcN - 1) / (dstN - 1)) : 0;
+            srcIdx = Math.Clamp(srcIdx, 0, srcN - 1);
+
+            int sx = vertical ? 0 : srcIdx * fw;
+            int sy = vertical ? srcIdx * fh : 0;
+            int dx = vertical ? 0 : j * fw;
+            int dy = vertical ? j * fh : 0;
+            canvas.DrawImage(img, SKRect.Create(sx, sy, fw, fh), SKRect.Create(dx, dy, fw, fh), Blit);
+        }
+        return outBmp;
+    }
 }

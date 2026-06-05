@@ -43,18 +43,21 @@ public class ImporterViewModelTests
 
         vm.HasStrip.Should().BeTrue();
         vm.FrameCount.Should().Be(100);
+        vm.TargetFrameCount.Should().Be(100);   // resample target defaults to the detected count
         vm.StripInfo.Should().Contain("strip.png");
         vm.DetectedInfo.Should().Contain("100 frames");
         vm.ExtractCurrentFrameCommand.CanExecute(null).Should().BeTrue();
         vm.ExportRestackedCommand.CanExecute(null).Should().BeTrue();
+        vm.ExportResampledCommand.CanExecute(null).Should().BeTrue();
     }
 
     [Fact]
-    public void Extract_and_restack_are_disabled_until_a_strip_is_loaded()
+    public void Extract_restack_and_resample_are_disabled_until_a_strip_is_loaded()
     {
         var vm = Build(out _, out _);
 
         vm.ExtractCurrentFrameCommand.CanExecute(null).Should().BeFalse();
         vm.ExportRestackedCommand.CanExecute(null).Should().BeFalse();
+        vm.ExportResampledCommand.CanExecute(null).Should().BeFalse();
     }
 }

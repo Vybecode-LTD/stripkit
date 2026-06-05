@@ -44,9 +44,13 @@ public partial class ImporterViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExtractCurrentFrameCommand))]
     [NotifyCanExecuteChangedFor(nameof(ExportRestackedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(ExportResampledCommand))]
     private bool _hasStrip;
 
     [ObservableProperty] private int _frameCount = 1;
+
+    /// <summary>The output frame count for a resample (re-time), independent of the slice count.</summary>
+    [ObservableProperty] private int _targetFrameCount = 64;
     [ObservableProperty] private bool _lowConfidence;
     [ObservableProperty] private string _detectedInfo = "";
     [ObservableProperty] private string _frameSizeInfo = "";
@@ -75,6 +79,7 @@ public partial class ImporterViewModel : ViewModelBase
             case nameof(PreviewImage):
             case nameof(PreviewReadout):
             case nameof(StatusMessage):
+            case nameof(TargetFrameCount):   // a resample target, not a slice change → no re-preview
                 return;
         }
 
@@ -107,6 +112,7 @@ public partial class ImporterViewModel : ViewModelBase
 
         _suspendRefresh = true;
         FrameCount = detection.FrameCount;
+        TargetFrameCount = detection.FrameCount;   // default the resample target to the detected count
         _suspendRefresh = false;
 
         LowConfidence = detection.LowConfidence;
@@ -221,6 +227,31 @@ public partial class ImporterViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = $"Error re-stacking: {ex.Message}";
+        }
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseStrip))]
+    private async Task ExportResampledAsync()
+    {
+        if (_strip is null) return;
+
+        int dst = Math.Max(1, TargetFrameCount);
+        var tag = _detectedVertical ? "v" : "h";
+        var path = await _dialogs.SavePngAsync($"{_baseName}_{dst}frames_{tag}.png");
+        if (path is null) return;
+
+        try
+        {
+            StatusMessage = "Resampling…";
+            var strip = _strip;
+            var layout = CurrentLayout();
+            using var resampled = await Task.Run(() => _importer.Resample(strip, layout, dst));
+            await _export.SavePngAsync(resampled, path);
+            StatusMessage = $"Resampled {FrameCount} → {dst} frames → {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Error resampling: {ex.Message}";
         }
     }
 }

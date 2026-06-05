@@ -42,6 +42,14 @@
                     <Button Content="Re-stack (flip orientation)…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
                             Command="{Binding ExportRestackedCommand}" />
 
+                    <controls:SectionHeader Text="RESAMPLE FRAME COUNT" />
+                    <TextBlock Classes="label" Text="Target frames" />
+                    <NumericUpDown Value="{Binding TargetFrameCount}" Minimum="1" Maximum="1024" Increment="1" />
+                    <Button Content="Export resampled…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                            Command="{Binding ExportResampledCommand}" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,12"
+                               Text="Re-times the strip to a new frame count by picking the nearest source frame (no blending). Downsampling drops frames and is lossy — re-render from the source art for the best quality." />
+
                 </StackPanel>
             </ScrollViewer>
         </Border>

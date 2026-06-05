@@ -25,4 +25,13 @@ public interface IFilmstripImporter
     /// must dispose the returned strip.
     /// </summary>
     SKBitmap Restack(SKBitmap strip, StripDetection layout, StackDirection destination);
+
+    /// <summary>
+    /// Re-times the strip to <paramref name="destinationCount"/> frames by picking the nearest
+    /// source frame for each output frame (<c>round(j·(N−1)/(M−1))</c>, so the first/last frames
+    /// land exactly on the source min/max). The output keeps the source orientation and frame
+    /// size; downsampling is **lossy** (frames are dropped, not blended). The caller owns and
+    /// must dispose the returned strip.
+    /// </summary>
+    SKBitmap Resample(SKBitmap strip, StripDetection layout, int destinationCount);
 }
