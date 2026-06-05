@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -71,8 +71,9 @@ heuristic FPs until a code-signing cert is added).
 Every render is: *for each of N frames, place the source art inside a fixed frame
 cell under a per-frame transform, then stack the cells into one PNG.* The four
 component types are knob, vertical fader, horizontal slider, and **meter**
-(progressive segment fill). The app is a `TabControl` with three tabs — **Create**
-(make a strip), **Import** (re-use one), and **Batch** (a whole folder at once).
+(progressive segment fill). The app is a `TabControl` with **four** tabs — **Create**
+(make a strip), **Import** (re-use / re-slice / resample one), **Batch** (a whole folder at
+once), and **Skin** (assemble a multi-control `skin.json`).
 
 - `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract),
   `FrameTransform`, `StripDetection` (importer output),
@@ -87,8 +88,13 @@ component types are knob, vertical fader, horizontal slider, and **meter**
   when `settings.Layers` + `layerArt` are supplied); `RenderStrip` blits frames into the
   stacked PNG.
 - `Services/FilmstripImporter.cs` — detect an existing strip's layout from its
-  dimensions, extract a frame, re-stack orientation (no Avalonia dep).
-- `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json).
+  dimensions, extract a frame, re-stack orientation, and **resample** (re-time) to a new
+  frame count via nearest-frame mapping (no Avalonia dep).
+- `Services/PointerExtractor.cs` — split a flat knob into a static base + a rotating pointer
+  via the **radial-symmetry residual** (auto-fills the layered-knob slots; ★ #3 step 2). Static,
+  pure SkiaSharp like `ContentAnalysis`; app-only (not in `FilmstripEngine.cs`).
+- `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json):
+  `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
 - `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
   iPlug2 / HISE) for an exported strip; pure string-gen mirroring `ManifestService`.
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
@@ -97,15 +103,21 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 - `Services/FileDialogService.cs` — open/save pickers (app-layer; holds the Window).
 - `Helpers/SkiaImageInterop.cs` — `SKBitmap` -> Avalonia `Bitmap` for preview.
 - `ViewModels/MainWindowViewModel.cs` — Create-tab state + commands; a single
-  `OnPropertyChanged` funnel refreshes the preview. Exposes `Importer` and `Batch`.
-- `ViewModels/ImporterViewModel.cs` — Import-tab state + commands (same funnel).
-- `ViewModels/BatchViewModel.cs` — Batch-tab state + commands (folders, template,
-  run/cancel, progress); no preview funnel.
+  `OnPropertyChanged` funnel refreshes the preview. Holds the layered-knob Base/Pointer slots +
+  the auto-extract command. Exposes `Importer`, `Batch`, and `Skin`.
+- `ViewModels/ImporterViewModel.cs` — Import-tab state + commands (detect / scrub / extract /
+  re-stack / resample; same funnel).
+- `ViewModels/BatchViewModel.cs` — Batch-tab state + commands (folders, template incl. the meter
+  settings + layered/backdrop toggle, run/cancel, progress); no preview funnel.
+- `ViewModels/SkinViewModel.cs` (+ `SkinControlEntry.cs`) — Skin-tab state + commands: a
+  multi-control `skin.json` builder (controls list, add-from-strip / blank, detail editor, export).
 - `Views/MainWindow.axaml(.cs)` — the `TabControl`; code-behind holds the auto-play
   timer + the Create preview's drag-drop handlers.
 - `Views/ImporterView.axaml(.cs)` — the Import tab UserControl + its drop handlers.
 - `Views/BatchView.axaml(.cs)` — the Batch tab UserControl (folder pickers, template,
   Run/Cancel, progress bar, results).
+- `Views/SkinView.axaml(.cs)` — the Skin tab UserControl (skin metadata + controls list;
+  per-control detail editor + Export skin.json).
 - Repo-root `FilmstripEngine.cs` — standalone portable copy of the renderer (NOT in
   the build); keep in sync with `SkiaFilmstripRenderer` if the math changes.
 
@@ -157,6 +169,38 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-05 (vNext ★ #3, step 2 — auto-pointer extraction; + session handoff)** — Built the
+  second of the three layer-aware steps and performed a full handoff. An **"Auto-extract from flat
+  knob…"** button (Create-tab layered panel) splits a single FLAT knob image into the base + pointer
+  slots automatically. New `Services/PointerExtractor.cs` uses the **radial-symmetry residual**: a
+  knob body is rotationally symmetric, so the indicator is whatever breaks that symmetry — the
+  robust per-radius mean is the symmetric **base**, the residual is the **pointer**; returns a
+  **confidence** (low for asymmetric bodies, flagged). A starting guess the user verifies via the
+  preview/scrub (assumes the art is the frame-0 position). Pure SkiaSharp like `ContentAnalysis`;
+  **app-only — NOT mirrored in `FilmstripEngine.cs`**. +4 tests (`PointerExtractorTests` 3 + 1 VM),
+  suite **94→98**; build 0/0, app boots clean, **eyeballed** (clean symmetric base; crisp needle
+  rotating about a static body; minor central pivot dot). Committed `afca651`, **pushed**
+  (unreleased — toward 0.9.0). Owner-confirmed forks: radial-symmetry method, auto-fill-and-verify
+  workflow, frame-0 rest-angle assumption. Full handoff: HANDOFF/AUDIT-LOG/CLAUDE + all doc headers
+  reconciled to 0.8.0; ROADMAP updated with two new owner-requested items (interactive in-app
+  help/tutorial system; website `stripkit.pro/getting-started/` how-to guide). **Next:** ★ step 3 —
+  layered **PSD/SVG import** (the big dependency lift — needs a library + license decision; scope first).
+- **2026-06-05 (v0.8.0 shipped — 3 finish-the-gaps features + layer-aware step 1)** — Cut **v0.8.0**
+  (test gate 94/94 → CI VirusTotal-scanned + created the public release; live, 33.5 MB installer).
+  Committed the layer-aware step-1 work + the new **`layer-aware-filmstrip-compositing` project
+  skill** (`5fa2ba4`; skill-authoring-linter 0/0; `.skill` under git-ignored `dist/`) as clean
+  checkpoint commits, then built three carryover gaps, each its own commit: **(1) Batch-tab meter
+  settings** (`e126daf`) — the Batch template now exposes the meter panel + a **"source is a
+  backdrop"** toggle (each file = lit on-art → layered, or housing → procedural LEDs);
+  `BatchOptions.MeterSourceIsBackdrop`. **(2) Skin tab** (`4a9e2ac`) — a new **fourth tab** that
+  binds several strips to several parameters in one `skin.json` (add-from-strip auto-detect / blank;
+  per-control id/type/param/asset/frames/size/stack/**bounds**/**value range**; skin name/author/
+  base-res/window background; export to a folder); new `IManifestService.BuildManifest` +
+  `SkinViewModel`/`SkinControlEntry`/`SkinView`, DI-registered. **(3) Importer resampling**
+  (`322a80d`) — re-time a strip to a new frame count (`FilmstripImporter.Resample`, **nearest-frame**,
+  endpoints land on min/max, no ghosting). Suite 72→94 across the four; build 0/0; app boots clean;
+  per-feature docs reconciled. The v0.8.0 release commit (`65a9c4f`) staged only the version files +
+  installer (the two stray untracked files — `docs/PRESS-RELEASE.md`, `press/` — were excluded).
 - **2026-06-04 (vNext ★ #3, step 1 — layer-aware knob: base + pointer)** — First of the three
   build-order steps for the last ★ bet. A knob can now be composited from **two layers**: a
   **static base** (body/well, drawn fixed) + a separate **pointer** that rotates with the value,

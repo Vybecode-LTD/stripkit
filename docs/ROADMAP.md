@@ -1,14 +1,27 @@
 # ROADMAP — StripKit
 
-> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
-ship — Inno installer, release pipeline, and website) are **complete**; they are
-recorded below as shipped history. The **vNext — Future features** section
-captures the product-brainstorm backlog, grouped by theme and priority. The three
-★ items are the highest-leverage next bets.
+ship — Inno installer, release pipeline, and website) are **complete**, and three
+further releases have shipped since (see **Releases** below). The **vNext — Future
+features** section captures the product-brainstorm backlog, grouped by theme and
+priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
+layer-aware animation (🔄 steps 1–2 of 3 done).
 
 **Status icons:** ✅ Done · 🔄 Active · ⏳ Next / queued · 🚫 Blocked · ❌ Cancelled.
+
+## Releases
+
+- **v0.6.0** (2026-06-04) — Inno installer + 3-stage release pipeline + landing-page website
+  (Phases 7–8). First GitHub Release.
+- **v0.7.0** (2026-06-04) — ★ **value-arc / fill-ring** generator (knobs) + ★ **code / component
+  export** (JUCE / CSS-HTML / iPlug2 / HISE loader snippets). Suite 72.
+- **v0.8.0** (2026-06-05) — **Batch-tab meter settings** (+ layered/backdrop toggle), **Skin tab**
+  (multi-control `skin.json` builder), **importer frame-count resampling**, and ★ **layer-aware
+  knob step 1** (base + pointer). Suite 94.
+- **Unreleased (on `main`)** — ★ **layer-aware step 2**: auto-pointer extraction from flat art
+  (`PointerExtractor`). Suite 98. *(Next release: 0.9.0.)*
 
 ---
 
@@ -176,6 +189,18 @@ highest-leverage bets across all groups; pursue them first.
 - ⏳ **Meter peak-hold / stereo** — peak-hold indicators, dual / stereo meters, dB
   segment spacing, and per-segment colour ramps. **(P3)** *(carryover — deferred
   from Phase 6.)*
+
+### Onboarding & documentation
+
+- ⏳ **Interactive in-app help / tutorial system** — a guided first-run / tutorial for the
+  desktop app that walks a new user through the core loop (load art → choose a component type →
+  align a knob → export, and wire the generated loader code), with contextual tips on the key
+  controls and a re-openable "Help / Getting started" entry. Lowers the first-mile barrier for
+  the tool. **(P1)** *(owner-requested.)*
+- ⏳ **Website "Getting started" how-to guide** — a `stripkit.pro/getting-started/` page on the
+  `Vybecode-LTD/StripKit-Website` repo: a step-by-step illustrated how-to (install → load a knob →
+  align → export → drop in the JUCE/CSS/iPlug2/HISE loader), mirroring the in-app tutorial.
+  Depends on the website deploy. **(P2)** *(owner-requested.)*
 
 ---
 

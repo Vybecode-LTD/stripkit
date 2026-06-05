@@ -5,8 +5,8 @@
 
   <p>
     <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-e8440a"></a>
-    <a href="https://github.com/Vybecode-LTD/stripkit/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/Vybecode-LTD/stripkit?color=e8440a&label=release"></a>
-    <a href="https://github.com/Vybecode-LTD/stripkit/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/Vybecode-LTD/stripkit/total?color=e8440a"></a>
+    <a href="https://github.com/Vybecode-LTD/stripkit/releases/latest"><img alt="Latest release" src="https://badgen.net/github/release/Vybecode-LTD/stripkit?color=e8440a&label=release"></a>
+    <a href="https://github.com/Vybecode-LTD/stripkit/releases"><img alt="Downloads" src="https://badgen.net/github/assets-dl/Vybecode-LTD/stripkit?color=e8440a&label=downloads"></a>
     <img alt="Platform: Windows 10/11" src="https://img.shields.io/badge/platform-Windows%2010%2F11-555">
     <img alt="Built with .NET 9 and Avalonia 11" src="https://img.shields.io/badge/.NET%209-Avalonia%2011-512BD4">
   </p>
@@ -28,7 +28,7 @@ error-prone.
 StripKit does it for you. Feed it a **single transparent PNG** of your control and it
 renders the whole strip — correctly rotated about the art's true centre, supersampled, and
 crisp at every frame. It also **imports** existing strips (KnobMan exports, purchased
-packs) to re-slice or re-stack them, processes a **whole folder in batch**, and can emit a
+packs) to re-slice, re-stack, or resample them, processes a **whole folder in batch**, and can emit a
 **`skin.json` manifest** that binds a strip to a parameter for a JUCE-style `LookAndFeel`
 loader.
 
@@ -58,10 +58,11 @@ Prefer a one-page overview with the live download and changelog? See **[stripkit
 - **Smart alignment** — auto-detects the spin centre on load; a draggable crosshair lets you
   nail it by eye on a smooth 1024-step preview.
 - **Filmstrip importer** — detects an existing strip's frame count and orientation, extracts
-  a single frame, or re-stacks it.
+  a single frame, re-stacks it, or resamples it to a new frame count.
 - **Batch processing** — point it at a folder and render the whole set off the UI thread,
   with progress and a working cancel.
-- **`skin.json` manifest** — schema-valid output binding each strip to a parameter id.
+- **`skin.json` manifest** — schema-valid output binding each strip to a parameter id (single
+  control on export, or a multi-control skin from the **Skin** tab).
 - **Crisp rendering** — supersampling + a Mitchell cubic resampler keep rotated edges sharp;
   one-toggle `@2x` HiDPI export.
 - **Live preview** — scrub, play, or step frame-by-frame before you export.
@@ -93,7 +94,7 @@ Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 git clone https://github.com/Vybecode-LTD/stripkit.git
 cd stripkit
 dotnet run --project src/StripKit      # launch the app
-dotnet test                            # 49 tests
+dotnet test                            # 98 tests
 ```
 
 Build a self-contained Windows release:
@@ -108,7 +109,7 @@ dotnet publish src/StripKit -c Release -r win-x64 --self-contained true -o publi
 
 ## 📖 Using the app
 
-StripKit is a three-tab app: **Create**, **Import**, and **Batch**.
+StripKit is a four-tab app: **Create**, **Import**, **Batch**, and **Skin**.
 
 **Create — single image → animated strip**
 1. **Load a source PNG** (button or drag-and-drop onto the preview) — your transparent
@@ -121,12 +122,16 @@ StripKit is a three-tab app: **Create**, **Import**, and **Batch**.
    a `skin.json` manifest).
 
 **Import — re-use an existing strip:** load a strip; StripKit detects its layout (editable —
-detection is a guess), scrub to confirm min → max, then extract a frame or re-stack the
-orientation.
+detection is a guess), scrub to confirm min → max, then extract a frame, re-stack the
+orientation, or resample it to a new frame count.
 
 **Batch — a whole folder at once:** choose input/output folders, set a render template, and
 **Run** — each source becomes a strip (+ `@2x` / `.skin.json`) off-thread, with progress;
 bad files are skipped and reported, and **Cancel** stops cleanly between files.
+
+**Skin — bind many strips into one `skin.json`:** add controls from existing strips
+(auto-detected) or blank, edit each control's id / type / parameter / bounds / value range,
+set the skin-level metadata, and export one combined multi-control manifest.
 
 **Quality tips:** give knob art ~10% transparent margin so corners don't clip on rotation;
 exported PNGs are 32-bit RGBA with a transparent background (the plugin paints the
@@ -141,7 +146,7 @@ Contributions are very welcome — bug reports, feature ideas, and pull requests
 
 **Workflow**
 1. Fork the repo and branch off `main`.
-2. Make your change and add/update tests — `dotnet test` must stay green (currently **49**).
+2. Make your change and add/update tests — `dotnet test` must stay green (currently **98**).
 3. Keep the house conventions:
    - Don't rewrite `Services/SkiaFilmstripRenderer.cs`; the rotation/supersampling math is
      deliberate (the `(N-1)` angle divisor is intentional — last frame lands exactly on max).
@@ -165,14 +170,14 @@ StripKit.sln
 FilmstripEngine.cs          standalone, portable renderer (not compiled by the app)
 src/StripKit/
   Program.cs, App.axaml     entry point + composition root (DI), Obsidian design tokens
-  Models/                   FilmstripSettings, FrameTransform, StripDetection, SkinManifest, BatchModels, enums
-  Services/                 renderer · importer · manifest · batch · image load · file dialog · export
-  ViewModels/               MainWindowViewModel (Create) · ImporterViewModel · BatchViewModel
-  Views/                    MainWindow (TabControl) · ImporterView · BatchView
-tests/StripKit.Tests/       xUnit: renderer golden-image, alignment, VM, importer, manifest, batch, meter
+  Models/                   FilmstripSettings, FrameTransform, StripDetection, SkinManifest, BatchModels, CodeModels, RenderLayer, enums
+  Services/                 renderer · importer · manifest · code-snippet · pointer-extractor · batch · image load · file dialog · export
+  ViewModels/               MainWindowViewModel (Create) · ImporterViewModel · BatchViewModel · SkinViewModel
+  Views/                    MainWindow (TabControl) · ImporterView · BatchView · SkinView
+tests/StripKit.Tests/       xUnit: renderer golden-image, alignment, VM, importer, manifest, batch, meter, value-arc, layered-knob, code-snippet, pointer-extractor
 installer/StripKit.iss      Inno Setup installer script
 scripts/Invoke-Release.ps1  local release driver (Stage 1)
-.github/workflows/          auto-release.yml — CI release creator (Stage 2)
+.github/workflows/          ci.yml — build + test · auto-release.yml — CI release creator (Stage 2)
 docs/                       ARCHITECTURE, SOURCE_MAP, ROADMAP, TESTING, CHANGELOG, BUGS, HANDOFF, AUDIT-LOG, PACKAGING, KICKOFF
 ```
 

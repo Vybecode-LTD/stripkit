@@ -1,8 +1,8 @@
 ---
 document: HANDOFF
-version: 0.7.0
-last-updated: 2026-06-04
-last-audit: 2026-06-04
+version: 0.8.0
+last-updated: 2026-06-05
+last-audit: 2026-06-05
 managed-by: session-orchestrator/handoff-builder
 ---
 
@@ -10,124 +10,137 @@ managed-by: session-orchestrator/handoff-builder
 
 ## Quick Context
 
-StripKit is a C#/Avalonia desktop tool that renders transparent PNGs into
-animated filmstrip sprite sheets for audio-plugin GUI controls (knobs, faders,
-sliders, meters). Stack: .NET 9 / Avalonia 11.3 / SkiaSharp / Inno Setup.
+StripKit is a C#/Avalonia desktop tool that renders transparent PNGs into animated
+filmstrip sprite sheets for audio-plugin GUI controls (knobs, faders, sliders, meters).
+Stack: .NET 9 / Avalonia 11.3 / SkiaSharp / Inno Setup. Public, MIT-licensed.
 
-**Phase:** Post-ship (v0.7.0 live). Repo is public, MIT-licensed. Two of the three
-★ vNext bets are now shipped; the third (layer-aware animation) is the next feature.
+**Phase:** Post-ship (v0.8.0 live). The app is a four-tab `TabControl` —
+**Create | Import | Batch | Skin**. Two of the three ★ vNext bets are done (value-arc,
+code-export); the third (**layer-aware animation**) is in progress — **steps 1 & 2 of 3
+done**, step 3 (PSD/SVG import) remains.
 
-## Last Session (2026-06-04) — v0.7.0: two ★ features + ship
+## Last Session (2026-06-05) — three gap features + v0.8.0 ship + ★ step 2
 
-### What was done
-- **★ Value-arc / fill-ring generator** (vNext ★ #1). A Serum/Vital-style fill arc
-  composited onto knob frames that tracks the value (lit arc sweeps
-  `Start → Start+(End−Start)·t`, concentric with the rotation pivot). Optional dim
-  track, sweep gradient, glow, round/butt caps. 11 Skia-free `FilmstripSettings`
-  fields gated on `ShowValueArc` (**off by default → existing output byte-identical**;
-  all prior golden baselines unchanged). New `RenderValueArc` + `StrokePaint` in
-  `SkiaFilmstripRenderer`, mirrored into `FilmstripEngine.cs`; "VALUE ARC" panel in
-  the Create tab's rotary section. +8 tests (`ValueArcRenderTests`); baselines visually
-  reviewed.
-- **★ Code / component export** (vNext ★ #2 — "close the loop"). Every export can emit
-  ready-to-paste loader code: **JUCE** (`LookAndFeel` filmstrip `Slider` / meter
-  `Component`), **CSS/HTML** (self-contained `background-position` sprite + a 0..1 value
-  setter), **iPlug2** (`IBKnobControl`/`IBSliderControl`/`IBitmapControl`), **HISE**
-  (`ScriptPanel` paint). Pure `CodeSnippetService` (`Generate`/`FileName`/`SaveAsync`,
-  no Skia/Avalonia — a sibling of `ManifestService`); new `CodeTarget` enum +
-  `CodeSnippetRequest` record. Create-tab "CODE EXPORT" panel (per-target tick boxes →
-  one file each next to the PNG) + a live preview / copy-to-clipboard expander. +15 tests
-  (`CodeSnippetServiceTests`); all four generated snippets eyeballed for API correctness.
-- **Shipped v0.7.0.** Committed both features (`52f0b4c`), ran `scripts/Invoke-Release.ps1
-  -Bump minor` (test gate 72/72 → bump 0.6.0→0.7.0 → publish → Inno installer → commit
-  `fe24ca3` + tag `v0.7.0` + push). CI (`auto-release.yml`) VirusTotal-scanned and created
-  the **public release** — verified live with `StripKit-Setup-0.7.0-x64.exe` (33.5 MB).
-- **Handoff:** reconciled every managed doc to **0.7.0**; this file rewritten; AUDIT-LOG
-  entry added.
+A long, productive session. Everything is committed on `main` (== origin).
 
-### Decisions made (these are not derivable from the diff)
-- **vNext order = value-arc → code-export → layer-aware** (the three ★ items; the agent
-  recommended value-arc first for visible ROI + lowest risk, and that it de-risks the
-  overlay pattern for layer-aware — owner agreed).
-- **Ship v0.7.0 before starting layer-aware** (the big one deserves a fresh start).
-- **Layer-aware MVP scope = all three input modes eventually**, built in order:
-  **base+pointer PNGs first** (establishes the multi-layer render model with no new
-  parsers), **then auto-extract the pointer from flat art** (CV, seed from
-  `ContentAnalysis`), **then layered PSD/SVG import** (biggest dependency lift — no
-  PSD/SVG layer reader in the stack today).
-- **Code export choices:** the arc/code features are knob-aware where it matters; the
-  code preview box deliberately uses the house **sans-serif** font (no monospace) per the
-  Obsidian design rule — flag for the owner if a monospace code box is wanted there.
+### Shipped in v0.8.0 (live on GitHub Releases)
+Four features, each its own commit, then cut as **v0.8.0** via `Invoke-Release.ps1 -Bump minor`
+(test gate **94/94** at the cut) → CI VirusTotal-scanned + created the public release:
+- **★ Layer-aware knob — step 1: base + pointer** (`31c203b`). A general layer model
+  (`Models/RenderLayer.cs`: `LayerBehavior {Static, Rotate}` + a per-layer pivot) on
+  `FilmstripSettings.Layers`; `RenderLayers` composites a static body + a rotating pointer in
+  `RenderFrame`/`RenderStrip` (optional index-matched `layerArt` param). Explicit **Base/Pointer
+  slots** in the Create tab's rotary panel; the pointer rotates about its own pivot. **Gated by
+  defaults — empty `Layers` renders the single source byte-identical** (all prior goldens
+  unchanged). Mirrored in `FilmstripEngine.cs`. +12 tests.
+- **Batch-tab meter settings** (`e126daf`). The Batch template exposes the full meter panel
+  (segments, fill, continuous, on/off colours) + a **"source is a backdrop"** toggle (each file is
+  the lit on-state art → layered, or a housing with procedural LEDs → procedural). New
+  `BatchOptions.MeterSourceIsBackdrop`. Resolves the v0.6.0 carryover (BUG-007 follow-up). +2 tests.
+- **Skin tab — multi-control `skin.json` builder** (`4a9e2ac`). A new fourth tab that binds
+  several strips to several parameters in one manifest. Add controls **from a strip**
+  (`FilmstripImporter.Detect` auto-fills) or **blank**; per-control detail editor (id/type/param/
+  asset/frames/size/stack/**bounds**/**value range**); skin name/author/design-resolution/window
+  background; **Export skin.json…** to a folder. New `IManifestService.BuildManifest`,
+  `SkinViewModel` + `SkinControlEntry` + `SkinView`. +6 tests.
+- **Importer frame-count resampling** (`322a80d`). The Import tab re-times a strip to a new frame
+  count (`FilmstripImporter.Resample`, **nearest-frame** `round(j·(N−1)/(M−1))` — endpoints land on
+  min/max, no blending so a pointer never ghosts). New "Resample frame count" target + Export. +2 tests.
 
-### What was NOT finished (the backlog)
-- **Layer-aware animation (★ #3)** — not started. The next feature.
-- **Code export targets React / Web Component + Unity / Godot** — deferred (P2); the four
-  shipped (JUCE/CSS/iPlug2/HISE) were the agreed first wave.
-- **Website not deployed** (stripkit.pro still a placeholder) and its `updates.json` has
-  **no v0.7.0 entry yet** (the per-release manual step).
-- **Batch-tab meter settings UI** still unbuilt (carryover from v0.6.0 audit).
+Also committed: the **`layer-aware-filmstrip-compositing` project skill** (`5fa2ba4`,
+`.claude/skills/`) — the reusable static-base + transformed-overlay pattern; passed the
+skill-authoring-linter (0/0), distributable `.skill` packaged under `dist/` (gitignored).
+
+### Unreleased on `main` (after the v0.8.0 tag) — ★ step 2
+- **★ Layer-aware knob — step 2: auto-pointer extraction** (`afca651`). An **"Auto-extract from
+  flat knob…"** button splits a single flat knob image into the base + pointer slots automatically.
+  `Services/PointerExtractor.cs` uses the **radial-symmetry residual**: a knob body is rotationally
+  symmetric, so the indicator is whatever breaks that symmetry — the robust per-radius mean is the
+  symmetric base, the residual is the pointer. Returns a **confidence** (low for asymmetric bodies,
+  flagged). A starting guess the user verifies via the preview/scrub; assumes the art is drawn at
+  the minimum (frame-0) position. Pure SkiaSharp (like `ContentAnalysis`); **app-only — NOT mirrored
+  in `FilmstripEngine.cs`** (the engine holds only render math). +4 tests. **Eyeballed**: the
+  extracted base is a clean symmetric body and the rendered sweep shows a crisp needle rotating
+  about a static body (one minor cosmetic central dot at the pivot, inherent to a needle through
+  the centre). Suite **98/98**.
+
+### Decisions made (not derivable from the diff)
+- **Layer model = a general `RenderLayer` list** (not a single bolt-on pointer field) — chosen to
+  set up steps 2–3, which reuse the same model + slot UI.
+- **Pointer has its own pivot** (independent of the body), seeded from the body centre.
+- **Batch meters via a toggle** — both layered (lit art) and procedural (backdrop + LEDs) modes,
+  because a batch file is meaningful as either; one bool threads through.
+- **Skin authoring = a dedicated tab** (not a Create-tab accumulator) for clean separation.
+- **Resampling = nearest-frame only** — blended resampling intentionally not built (it ghosts a
+  moving indicator; nearest is correct for filmstrips).
+- **Step-2 extraction = radial-symmetry residual** (over luminance thresholding) — principled,
+  shape-agnostic, and produces both layers cleanly; **auto-fill-and-verify** workflow (not a
+  one-shot convert); **assume the flat art is the frame-0 position** (simplest; user verifies).
 
 ## Current State
 
 ### Working
-- **v0.7.0 live:** https://github.com/Vybecode-LTD/stripkit/releases/tag/v0.7.0
-  (`StripKit-Setup-0.7.0-x64.exe`, ~33.5 MB, self-contained, no SDK needed).
-- Tests: **72/72 green**. CI runs on every push/PR. Working tree clean; `main` == origin.
-- 3-stage release pipeline proven again end-to-end this session.
+- **v0.8.0 live:** https://github.com/Vybecode-LTD/stripkit/releases/tag/v0.8.0
+  (`StripKit-Setup-0.8.0-x64.exe`, ~33.5 MB self-contained).
+- Tests **98/98 green**; build 0/0; app boots clean with all four tabs. CI runs on every push/PR.
+- `main` == origin (step 2 pushed). 0 open bugs.
 
-### Known Issues / Limitations (not bugs — 0 open bugs)
-- VirusTotal heuristic FPs on the unsigned installer. Not a real bug.
-- Code export: React/Web-Component + Unity/Godot targets not built; meter → iPlug2 maps to
-  an `IBitmapControl` (no stock filmstrip meter control) and is commented as such.
-- Batch tab: meter-specific settings fields not yet exposed.
-- Importer cannot resample frame *count*; manifest UI emits a single control.
-- `FilmstripEngine.cs` is a hand-maintained mirror (now includes `RenderValueArc`).
+### Known issues / limitations (not bugs)
+- `FilmstripEngine.cs` is a hand-maintained mirror of the renderer + render-math models (now
+  includes the `RenderLayers` layered path + `RenderLayer`/`LayerBehavior` + `Layers`). It does
+  **not** include `PointerExtractor`/`ContentAnalysis`/importer/etc. (app-only services) — by design.
+- Auto-pointer extraction leaves a small central residual dot when the needle passes through the
+  pivot; it is a verify-and-tweak starting point, knob-only, best on a round body with one indicator.
+- VirusTotal heuristic FPs on the unsigned installer (not a real bug; code-signing cert is the fix).
+- Two untracked files sit in the working tree and are **not ours** — `docs/PRESS-RELEASE.md` and
+  `press/`. They appeared mid-session; left untouched and excluded from every commit. Decide what
+  they are.
 
 ## How to Ship the Next Release
 
 ```powershell
-pwsh scripts/Invoke-Release.ps1            # default: patch bump -> 0.7.1
-pwsh scripts/Invoke-Release.ps1 -Bump minor   # -> 0.8.0
-gh run watch                               # CI is the sole release creator
+# pwsh isn't installed on this machine; the script is encoding-safe under Windows PowerShell 5.1:
+powershell -ExecutionPolicy Bypass -File scripts\Invoke-Release.ps1 -Bump minor   # -> 0.9.0
+gh run watch    # CI (auto-release.yml) is the SOLE release creator
 ```
-
-Commit feature work **first** — the script only stages the version files + installer
-(it does not commit your source changes). Full flow: docs/PACKAGING.md.
+Commit feature work **first** (the script only stages the version files + installer). Full flow:
+`docs/PACKAGING.md`. After each release, add a plain-language entry to the website's `updates.json`.
 
 ## Next Steps (priority order)
 
-1. **vNext ★ #3 — layer-aware animation.** Start with the **base+pointer PNG** MVP
-   (two layers; only the pointer rotates, body stays crisp), then auto-pointer extraction
-   from flat art, then PSD/SVG import. This is a deep renderer/model change — extend
-   `RenderFrame` to composite a layer list; keep `FilmstripEngine.cs` in sync; gate behind
-   defaults so existing single-source output is unchanged (as value-arc did).
-2. **Finish the code-export targets** — React / Web Component, Unity / Godot (just add
-   `CodeTarget` cases + generators + tests; the service is built to extend).
-3. **Deploy the website to stripkit.pro** and add a plain-language **v0.7.0 entry** to
-   `StripKit-Website/updates.json`. (User step + one cross-repo edit.)
-4. **Code-signing certificate** — clears VirusTotal FPs and SmartScreen.
-5. **Batch-tab meter settings UI**; bump `actions/checkout@v4 → v5` (Node 20 deprecation).
+1. **★ #3 step 3 — layered PSD/SVG import** (the last ★ piece, **the big dependency lift**). No
+   PSD/SVG layer reader is in the .NET stack today, so this needs a **library decision + a license
+   check** (many PSD libs are commercial/GPL — the project cares about licensing). Parse a real
+   layered source with per-layer behaviour tags (rotate / stay / translate / opacity-ramp) → the
+   existing `Layers` model. **Scope the library/approach before building.**
+2. **Interactive in-app help / tutorial system** (P1, owner-requested) — a guided first-run /
+   tutorial for the desktop app (load → choose type → align → export → wire the loader). See ROADMAP.
+3. **Website "Getting started" how-to guide** at `stripkit.pro/getting-started/` (P2,
+   owner-requested) — illustrated step-by-step on the `StripKit-Website` repo; pairs with the deploy.
+4. **Code-export targets** — React / Web Component + Unity / Godot (extend `CodeTarget`).
+5. **Deploy the website to stripkit.pro** + add a v0.7.0 **and** v0.8.0 entry to `updates.json`.
+6. **Code-signing certificate**; **bump `actions/checkout@v4 → v5`** (Node-20 deprecation — CI warns).
 
 ## Warnings for Next Agent
 
-- **UTF-8 discipline in release scripts.** PS 5.1 `Get-Content` without `-Encoding UTF8`
-  corrupts em-dashes (BUG-003). Always `pwsh` + explicit UTF-8. Documented in PACKAGING §9.
-- **Never inline a changelog body into `gh release create --notes "..."`** — backticks
-  trigger shell command substitution (BUG-004). Always `--notes-file`.
-- **`FilmstripEngine.cs` (repo root) is a hand-maintained mirror** of the renderer +
-  models — now including `RenderValueArc` and the arc fields. Sync it if renderer math
-  changes. It is NOT compiled by the app and is NOT under test.
-- **Do NOT** rewrite `SkiaFilmstripRenderer`, change the `(N−1)` angle divisor, move VM
-  logic into code-behind, or reference Avalonia UI types from view models. Extend, don't
-  rewrite.
-- **House design rule:** sans-serif only (Verdana-led), no monospace, `#e8440a` accent,
-  reuse the `App.axaml` tokens. The code-export preview box honors this (no monospace).
-- `actions/checkout@v4` runs Node 20 (GitHub deprecation mid-2026) — bump to v5 soon.
+- **`FilmstripEngine.cs` (repo root) is a hand-maintained mirror** of the renderer + render-math
+  models. Sync it if renderer math changes. App-only services (`PointerExtractor`, `ContentAnalysis`,
+  importer, manifest, batch, code-snippet) are **not** in it. NOT compiled, NOT tested.
+- **Do NOT** rewrite `SkiaFilmstripRenderer`, change the `(N−1)` angle divisor, move VM logic into
+  code-behind, or reference Avalonia UI types from VMs (the preview `Bitmap` alias is the one
+  exception). Extend, don't rewrite. Gate new render paths behind defaults so prior goldens hold.
+- **Release scripts must read/write UTF-8** (PS 5.1 `Get-Content` without `-Encoding UTF8` corrupts
+  em-dashes — BUG-003); **never inline a changelog body into `gh release create --notes "..."`**
+  (backticks → shell injection — BUG-004; use `--notes-file`). Both already fixed in the pipeline.
+- **House design rule:** Obsidian dark glass, `#e8440a` accent, **sans-serif only** (Verdana-led,
+  no monospace). Reuse the `App.axaml` tokens.
+- The two untracked strays (`docs/PRESS-RELEASE.md`, `press/`) are not ours — don't commit them.
 
 ## Files to Read First
 
 1. `CLAUDE.md` — project context, conventions, house rules, last task.
-2. `docs/SOURCE_MAP.md` — where everything lives.
-3. `docs/ARCHITECTURE.md` — deep design reference (value-arc §5.5, code export §9.1).
-4. `docs/ROADMAP.md` — done phases + the vNext backlog (layer-aware is next).
-5. `docs/PACKAGING.md` — full release-pipeline reference with bug guards.
+2. `docs/SOURCE_MAP.md` — where everything lives (four tabs, all services).
+3. `docs/ARCHITECTURE.md` — deep reference. Layer-aware: §5.6 (`RenderLayers`), §6.6 (slots),
+   §6.7 (`PointerExtractor`). Skin tab: §9.2. Value-arc §5.5, code export §9.1.
+4. `docs/ROADMAP.md` — releases + the vNext backlog (★ step 3 next; the two new onboarding items).
+5. `docs/PACKAGING.md` — full release-pipeline reference with the BUG-003/004 guards.

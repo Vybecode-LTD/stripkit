@@ -1,8 +1,140 @@
 # AUDIT-LOG — StripKit
 
-> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-05 — Independent doc reconciliation pass (post-v0.8.0 ship + handoff)
+
+**Type:** Documentation reconciliation (doc-reconciler). No source code touched; app/tests not run.
+
+**Scope:** Cross-checked all managed docs (`CLAUDE.md`, `docs/ROADMAP.md`, `BUGS.md`, `TESTING.md`,
+`CHANGELOG.md`, `HANDOFF.md`, `AUDIT-LOG.md`, `ARCHITECTURE.md`, `SOURCE_MAP.md`, `PACKAGING.md`,
+`KICKOFF.md`, `README.md`) against each other and the codebase after the v0.8.0 ship + ★ step-2
+handoff.
+
+### Ground truth verified
+- `src/StripKit/StripKit.csproj` `<Version>` = **0.8.0**.
+- `MainWindow.axaml` has **four** `TabItem`s: Create | Import | Batch | Skin.
+- New source present: `Services/PointerExtractor.cs`, `ViewModels/SkinViewModel.cs` +
+  `SkinControlEntry.cs`, `Views/SkinView.axaml(.cs)`, `Models/RenderLayer.cs`.
+- New skill present: `.claude/skills/layer-aware-filmstrip-compositing/SKILL.md`.
+- 19 test files; every file/suite named in `TESTING.md` exists (incl. `PointerExtractorTests`,
+  `SkinViewModelTests`, `LayeredKnobRenderTests`). Suite size **98** taken as ground truth (not
+  re-run this pass, per scope).
+
+### Drift found
+| # | Severity | Document | Issue | Resolution |
+|---|----------|----------|-------|------------|
+| 1 | MEDIUM | `README.md` | "`dotnet test` # **49 tests**" — stale current count. | **Fixed → 98.** |
+| 2 | MEDIUM | `README.md` | Contributing: "must stay green (currently **49**)". | **Fixed → 98.** |
+| 3 | MEDIUM | `README.md` | "StripKit is a **three-tab** app: Create, Import, and Batch." — omits the Skin tab. | **Fixed → four-tab; added a "Skin —" usage paragraph.** |
+| 4 | LOW | `README.md` | Project-layout block + features list omitted Skin/PointerExtractor/CodeModels and importer resampling. | **Fixed** (layout VM/Views/Models/Services lines updated; importer + manifest feature bullets note resample + multi-control Skin; `ci.yml` added to the workflows line). |
+| 5 | MEDIUM | `docs/KICKOFF.md` | **Body is materially stale at v0.7.0** despite a correct 0.8.0 header — see Flagged. | **Flagged** (header is trivially fine; body needs your call). |
+
+### Flagged for manual review (not auto-fixed — substantive)
+- **`docs/KICKOFF.md` body is a v0.7.0 snapshot.** The header is correct (`Version 0.8.0 ·
+  last-updated 2026-06-05`), but the paste-in prompt prose still describes the *previous* state:
+  - "**v0.7.0 has shipped** (the latest public GitHub Release)" and "`dotnet test` is **72/72
+    green**" / "expect 72/72" — should be v0.8.0 and **98**.
+  - Lists the app as importer/batch/manifest only and says "✅ code/component export" as the last
+    done item — **omits the v0.8.0 work** (Skin tab, Batch-tab meter settings, importer resampling,
+    layer-aware step 1) and the unreleased ★ step 2 (`PointerExtractor`).
+  - "**Primary next task: vNext ★ #3 — layer-aware animation … build order: base+pointer PNGs →
+    auto-pointer extraction → PSD/SVG import**" — the first two are now **done**; the real next task
+    is **★ step 3 (layered PSD/SVG import)**, then the two owner-requested onboarding items
+    (in-app tutorial; website getting-started guide).
+  - "Open work" still lists "Batch-tab meter settings UI; importer frame-count resampling;
+    multi-control manifests" as pending — all **shipped in v0.8.0**.
+  - "add its **v0.7.0** `updates.json` entry" — should also include v0.8.0.
+  This is a body rewrite to the v0.8.0/step-2 state (mirroring HANDOFF "Next Steps"). Left for you
+  to decide rather than rewritten wholesale. Consistent with prior practice — KICKOFF has lagged
+  before (see the 2026-06-04 reconcile, which flagged it stale at v0.5.0).
+
+### Cross-doc agreement (checked, consistent)
+- **Version headers:** all eleven managed docs + CLAUDE.md read `Version 0.8.0 · last-updated
+  2026-06-05 · last-audit 2026-06-05` (KICKOFF uses the short no-`last-audit` form; HANDOFF uses
+  YAML frontmatter 0.8.0 / 2026-06-05 / 2026-06-05). **No version-stamp drift.**
+- **Four-tab story:** CLAUDE, ARCHITECTURE, SOURCE_MAP, HANDOFF, CHANGELOG, TESTING all say four
+  tabs incl. Skin. (README fixed above; KICKOFF body flagged.)
+- **v0.8.0 vs unreleased vs remaining:** CHANGELOG (`[0.8.0]` = the 3 gap features + layer step 1;
+  `[Unreleased]` = step 2), ROADMAP (Releases section + ✅/🔄 markers), HANDOFF, CLAUDE last-task,
+  and BUGS (BUG-007 follow-up resolved) **all agree** — shipped = Skin/Batch-meter/resample/step-1;
+  unreleased = ★ step-2 (`PointerExtractor`); remaining ★ = step-3 (layered PSD/SVG import).
+- **Test-count mentions:** TESTING (98), SOURCE_MAP (one stale-looking "**92**" — see note),
+  CHANGELOG/ROADMAP/CLAUDE per-feature counts are correctly time-anchored ("suite 72", "84
+  passing", "94→98", "Suite 94/98"). No bare "current = old-number" claims except README (fixed).
+- **Cross-references:** spot-checked `docs/*.md` links (HANDOFF → ARCHITECTURE §5.6/§6.6/§6.7/§9.2,
+  SOURCE_MAP, PACKAGING; README → CLAUDE/KICKOFF/ARCHITECTURE/SOURCE_MAP/BUGS) — all targets exist.
+
+### Minor note (LOW, not fixed — borderline)
+- `docs/SOURCE_MAP.md` line ~39 says `tests/StripKit.Tests/` "(**92**)" while TESTING.md and the
+  header are at **98**. Reads as a slightly stale count rather than a time-anchored one. Left for
+  the versioner to confirm (consistent everywhere else at 98); flagging rather than silently
+  editing prose mid-sentence.
+
+### Verdict
+**In line after fixes.** Findings: 5 + 1 minor note (0 critical, 0 high, 3 medium, 2 low + 1 note);
+**4 auto-fixed** (all in README), **1 manual review** (KICKOFF body rewrite), 1 minor note flagged.
+Version stamps uniform at 0.8.0/2026-06-05; no code touched. Recommended doc-version increment:
+**PATCH** (stamp/count finalize only) — or none, since headers are already current.
+
+---
+
+## 2026-06-05 — three gap features + v0.8.0 ship + ★ step 2 + handoff
+
+**Type:** Feature delivery + release + session handoff
+
+**Scope:** Built layer-aware step 1 (committed) + three carryover "gap" features, shipped them
+as **v0.8.0**, added the `layer-aware-filmstrip-compositing` skill, then built ★ step 2
+(auto-pointer extraction, unreleased), and reconciled every managed doc.
+
+### Delivered (code, each its own commit)
+- **★ Layer-aware step 1 — base + pointer** (`31c203b`): `RenderLayer`/`LayerBehavior` model +
+  `FilmstripSettings.Layers`; `RenderLayers` in `RenderFrame`/`RenderStrip` (optional `layerArt`);
+  Create-tab Base/Pointer slots + per-layer pointer pivot. Gated by defaults; mirrored in
+  `FilmstripEngine.cs`. +12 tests.
+- **Batch-tab meter settings** (`e126daf`): full meter panel + `MeterSourceIsBackdrop` toggle
+  (layered on-art vs procedural-over-backdrop); `BatchProcessor` routes the file to source/background.
+  +2 tests.
+- **Skin tab — multi-control manifest** (`4a9e2ac`): `SkinViewModel`/`SkinControlEntry`/`SkinView`
+  (4th tab) + `IManifestService.BuildManifest`; add-from-strip auto-detect, per-control detail
+  editor (bounds + value range), skin metadata + window background, export to folder. +6 tests.
+- **Importer resampling** (`322a80d`): `FilmstripImporter.Resample` (nearest-frame re-time). +2 tests.
+- **★ Layer-aware step 2 — auto-pointer extraction** (`afca651`, unreleased): `PointerExtractor`
+  (radial-symmetry residual) splits a flat knob into base + pointer with a confidence score;
+  Create-tab "Auto-extract from flat knob…". App-only (not in `FilmstripEngine.cs`). +4 tests.
+- **Skill** (`5fa2ba4`): `.claude/skills/layer-aware-filmstrip-compositing/SKILL.md` (linter 0/0).
+
+### Mini-audit of new code
+- No `async void` except event handlers; no `.Result`/`.Wait()`/`System.Drawing`. New services
+  (`PointerExtractor`) are Avalonia-free; `SkinViewModel`/`BatchViewModel` use only `SkiaSharp`
+  (`SKColor`/`SKBitmap`) — no Avalonia UI types. Renderer's layered path is gated (`Layers` empty →
+  byte-identical), so all prior goldens hold. Source-generator VMs are `partial`. DI: `SkinViewModel`
+  registered, exposed by `MainWindowViewModel`. `FilmstripEngine.cs` mirror updated for the layered
+  path (step 1); correctly **not** updated for `PointerExtractor` (app-only). 0 build warnings.
+
+### Release
+- `Invoke-Release.ps1 -Bump minor` (run under Windows PowerShell 5.1 — `pwsh` absent; the script is
+  encoding-safe): test gate **94/94** → 0.7.0 → 0.8.0 across csproj/.iss/CHANGELOG → publish → Inno
+  installer → commit `65a9c4f` + tag `v0.8.0` + push. CI `auto-release.yml` VirusTotal-scanned and
+  created the public release (verified live; 33.5 MB asset). The release commit staged only the
+  version files + installer; the two stray untracked files were excluded.
+
+### Doc reconciliation
+- All managed docs bumped to **0.8.0** (CLAUDE, HANDOFF, ROADMAP, ARCHITECTURE, SOURCE_MAP,
+  CHANGELOG, TESTING, BUGS, AUDIT-LOG, KICKOFF, PACKAGING). ARCHITECTURE gained §5.6/§6.6/§6.7
+  (layers, slots, extraction) + §9.2 (Skin tab) + §8/§10.2 updates (batch meter, resample); SOURCE_MAP
+  + TESTING list the new files/suites (count 72 → 98); CHANGELOG `[0.8.0]` + `[Unreleased]` (step 2);
+  ROADMAP marks the shipped items ✅, adds a Releases section, and **two new owner-requested items**
+  (in-app help/tutorial; website getting-started guide). BUGS: 0 open (the BUG-007 batch-meter
+  follow-up is now resolved by the Batch meter feature). HANDOFF rewritten.
+
+### Verdict
+**Green.** Build 0/0, **98/98** tests, app boots clean (four tabs), `main` == origin, 0 open bugs,
+v0.8.0 live. Next: ★ step 3 — layered PSD/SVG import (scope the parser library + license first).
 
 ---
 

@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -36,12 +36,13 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (92): renderer golden-image (with committed
-  `baselines/`), `ContentAnalysis` + alignment render, view-model load-path, importer
-  engine + VM, manifest (incl. multi-control), batch processor + VM (incl. meter), Skin tab VM
-  (`SkinViewModelTests`), meter renderer, value-arc renderer (`ValueArcRenderTests`),
-  layered-knob renderer (`LayeredKnobRenderTests`), code-snippet generation
-  (`CodeSnippetServiceTests`), and a headless drop-zone test. See `docs/TESTING.md`.
+- `tests/StripKit.Tests/` — xUnit tests (98): renderer golden-image (with committed
+  `baselines/`), `ContentAnalysis` + alignment render, pointer extraction
+  (`PointerExtractorTests`), view-model load-path, importer engine + VM, manifest (incl.
+  multi-control), batch processor + VM (incl. meter), Skin tab VM (`SkinViewModelTests`), meter
+  renderer, value-arc renderer (`ValueArcRenderTests`), layered-knob renderer
+  (`LayeredKnobRenderTests`), code-snippet generation (`CodeSnippetServiceTests`), and a
+  headless drop-zone test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 

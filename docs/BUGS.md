@@ -1,6 +1,6 @@
 # BUGS — StripKit
 
-> Version 0.7.0 · last-updated 2026-06-04 · last-audit 2026-06-04
+> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
 
 **Open bugs: 0.** **Resolved: 7.**
 
@@ -132,7 +132,10 @@ commit `0aaa257` (resource leaks and a silent product gap).
   installer — heuristic false-positives. A code-signing certificate is the planned
   remedy (the build currently ships unsigned → SmartScreen).
 - Known *limitations* (not bugs) live in `docs/ROADMAP.md` / `docs/ARCHITECTURE.md`:
-  importer detection is a dimension-based guess (editable + verified), the importer
-  cannot yet resample frame *count*, and the manifest UI emits a single control.
-  Meter-specific fields (segment count, fill direction, colours) are not yet
-  configurable in the Batch tab template UI (see BUG-007 fix note).
+  importer detection is a dimension-based guess (editable + verified). **Resolved in
+  v0.8.0** (the BUG-007 follow-up + two carryovers): the Batch tab now exposes the meter
+  settings (+ a layered/backdrop toggle); the **Skin tab** does multi-control `skin.json`
+  (the Create-tab export still emits a single control); and the importer can now **resample**
+  the frame count (nearest-frame), not just re-stack orientation. Auto-pointer extraction
+  (★ #3 step 2) leaves a small central residual dot when the needle passes through the pivot
+  (a verify-and-tweak starting point, knob-only) — not a defect.
