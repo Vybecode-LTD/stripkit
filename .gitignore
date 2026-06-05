@@ -2,6 +2,8 @@
 bin/
 obj/
 out/
+# packaged .skill artifacts and other distributables
+dist/
 
 # Test artifacts (committed baselines stay; diff output is transient)
 tests/**/output/
