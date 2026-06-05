@@ -983,28 +983,69 @@ Edit the `switch ($Bump)` block (`Invoke-Release.ps1` lines 68–72) and/or the
 tag) keys off that string. Keep `none` for the "ship current version / re-run
 after a failure" path.
 
-### 13.3 Add code signing (currently shipping unsigned)
-Unsigned installers raise SmartScreen on first run and contribute to the VirusTotal
-heuristic FPs (~4/71 for v0.6.0). Once an EV/standard code-signing cert exists:
+### 13.3 Code signing — Azure Trusted Signing (ACTIVE)
 
-- **Sign the payload before packaging** (in Stage 1, between publish and ISCC):
-  ```powershell
-  signtool sign /fd sha256 /tr http://timestamp.digicert.com /td sha256 publish\StripKit.exe
-  # sign the native DLLs too if the AV heuristics still flag them
-  ```
-- **Have Inno sign the produced installer** — define a SignTool in the Inno IDE /
-  config and reference it from `[Setup]`:
-  ```
-  ; in installer/StripKit.iss [Setup]:
-  SignTool=mysigntool
-  ```
-  where `mysigntool` is a SignTool command line registered in Inno
-  (`SignTool` entries map a name to a `signtool sign … $f` command).
-- **In CI**, do signing only in protected workflows with secret-driven cert
-  material (e.g. AzureSignTool + a secret-stored cert). Never commit a cert or
-  password.
-- Document the cert source/thumbprint here once chosen. Re-VirusTotal after the
-  first signed build — the FP count should drop.
+**Provider:** Azure Trusted Signing — `https://eus.codesigning.azure.net`
+**Certificate profile:** `VybeCode`
+**Tool:** `AzureSignTool` v7.0.1 (dotnet global tool, on PATH)
+**Status:** wired into `Invoke-Release.ps1` + `installer/StripKit.iss`
+
+#### What gets signed and when
+
+| Binary | When | How |
+|---|---|---|
+| `publish\StripKit.exe` | Stage 1, between `dotnet publish` and `ISCC` | `Invoke-AzureSign` in `Invoke-Release.ps1` |
+| `installer\Output\StripKit-Setup-X.Y.Z-x64.exe` | During `ISCC` packaging | `SignTool=` directive in `StripKit.iss` |
+| Embedded `unins*.exe` | During `ISCC` packaging | `SignedUninstaller=yes` in `StripKit.iss` |
+
+#### One-time setup (already done on this machine)
+
+```powershell
+# 1. Install AzureSignTool
+dotnet tool install --global AzureSignTool
+# Installed at: C:\Users\vybec\.dotnet\tools\azuresigntool.exe (v7.0.1)
+
+# 2. Add dotnet tools to your PATH (if not already there)
+setx PATH "%PATH%;%USERPROFILE%\.dotnet\tools"
+```
+
+In Azure portal, assign the **"Trusted Signing Certificate Profile Signer"** role
+to your account on the `VybeCode` certificate profile:
+`Trusted Signing account → Certificate profiles → VybeCode → Access control (IAM) → Add role assignment`
+
+#### Before each release session
+
+```powershell
+az login   # Opens a browser — authenticate with the account that has the Signer role.
+           # The token lasts several hours; you only need to re-login if it expires.
+```
+
+#### How the signing command looks (for reference / manual use)
+
+```powershell
+AzureSignTool sign `
+    --azure-key-vault-url       https://eus.codesigning.azure.net `
+    --azure-key-vault-certificate VybeCode `
+    --timestamp-rfc3161         http://timestamp.acs.microsoft.com `
+    --timestamp-digest          sha256 `
+    --file-digest               sha256 `
+    publish\StripKit.exe
+```
+
+#### Troubleshooting
+
+| Error | Cause | Fix |
+|---|---|---|
+| `AzureSignTool: command not found` | Tool not installed or not on PATH | `dotnet tool install --global AzureSignTool` then open a new terminal |
+| `AuthenticationFailedException` | Not logged in to Azure | `az login` |
+| `Forbidden` / `403` | Missing role on the cert profile | Assign "Trusted Signing Certificate Profile Signer" role in Azure portal |
+| `CertificateNotFoundException` | Wrong profile name | Profile must be exactly `VybeCode` (case-sensitive) |
+
+#### Expected VirusTotal outcome
+
+After signing, the heuristic false-positive count should drop significantly (from ~4/71
+to typically 0–1/71). SmartScreen will no longer prompt on the first run of a
+release from a recognised publisher.
 
 ### 13.4 `actions/checkout@v4` Node-20 deprecation
 The workflow pins `actions/checkout@v4` (Node-20 runtime). As GitHub deprecates

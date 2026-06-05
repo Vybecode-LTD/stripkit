@@ -37,6 +37,17 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $emdash = [char]0x2014
 
+# ── Azure Trusted Signing ─────────────────────────────────────────────────────
+# Endpoint and certificate profile for code signing. Both binaries are signed:
+# StripKit.exe (before packaging) and the installer/uninstaller (via Inno's
+# SignTool= directive during ISCC). Requires:
+#   1. dotnet tool install --global AzureSignTool   (one-time)
+#   2. az login                                      (before each release session)
+#   3. "Trusted Signing Certificate Profile Signer" role on the VybeCode profile
+$atsEndpoint    = 'https://eus.codesigning.azure.net'
+$atsCertProfile = 'VybeCode'
+$atsTimestamp   = 'http://timestamp.acs.microsoft.com'
+
 $csproj         = Join-Path $root 'src\StripKit\StripKit.csproj'
 $iss            = Join-Path $root 'installer\StripKit.iss'
 $changelog      = Join-Path $root 'docs\CHANGELOG.md'
@@ -49,6 +60,25 @@ function Save-Text($path, $text) {
 }
 
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
+
+function Invoke-AzureSign([string[]]$Files) {
+    if (-not (Get-Command AzureSignTool -ErrorAction SilentlyContinue)) {
+        throw "AzureSignTool not found. Install it once with:  dotnet tool install --global AzureSignTool"
+    }
+    foreach ($f in $Files) {
+        Write-Host "  Signing: $(Split-Path $f -Leaf)" -ForegroundColor Gray
+        AzureSignTool sign `
+            --azure-key-vault-url       $atsEndpoint `
+            --azure-key-vault-certificate $atsCertProfile `
+            --timestamp-rfc3161         $atsTimestamp `
+            --timestamp-digest          sha256 `
+            --file-digest               sha256 `
+            $f
+        if ($LASTEXITCODE -ne 0) {
+            throw "Signing failed for $f.`n  • Are you logged in?  Run: az login`n  • Does your account have the 'Trusted Signing Certificate Profile Signer' role on the '$atsCertProfile' profile in Azure?"
+        }
+    }
+}
 
 # --- Locate the Inno Setup compiler (handles the per-user install) ----------
 $iscc = @(
@@ -108,6 +138,12 @@ Step "Publishing self-contained win-x64 build"
 if (Test-Path $publishDir) { Remove-Item $publishDir -Recurse -Force }
 dotnet publish $csproj -c Release -r win-x64 --self-contained true -o $publishDir
 if ($LASTEXITCODE -ne 0) { throw "Publish failed (version files already bumped to $new - re-run with -Bump none after fixing, or 'git checkout' the version files)." }
+
+# --- Sign the app binary BEFORE packaging -----------------------------------
+# Sign StripKit.exe so the binary inside the installer is signed.
+# The installer + embedded uninstaller are signed by Inno's SignTool= directive.
+Step "Signing StripKit.exe (Azure Trusted Signing)"
+Invoke-AzureSign @((Join-Path $publishDir 'StripKit.exe'))
 
 # --- Package with Inno Setup ------------------------------------------------
 Step "Packaging installer with Inno Setup"
