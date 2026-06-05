@@ -1,0 +1,5 @@
+{
+    "CertificateProfileName":  "VybeCode",
+    "Endpoint":  "https://eus.codesigning.azure.net",
+    "CodeSigningAccountName":  "VybeCode"
+}

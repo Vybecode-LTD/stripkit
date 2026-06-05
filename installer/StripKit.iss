@@ -40,12 +40,12 @@ ArchitecturesInstallIn64BitMode=x64compatible
 PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
 
-; ── Code signing (Azure Trusted Signing) ─────────────────────────────────────
-; Signs the Setup.exe and the embedded Uninstall.exe during packaging.
-; StripKit.exe (the app binary inside) is signed separately in Invoke-Release.ps1
-; before this script runs. Requires AzureSignTool on PATH (dotnet global tool).
-SignTool=AzureSignTool sign --azure-key-vault-url https://eus.codesigning.azure.net --azure-key-vault-certificate VybeCode --timestamp-rfc3161 http://timestamp.acs.microsoft.com --timestamp-digest sha256 --file-digest sha256 $f
-SignedUninstaller=yes
+; ── Code signing note ────────────────────────────────────────────────────────
+; StripKit.exe is signed BEFORE packaging (in Invoke-Release.ps1).
+; The produced installer exe is signed AFTER packaging (also in the script).
+; We do not use Inno's SignTool= directive because Azure Trusted Signing
+; requires signtool.exe + a dlib + a metadata JSON, which Inno cannot invoke
+; directly. The uninstaller embedded inside is NOT separately signed.
 ; ─────────────────────────────────────────────────────────────────────────────
 [Languages]
 Name: "english"; MessagesFile: "compiler:Default.isl"
