@@ -87,6 +87,27 @@ public readonly record struct FrameTransform(
     float PivotX,
     float PivotY);
 
+/// <summary>How a render layer animates across the strip's frames (layered knob: base + pointer).</summary>
+public enum LayerBehavior
+{
+    /// <summary>Drawn fixed in every frame (a knob body / well). Never transformed.</summary>
+    Static,
+    /// <summary>Rotated per-frame about its pivot, following the knob's angle sweep (the pointer).</summary>
+    Rotate,
+}
+
+/// <summary>One layer of a layered control render: its behaviour and (for a rotating layer) the
+/// normalized pivot within its own drawn art. The bitmap is passed alongside to the renderer.</summary>
+public sealed class RenderLayer
+{
+    public LayerBehavior Behavior { get; set; } = LayerBehavior.Rotate;
+    /// <summary>Normalized (0..1) horizontal rotation pivot within this layer's drawn art.</summary>
+    public double PivotX { get; set; } = 0.5;
+    /// <summary>Normalized (0..1) vertical rotation pivot within this layer's drawn art.</summary>
+    public double PivotY { get; set; } = 0.5;
+    public RenderLayer Clone() => (RenderLayer)MemberwiseClone();
+}
+
 /// <summary>The complete description of a filmstrip render. Pure data, no deps.</summary>
 public sealed class FilmstripSettings
 {
@@ -170,15 +191,29 @@ public sealed class FilmstripSettings
     /// <summary>Glow blur size, in 1x pixels.</summary>
     public double ArcGlowSize { get; set; } = 6.0;
 
-    public FilmstripSettings Clone() => (FilmstripSettings)MemberwiseClone();
+    // ---- Layered animation (knob: base + pointer) ----
+    /// <summary>Ordered layer stack (bottom-first) for a layered knob. Empty (default) renders
+    /// the single source as before; when non-empty for a knob the renderer composites these
+    /// layers — bitmaps passed alongside, index-matched — a static body + a rotating pointer.</summary>
+    public List<RenderLayer> Layers { get; set; } = new();
+
+    /// <summary>A deep copy — the <see cref="Layers"/> list is cloned, not shared.</summary>
+    public FilmstripSettings Clone()
+    {
+        var copy = (FilmstripSettings)MemberwiseClone();
+        copy.Layers = Layers.Select(l => l.Clone()).ToList();
+        return copy;
+    }
 }
 
 /// <summary>Computes per-frame transforms and renders filmstrips.</summary>
 public interface IFilmstripRenderer
 {
     FrameTransform ComputeTransform(FilmstripSettings settings, SKBitmap source, int frameIndex);
-    SKBitmap RenderFrame(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, int frameIndex, double scale = 1.0);
-    SKBitmap RenderStrip(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, double scale = 1.0);
+    SKBitmap RenderFrame(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, int frameIndex,
+                         double scale = 1.0, IReadOnlyList<SKBitmap>? layerArt = null);
+    SKBitmap RenderStrip(FilmstripSettings settings, SKBitmap? source, SKBitmap? background,
+                         double scale = 1.0, IReadOnlyList<SKBitmap>? layerArt = null);
 }
 
 /// <summary>SkiaSharp implementation of the filmstrip renderer.</summary>
@@ -259,7 +294,8 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         }
     }
 
-    public SKBitmap RenderFrame(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, int frameIndex, double scale = 1.0)
+    public SKBitmap RenderFrame(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, int frameIndex,
+                                double scale = 1.0, IReadOnlyList<SKBitmap>? layerArt = null)
     {
         int ss = Math.Clamp(settings.Supersample, 1, 8);
 
@@ -289,6 +325,15 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         if (settings.ComponentType == ComponentType.Meter)
         {
             RenderMeterFrame(canvas, settings, source, frameIndex, px, workW, workH);
+        }
+        else if (settings.ComponentType == ComponentType.RotaryKnob
+                 && settings.Layers.Count > 0 && layerArt is { Count: > 0 })
+        {
+            // Layer-aware knob: a static base body + a rotating pointer, composited
+            // bottom-first. The single `source` is unused here.
+            var arcTf = RenderLayers(canvas, settings, layerArt, frameIndex, px);
+            if (settings.ShowValueArc)
+                RenderValueArc(canvas, settings, arcTf, frameIndex, px, workW, workH);
         }
         else
         {
@@ -333,7 +378,8 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         return result;
     }
 
-    public SKBitmap RenderStrip(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, double scale = 1.0)
+    public SKBitmap RenderStrip(FilmstripSettings settings, SKBitmap? source, SKBitmap? background,
+                                double scale = 1.0, IReadOnlyList<SKBitmap>? layerArt = null)
     {
         int n = Math.Max(1, settings.FrameCount);
         int fw = Math.Max(1, (int)Math.Round(settings.FrameWidth * scale));
@@ -352,7 +398,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             // a time — important for large XL strips tens of thousands of px tall.
             for (int i = 0; i < n; i++)
             {
-                using var frame = RenderFrame(settings, source, background, i, scale);
+                using var frame = RenderFrame(settings, source, background, i, scale, layerArt);
                 int x = vertical ? 0 : i * fw;
                 int y = vertical ? i * fh : 0;
                 canvas.DrawBitmap(frame, x, y); // 1:1 blit, no resampling needed
@@ -367,6 +413,63 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         if (srcW <= 0 || srcH <= 0) return (boxW, boxH);
         float scale = Math.Min(boxW / srcW, boxH / srcH);
         return (srcW * scale, srcH * scale);
+    }
+
+    // ---- layered knob (base + pointer) ----
+
+    /// <summary>Composites a layered knob: each layer is "contain"-fit and centred in the cell;
+    /// a <see cref="LayerBehavior.Static"/> layer (body) is fixed, a <see cref="LayerBehavior.Rotate"/>
+    /// layer (pointer) spins about its own pivot by the per-frame angle. Returns a transform
+    /// carrying the knob centre (the static body's content centre) for an optional value arc.</summary>
+    private FrameTransform RenderLayers(SKCanvas canvas, FilmstripSettings settings,
+                                        IReadOnlyList<SKBitmap> layerArt, int frameIndex, double px)
+    {
+        float fw = settings.FrameWidth;
+        float fh = settings.FrameHeight;
+
+        int n = Math.Max(1, settings.FrameCount);
+        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        float angle = (float)(settings.StartAngleDegrees
+                              + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t);
+
+        float knobCx = fw / 2f, knobCy = fh / 2f;
+
+        int count = Math.Min(settings.Layers.Count, layerArt.Count);
+        for (int i = 0; i < count; i++)
+        {
+            var layer = settings.Layers[i];
+            var art = layerArt[i];
+            if (art is null || art.Width <= 0 || art.Height <= 0) continue;
+
+            var (drawW, drawH) = Contain(art.Width, art.Height, fw, fh);
+            float drawX = (fw - drawW) / 2f;
+            float drawY = (fh - drawH) / 2f;
+
+            using var img = SKImage.FromBitmap(art);
+            var srcRect = new SKRect(0, 0, art.Width, art.Height);
+            var dstRect = new SKRect(drawX * (float)px, drawY * (float)px,
+                                     (drawX + drawW) * (float)px, (drawY + drawH) * (float)px);
+
+            if (layer.Behavior == LayerBehavior.Rotate)
+            {
+                float pivotX = (drawX + (float)layer.PivotX * drawW) * (float)px;
+                float pivotY = (drawY + (float)layer.PivotY * drawH) * (float)px;
+                canvas.Save();
+                canvas.Translate(pivotX, pivotY);
+                canvas.RotateDegrees(angle);
+                canvas.Translate(-pivotX, -pivotY);
+                canvas.DrawImage(img, srcRect, dstRect, Cubic);
+                canvas.Restore();
+            }
+            else // Static body — fixed; defines the knob centre for the value arc.
+            {
+                knobCx = drawX + (float)settings.SourceCenterX * drawW;
+                knobCy = drawY + (float)settings.SourceCenterY * drawH;
+                canvas.DrawImage(img, srcRect, dstRect, Cubic);
+            }
+        }
+
+        return new FrameTransform(0f, 0f, fw, fh, angle, knobCx, knobCy);
     }
 
     // ---- meter ----

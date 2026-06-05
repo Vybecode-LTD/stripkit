@@ -25,6 +25,35 @@ internal static class TestImages
         return bmp;
     }
 
+    /// <summary>Knob body only (dark disc + accent ring), no pointer — a static base layer.</summary>
+    public static SKBitmap KnobBody(int size = 100)
+    {
+        var bmp = new SKBitmap(size, size, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var c = new SKCanvas(bmp);
+        c.Clear(SKColors.Transparent);
+        float cx = size / 2f, cy = size / 2f, r = size * 0.40f;
+
+        using var body = new SKPaint { Color = new SKColor(0x33, 0x33, 0x33), IsAntialias = true, Style = SKPaintStyle.Fill };
+        c.DrawCircle(cx, cy, r, body);
+        using var ring = new SKPaint { Color = new SKColor(0xE8, 0x44, 0x0A), IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 5 };
+        c.DrawCircle(cx, cy, r, ring);
+        return bmp;
+    }
+
+    /// <summary>A pointer needle on a transparent canvas: a white line from the centre to
+    /// 12 o'clock (the rotating layer of a layered knob). Same geometry as the pointer baked
+    /// into <see cref="Knob"/>, but on its own so only it animates.</summary>
+    public static SKBitmap Pointer(int size = 100)
+    {
+        var bmp = new SKBitmap(size, size, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var c = new SKCanvas(bmp);
+        c.Clear(SKColors.Transparent);
+        float cx = size / 2f, cy = size / 2f;
+        using var ptr = new SKPaint { Color = SKColors.White, IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = 6, StrokeCap = SKStrokeCap.Round };
+        c.DrawLine(cx, cy, cx, size * 0.12f, ptr); // straight up = 12 o'clock
+        return bmp;
+    }
+
     /// <summary>Fader/slider cap: an accent rounded rectangle with a light border.</summary>
     public static SKBitmap Cap(int w, int h)
     {

@@ -97,7 +97,8 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         }
     }
 
-    public SKBitmap RenderFrame(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, int frameIndex, double scale = 1.0)
+    public SKBitmap RenderFrame(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, int frameIndex,
+                                double scale = 1.0, IReadOnlyList<SKBitmap>? layerArt = null)
     {
         int ss = Math.Clamp(settings.Supersample, 1, 8);
 
@@ -129,6 +130,15 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             // Meters fill segments as the value rises; source (if any) is the
             // on-state art, revealed up to the fill; otherwise segments are procedural.
             RenderMeterFrame(canvas, settings, source, frameIndex, px, workW, workH);
+        }
+        else if (settings.ComponentType == ComponentType.RotaryKnob
+                 && settings.Layers.Count > 0 && layerArt is { Count: > 0 })
+        {
+            // Layer-aware knob: a static base body + a rotating pointer (and any further
+            // tagged layers), composited bottom-first. The single `source` is unused here.
+            var arcTf = RenderLayers(canvas, settings, layerArt, frameIndex, px);
+            if (settings.ShowValueArc)
+                RenderValueArc(canvas, settings, arcTf, frameIndex, px, workW, workH);
         }
         else
         {
@@ -173,7 +183,8 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         return result;
     }
 
-    public SKBitmap RenderStrip(FilmstripSettings settings, SKBitmap? source, SKBitmap? background, double scale = 1.0)
+    public SKBitmap RenderStrip(FilmstripSettings settings, SKBitmap? source, SKBitmap? background,
+                                double scale = 1.0, IReadOnlyList<SKBitmap>? layerArt = null)
     {
         int n = Math.Max(1, settings.FrameCount);
         int fw = Math.Max(1, (int)Math.Round(settings.FrameWidth * scale));
@@ -193,7 +204,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             // pixels tall.
             for (int i = 0; i < n; i++)
             {
-                using var frame = RenderFrame(settings, source, background, i, scale);
+                using var frame = RenderFrame(settings, source, background, i, scale, layerArt);
                 int x = vertical ? 0 : i * fw;
                 int y = vertical ? i * fh : 0;
                 canvas.DrawBitmap(frame, x, y); // 1:1 blit, no resampling needed
@@ -208,6 +219,73 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         if (srcW <= 0 || srcH <= 0) return (boxW, boxH);
         float scale = Math.Min(boxW / srcW, boxH / srcH);
         return (srcW * scale, srcH * scale);
+    }
+
+    // ---- layered knob (base + pointer) ----
+
+    /// <summary>
+    /// Composites a layered knob into the work canvas: each layer is "contain"-fit and
+    /// centred in the cell like a single knob source; a <see cref="LayerBehavior.Static"/>
+    /// layer (the body) is drawn fixed, a <see cref="LayerBehavior.Rotate"/> layer (the
+    /// pointer) spins about its own pivot by the per-frame angle. Returns a transform
+    /// carrying the knob centre (the static body's content centre) so an optional value arc
+    /// stays concentric with it. <paramref name="layerArt"/> is index-matched to
+    /// <see cref="FilmstripSettings.Layers"/>; both are guaranteed non-empty by the caller.
+    /// </summary>
+    private FrameTransform RenderLayers(SKCanvas canvas, FilmstripSettings settings,
+                                        IReadOnlyList<SKBitmap> layerArt, int frameIndex, double px)
+    {
+        float fw = settings.FrameWidth;
+        float fh = settings.FrameHeight;
+
+        int n = Math.Max(1, settings.FrameCount);
+        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        float angle = (float)(settings.StartAngleDegrees
+                              + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t);
+
+        // Default knob centre (for the value arc) is the cell centre; a static base layer
+        // overrides it with the body's content centre below.
+        float knobCx = fw / 2f, knobCy = fh / 2f;
+
+        int count = Math.Min(settings.Layers.Count, layerArt.Count);
+        for (int i = 0; i < count; i++)
+        {
+            var layer = settings.Layers[i];
+            var art = layerArt[i];
+            if (art is null || art.Width <= 0 || art.Height <= 0) continue;
+
+            // Same contain-fit + centring the single source gets, so layers authored at the
+            // same canvas size overlay exactly (and a differently-sized one stays undistorted).
+            var (drawW, drawH) = Contain(art.Width, art.Height, fw, fh);
+            float drawX = (fw - drawW) / 2f;
+            float drawY = (fh - drawH) / 2f;
+
+            using var img = SKImage.FromBitmap(art);
+            var srcRect = new SKRect(0, 0, art.Width, art.Height);
+            var dstRect = new SKRect(drawX * (float)px, drawY * (float)px,
+                                     (drawX + drawW) * (float)px, (drawY + drawH) * (float)px);
+
+            if (layer.Behavior == LayerBehavior.Rotate)
+            {
+                // Spin about this layer's own pivot (normalized within its drawn art).
+                float pivotX = (drawX + (float)layer.PivotX * drawW) * (float)px;
+                float pivotY = (drawY + (float)layer.PivotY * drawH) * (float)px;
+                canvas.Save();
+                canvas.Translate(pivotX, pivotY);
+                canvas.RotateDegrees(angle);
+                canvas.Translate(-pivotX, -pivotY);
+                canvas.DrawImage(img, srcRect, dstRect, Cubic);
+                canvas.Restore();
+            }
+            else // Static body — drawn fixed; it defines the knob centre for the value arc.
+            {
+                knobCx = drawX + (float)settings.SourceCenterX * drawW;
+                knobCy = drawY + (float)settings.SourceCenterY * drawH;
+                canvas.DrawImage(img, srcRect, dstRect, Cubic);
+            }
+        }
+
+        return new FrameTransform(0f, 0f, fw, fh, angle, knobCx, knobCy);
     }
 
     // ---- meter ----

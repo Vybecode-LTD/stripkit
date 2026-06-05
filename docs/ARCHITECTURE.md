@@ -85,6 +85,8 @@ owns a `Window` for the storage pickers).
 | `StripDetection.cs` | `record`: the inferred layout of an *existing* strip — `Vertical`, `FrameCount`, `FrameWidth/Height`, `Kind` (`ComponentType?`), `LowConfidence`, `CandidateCounts`. Helpers `Direction`, `KindLabel`. |
 | `SkinManifest.cs` | `SkinManifest` / `ManifestControl` / `ManifestBounds` records — the `skin.json` schema (see §9). |
 | `BatchModels.cs` | `BatchOptions`, `BatchProgress`, `BatchItemResult`, `BatchResult` — batch run inputs / progress / outcome (see §8). |
+| `CodeModels.cs` | `CodeTarget` enum + `CodeSnippetRequest` record — inputs for the code-export service (§9.1). |
+| `RenderLayer.cs` | `LayerBehavior` enum (`Static`, `Rotate`) + `RenderLayer` (behaviour + a normalized per-layer pivot) — the layered-knob model (§5.6). Skia-free; the layer's bitmap is passed alongside to the renderer. |
 
 #### 3.1.1 `FilmstripSettings` fields (the render contract)
 
@@ -95,6 +97,7 @@ owns a `Window` for the storage pickers).
 - **Quality/output:** `Supersample` (4; clamped 1–8 by the renderer), `StackDirection` (`Vertical`).
 - **Meter:** `SegmentCount` (12), `FillDirection` (`Up`), `ContinuousFill` (false), `SegmentGap` (3, px), `OnColorArgb` (`0xFFE8440A`, the house accent), `OffColorArgb` (`0xFF2A2A2A`, dim). Colours are packed `0xAARRGGBB` so the model keeps no Skia dependency.
 - **Value arc (knob, §5.5):** `ShowValueArc` (false — the master gate), `ArcRadius` (0.88, fraction of the inscribed radius), `ArcThickness` (4, px), `ArcRoundCaps` (true), `ArcColorArgb` (`0xFFE8440A`), `ArcGradient` (false) + `ArcColor2Argb` (`0xFFFFC107`, amber), `ArcTrack` (true) + `ArcTrackColorArgb` (`0x33FFFFFF`, faint white), `ArcGlow` (false) + `ArcGlowSize` (6, px). All packed `0xAARRGGBB` / primitives — Skia-free.
+- **Layers (knob, §5.6):** `Layers` (an empty `List<RenderLayer>` by default — the gate). When non-empty for a rotary knob the renderer composites this ordered stack (a `Static` body + a `Rotate` pointer) instead of rotating the single source; empty reproduces the single-source render byte-for-byte. The layer **bitmaps** are passed alongside to the renderer (see §5.2/§5.6), not stored here. `Clone()` deep-copies the list.
 
 ### 3.2 `Services/` — the engine and I/O
 
@@ -212,10 +215,13 @@ Changing it to `n` makes the last frame fall short. Do not change it.
 - **Meter** — returns an **identity full-frame transform** (`0,0,fw,fh`, pivot at the
   centre). It is never used: `RenderFrame` routes meters to `RenderMeterFrame` instead.
 
-### 5.2 `RenderFrame(settings, source, background, frameIndex, scale = 1.0)`
+### 5.2 `RenderFrame(settings, source, background, frameIndex, scale = 1.0, layerArt = null)`
 
-`source` is **nullable** (null is valid only for a procedural meter; any other type
-throws `ArgumentNullException`).
+`source` is **nullable** (null is valid for a procedural meter or a layered knob; any other
+case throws `ArgumentNullException`). `layerArt` is an optional `IReadOnlyList<SKBitmap>`
+index-matched to `settings.Layers`; when both are non-empty for a knob the layered path
+(§5.6) runs instead of the single-source path. It defaults to null, so existing callers and
+output are unchanged.
 
 1. `ss = clamp(Supersample, 1, 8)`; `px = scale · ss` (oversampled, export-scaled px).
 2. Compute `targetW×targetH` (`FrameWidth·scale`) and the larger `workW×workH`
@@ -224,10 +230,11 @@ throws `ArgumentNullException`).
    surface (out of memory?)".)
 3. If a static `background` is supplied, draw it stretched to the work surface (once,
    never transformed — e.g. a knob well, a fader track, or a meter's off-state art).
-4. **Meter path:** call `RenderMeterFrame` (§5.4). **Otherwise:** compute the transform,
-   `canvas.Save()`, translate to `pivot·px` → `RotateDegrees` → translate back, draw the
-   source `srcRect → dstRect` (both scaled by `px`) with **Mitchell cubic**, `Restore()`.
-   The rotate is a no-op when `RotateDegrees == 0`.
+4. **Meter path:** call `RenderMeterFrame` (§5.4). **Layered-knob path** (a rotary knob with
+   a non-empty `Layers` + `layerArt`): call `RenderLayers` (§5.6). **Otherwise (single
+   source):** compute the transform, `canvas.Save()`, translate to `pivot·px` →
+   `RotateDegrees` → translate back, draw the source `srcRect → dstRect` (both scaled by `px`)
+   with **Mitchell cubic**, `Restore()`. The rotate is a no-op when `RotateDegrees == 0`.
 5. Snapshot the work surface and downscale once to the target with Mitchell cubic into a
    fresh transparent `result`. When `ss == 1` (and `scale == 1`) this is a 1:1 copy and
    costs almost nothing.
@@ -295,6 +302,39 @@ byte-identical.
 
 The arc bakes into the exported PNG; the `skin.json` manifest is unchanged (the loader just
 shows frames). `StrokePaint(color, thickness, cap)` is the shared stroked-paint helper.
+
+### 5.6 Layer-aware knob — base + pointer (`RenderLayers`)
+
+The first step of the layer-aware feature (ROADMAP ★ #3): a knob built from **two layers** —
+a **static base** (the body / well) and a separate **pointer** that rotates with the value —
+so only the pointer moves and the body stays crisp and re-renderable at any resolution.
+
+- **Model.** `FilmstripSettings.Layers` is an ordered `List<RenderLayer>` (bottom-first), each
+  layer a `LayerBehavior` (`Static` / `Rotate`) + a normalized per-layer pivot (`PivotX/Y`).
+  It is **Skia-free** — the layer bitmaps are passed alongside as `RenderFrame`/`RenderStrip`'s
+  optional `layerArt` (index-matched to `Layers`). **Empty `Layers` ⇒ the single-source path
+  runs unchanged**, so every prior golden baseline is byte-identical (the same gating pattern
+  as the value arc's `ShowValueArc = false`).
+- **Composition (`RenderLayers`).** For a rotary knob with a non-empty stack, `RenderFrame`
+  calls `RenderLayers` instead of the single-source draw. Each layer is **contain-fit and
+  centred** in the cell exactly like a single knob source (so layers authored at the same
+  canvas size overlay pixel-perfectly; a differently-sized one stays undistorted). A `Static`
+  layer is drawn fixed; a `Rotate` layer is drawn rotated by the per-frame angle
+  (`Start + (End−Start)·t`) about **its own** pivot — independent of the body, which is what
+  lets the pointer's rotation axis differ from the body centre. Layers are knob-only; every
+  other component type ignores them.
+- **Pivot.** Each `Rotate` layer rotates about its own normalized pivot mapped into the cell.
+  The app seeds the pointer's pivot from the **body's** detected content centre (the knob
+  axis) on load, then exposes it for manual adjustment (§6.6). A same-canvas pointer therefore
+  rotates about the body centre by default.
+- **Value arc still composes.** `RenderLayers` returns a `FrameTransform` carrying the knob
+  centre (the static body's content centre), so an optional value arc (§5.5) draws on top,
+  concentric with the body — a layered knob can carry an arc too.
+
+The composite bakes into the exported PNG; the `skin.json` manifest and code export are
+unchanged (the loader still just shows frames). Mirrored in `FilmstripEngine.cs` (§14). Next
+layer-aware steps (auto-pointer extraction from flat art, then layered PSD/SVG import) reuse
+this same `Layers` model and slot UI.
 
 ---
 
@@ -374,6 +414,26 @@ Renders the current frame at **display size** for crispness and stays responsive
 `Sweep270/300/360`, `MatchFrameToSourceCommand` (knob → square; vfader → `srcW+8 × srcH·6`;
 hslider → `srcW·6 × srcH+8`), and the alignment commands `AutoCenterCommand`,
 `ResetCenterCommand` (§7).
+
+### 6.6 Layered knob — base + pointer (Create tab, knob-only)
+
+The Create tab's rotary section has a **"LAYERED KNOB (base + pointer)"** panel (§5.6 is the
+render side). The VM holds two extra bitmaps beyond the single `_source` — `_baseLayer`
+(static body) and `_pointer` (rotating) — plus `HasBaseLayer`/`HasPointer`/`BaseLayerInfo`/
+`PointerInfo` and the independent `PointerPivotX/Y`. `OpenBaseLayer`/`OpenPointer` (and the
+shared `LoadBaseLayerFromPath`/`LoadPointerFromPath`, no Avalonia types) + `ClearBaseLayer`/
+`ClearPointer` + `CenterPointerOnBody` back the panel. Loading the **base** squares the frame
+to it, detects its content centre (the knob axis → `SourceCenterX/Y`), and **seeds the
+pointer pivot** to that centre.
+
+- **Render switch.** `IsLayeredKnob` (a knob with a base loaded) makes `BuildSettings` append
+  the `Static` (+ optional `Rotate`) `Layers` and `BuildLayerArt` return the matching
+  bitmaps; preview/export pass them to the renderer (the non-layered path keeps the exact
+  5-arg `RenderFrame` call, so nothing else changes). `CanExport` and `ShowLoadHint` treat a
+  base layer like a source (a base-only knob previews/exports).
+- **Funnel.** `HasBaseLayer`/`HasPointer`/`BaseLayerInfo`/`PointerInfo` are output-only
+  (ignore-list, no re-render — loads call `RefreshPreview` directly); `PointerPivotX/Y` are
+  **not** ignored, so editing them re-renders live.
 
 ---
 
@@ -629,21 +689,24 @@ not part of the build** (it lives outside `src/` and no project compiles it) —
 so the engine can be dropped into a CLI, a build step, a web backend, or another app
 unchanged.
 
-It contains exactly the **render math**: the `ComponentType`, `MeterFillDirection`, and
-`StackDirection` enums; the `FrameTransform` struct; `FilmstripSettings` (including the
-`SourceCenterX/Y` alignment fields, the meter fields, and the value-arc fields); and
-`IFilmstripRenderer` + `SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`,
-`RenderStrip`, the full `RenderMeterFrame` procedural/layered path, and `RenderValueArc`).
-It does **not** include the
+It contains exactly the **render math**: the `ComponentType`, `MeterFillDirection`,
+`StackDirection`, and `LayerBehavior` enums; the `FrameTransform` struct and the `RenderLayer`
+class; `FilmstripSettings` (including the `SourceCenterX/Y` alignment fields, the meter fields,
+the value-arc fields, and the `Layers` list with its deep `Clone`); and `IFilmstripRenderer` +
+`SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`, `RenderStrip`, the full
+`RenderMeterFrame` procedural/layered path, `RenderValueArc`, and the `RenderLayers`
+base+pointer path). It does **not** include the
 app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 `BatchProcessor`, the I/O services, or any view-model/view — by design.
 
 > **Maintenance hazard:** it duplicates `Services/SkiaFilmstripRenderer.cs` +
 > `Models/{FilmstripSettings, FrameTransform, ComponentType, StackDirection,
-> MeterFillDirection}`. If the in-app renderer's math changes (transform, supersampling,
-> meter fill, alignment), update this file to match (or it silently drifts). As of this
-> audit the two are in sync — the alignment `SourceCenterX/Y` pivot, the meter path, and the
-> `RenderValueArc` value-arc path (with its `FilmstripSettings` arc fields) are all present here.
+> MeterFillDirection, RenderLayer}`. If the in-app renderer's math changes (transform,
+> supersampling, meter fill, alignment, layers), update this file to match (or it silently
+> drifts). As of this audit the two are in sync — the alignment `SourceCenterX/Y` pivot, the
+> meter path, the `RenderValueArc` value-arc path (with its arc fields), and the `RenderLayers`
+> base+pointer path (with the `RenderLayer`/`LayerBehavior` types and the `Layers` field) are
+> all present here.
 
 ---
 
@@ -709,7 +772,9 @@ xUnit + NSubstitute + FluentAssertions + `Avalonia.Headless`. Coverage spans: go
 renderer baselines (`RendererGoldenTests`), alignment renders (`AlignmentRenderTests`),
 meter renders (`MeterRenderTests`), value-arc renders (`ValueArcRenderTests` — golden
 baselines incl. gradient+glow, plus pixel-logic for the lit-sweep growth and the off /
-non-knob no-ops), code-snippet generation (`CodeSnippetServiceTests` — per-target control
+non-knob no-ops), layered-knob renders (`LayeredKnobRenderTests` — base+pointer golden
+baselines plus pixel-logic for the rotating pointer / static body, the empty-layers fallback,
+the pointer pivot, and the non-knob no-op), code-snippet generation (`CodeSnippetServiceTests` — per-target control
 class / draw method, the frame math, stack-axis source, identifier sanitisation, file names,
 `SaveAsync`), `ContentAnalysisTests`, importer engine + VM
 (`FilmstripImporterTests`, `ImporterViewModelTests`), manifest mapping/JSON-Schema

@@ -76,13 +76,16 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 - `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract),
   `FrameTransform`, `StripDetection` (importer output),
-  `SkinManifest`/`ManifestControl`/`ManifestBounds`, `BatchModels`, the
+  `SkinManifest`/`ManifestControl`/`ManifestBounds`, `BatchModels`, `CodeModels`,
+  `RenderLayer` (`LayerBehavior` + per-layer pivot — the layered-knob stack), the
   `ComponentType`/`StackDirection`/`MeterFillDirection` enums.
 - `Services/SkiaFilmstripRenderer.cs` — **the heart.** `ComputeTransform` does the
   rotary/linear math; `RenderFrame` composites one frame with supersampling +
   Mitchell cubic resampling (meters fill segments via `RenderMeterFrame` — procedural
   or layered on/off-art reveal; knobs may get a value-tracking fill arc via
-  `RenderValueArc`); `RenderStrip` blits frames into the stacked PNG.
+  `RenderValueArc`, or be composited from a base+pointer layer stack via `RenderLayers`
+  when `settings.Layers` + `layerArt` are supplied); `RenderStrip` blits frames into the
+  stacked PNG.
 - `Services/FilmstripImporter.cs` — detect an existing strip's layout from its
   dimensions, extract a frame, re-stack orientation (no Avalonia dep).
 - `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json).
@@ -154,6 +157,28 @@ component types are knob, vertical fader, horizontal slider, and **meter**
 
 ## Last completed task
 
+- **2026-06-04 (vNext ★ #3, step 1 — layer-aware knob: base + pointer)** — First of the three
+  build-order steps for the last ★ bet. A knob can now be composited from **two layers**: a
+  **static base** (body/well, drawn fixed) + a separate **pointer** that rotates with the value,
+  so only the pointer moves and the body stays crisp/re-renderable. Built the **general layer
+  model** (`Models/RenderLayer.cs`: `LayerBehavior {Static, Rotate}` + `RenderLayer` with a
+  normalized per-layer pivot) on a new `FilmstripSettings.Layers` list (deep `Clone`); the
+  renderer composites the stack bottom-first via a new **`RenderLayers`** path, and
+  `RenderFrame`/`RenderStrip` gained an optional index-matched `IReadOnlyList<SKBitmap>? layerArt`
+  param. The **pointer rotates about its own pivot** (independent of the body), seeded from the
+  body's detected content centre and adjustable (numeric Pointer pivot X/Y + "Center pointer on
+  body"). A value arc still composes on top. Create-tab **"LAYERED KNOB (base + pointer)"** panel
+  (knob-only, in the rotary section): Load/Clear **Base** + **Pointer** slots + pivot controls.
+  **Gated by defaults — empty `Layers` renders the single source byte-identical, so all prior
+  goldens are unchanged.** Owner-confirmed forks first: general layer-list model, explicit
+  Base/Pointer slots, separate pointer pivot, knob-only. Mirrored in `FilmstripEngine.cs`.
+  **+12 tests (`LayeredKnobRenderTests` 3 golden + 6 pixel-logic; 3 VM load-path), suite 72→84
+  green;** baselines eyeballed (body static, only the needle rotates), app boots clean, build
+  0/0. Docs reconciled (ARCHITECTURE §5.6/§6.6, SOURCE_MAP, TESTING, CHANGELOG [Unreleased],
+  ROADMAP). **Not yet shipped/committed** — feature is on `main` working tree. **Next:** step 2 —
+  auto-pointer extraction from flat art (CV, seed from `ContentAnalysis`); then step 3 — layered
+  PSD/SVG import. Still pending: React/Web-Component + Unity/Godot code targets, website →
+  stripkit.pro + v0.7.0 `updates.json`, code-signing cert, Batch-tab meter UI.
 - **2026-06-04 (v0.7.0 shipped + handoff)** — Cut **v0.7.0** with the two ★ features below
   (value-arc + code-export). `Invoke-Release.ps1 -Bump minor`: test gate **72/72** → bump
   0.6.0→0.7.0 → publish → Inno installer → commit `fe24ca3` + tag `v0.7.0` + push; CI

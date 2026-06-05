@@ -22,6 +22,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private SKBitmap? _background;
     private string? _sourcePath;
 
+    // Layer-aware knob (base + pointer): a static body layer and a rotating pointer layer.
+    // Empty ⇒ the single source above animates as before.
+    private SKBitmap? _baseLayer;
+    private SKBitmap? _pointer;
+    private string? _baseLayerPath;
+
     // Suppresses the preview/recompute funnel while we set several properties at
     // once (e.g. applying type defaults), so we refresh only once afterwards.
     private bool _suspendRefresh;
@@ -137,6 +143,17 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _arcGlow;
     [ObservableProperty] private double _arcGlowSize = 6;
 
+    // ---- layered knob (base + pointer) ----
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
+    [NotifyPropertyChangedFor(nameof(ShowLoadHint))]
+    private bool _hasBaseLayer;
+    [ObservableProperty] private bool _hasPointer;
+    [ObservableProperty] private string _baseLayerInfo = "None.";
+    [ObservableProperty] private string _pointerInfo = "None.";
+    [ObservableProperty] private double _pointerPivotX = 0.5;
+    [ObservableProperty] private double _pointerPivotY = 0.5;
+
     // ---- code export (loader snippets) ----
     [ObservableProperty] private bool _exportCode;
     [ObservableProperty] private bool _emitCodeJuce = true;
@@ -159,8 +176,13 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsMeter => ComponentType == ComponentType.Meter;
 
     /// <summary>The "load a source" overlay shows only when there is nothing to preview;
-    /// a procedural meter renders without a source.</summary>
-    public bool ShowLoadHint => !HasSource && !IsMeter;
+    /// a procedural meter renders without a source, and a layered knob previews from its
+    /// base layer.</summary>
+    public bool ShowLoadHint => !HasSource && !IsMeter && !HasBaseLayer;
+
+    /// <summary>True when a layered knob (a base body, optionally a pointer) should drive
+    /// the render instead of the single source. Knob-only.</summary>
+    private bool IsLayeredKnob => IsRotary && _baseLayer is not null;
 
     /// <summary>Source pixel size (0 when none) — the alignment overlay uses it to map the
     /// crosshair onto the drawn art within the preview frame.</summary>
@@ -196,6 +218,10 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(ShowLoadHint):
             case nameof(IsPlaying):
             case nameof(ExportManifest):
+            case nameof(HasBaseLayer):
+            case nameof(HasPointer):
+            case nameof(BaseLayerInfo):
+            case nameof(PointerInfo):
             case nameof(GeneratedCode):
             case nameof(ExportCode):
             case nameof(EmitCodeJuce):
@@ -242,9 +268,10 @@ public partial class MainWindowViewModel : ViewModelBase
         switch (ComponentType)
         {
             case ComponentType.RotaryKnob:
-                if (_source is not null)
+                var knobArt = _source ?? _baseLayer;
+                if (knobArt is not null)
                 {
-                    FrameWidth = Math.Max(_source.Width, _source.Height);
+                    FrameWidth = Math.Max(knobArt.Width, knobArt.Height);
                     FrameHeight = FrameWidth;
                 }
                 else
@@ -274,39 +301,68 @@ public partial class MainWindowViewModel : ViewModelBase
         _suspendRefresh = false;
     }
 
-    private FilmstripSettings BuildSettings() => new()
+    private FilmstripSettings BuildSettings()
     {
-        ComponentType = ComponentType,
-        FrameCount = FrameCount,
-        FrameWidth = FrameWidth,
-        FrameHeight = FrameHeight,
-        StartAngleDegrees = StartAngleDegrees,
-        EndAngleDegrees = EndAngleDegrees,
-        PivotOffsetX = PivotOffsetX,
-        PivotOffsetY = PivotOffsetY,
-        SourceCenterX = SourceCenterX,
-        SourceCenterY = SourceCenterY,
-        EdgeMargin = EdgeMargin,
-        CapCrossOffset = CapCrossOffset,
-        Supersample = Supersample,
-        StackDirection = StackDirection,
-        SegmentCount = SegmentCount,
-        FillDirection = FillDirection,
-        ContinuousFill = ContinuousFill,
-        OnColorArgb = ParseArgb(OnColorHex, 0xFFE8440A),
-        OffColorArgb = ParseArgb(OffColorHex, 0xFF2A2A2A),
-        ShowValueArc = ShowValueArc,
-        ArcRadius = ArcRadius,
-        ArcThickness = ArcThickness,
-        ArcRoundCaps = ArcRoundCaps,
-        ArcColorArgb = ParseArgb(ArcColorHex, 0xFFE8440A),
-        ArcGradient = ArcGradient,
-        ArcColor2Argb = ParseArgb(ArcColor2Hex, 0xFFFFC107),
-        ArcTrack = ArcTrack,
-        ArcTrackColorArgb = ParseArgb(ArcTrackColorHex, 0x33FFFFFF),
-        ArcGlow = ArcGlow,
-        ArcGlowSize = ArcGlowSize,
-    };
+        var settings = new FilmstripSettings
+        {
+            ComponentType = ComponentType,
+            FrameCount = FrameCount,
+            FrameWidth = FrameWidth,
+            FrameHeight = FrameHeight,
+            StartAngleDegrees = StartAngleDegrees,
+            EndAngleDegrees = EndAngleDegrees,
+            PivotOffsetX = PivotOffsetX,
+            PivotOffsetY = PivotOffsetY,
+            SourceCenterX = SourceCenterX,
+            SourceCenterY = SourceCenterY,
+            EdgeMargin = EdgeMargin,
+            CapCrossOffset = CapCrossOffset,
+            Supersample = Supersample,
+            StackDirection = StackDirection,
+            SegmentCount = SegmentCount,
+            FillDirection = FillDirection,
+            ContinuousFill = ContinuousFill,
+            OnColorArgb = ParseArgb(OnColorHex, 0xFFE8440A),
+            OffColorArgb = ParseArgb(OffColorHex, 0xFF2A2A2A),
+            ShowValueArc = ShowValueArc,
+            ArcRadius = ArcRadius,
+            ArcThickness = ArcThickness,
+            ArcRoundCaps = ArcRoundCaps,
+            ArcColorArgb = ParseArgb(ArcColorHex, 0xFFE8440A),
+            ArcGradient = ArcGradient,
+            ArcColor2Argb = ParseArgb(ArcColor2Hex, 0xFFFFC107),
+            ArcTrack = ArcTrack,
+            ArcTrackColorArgb = ParseArgb(ArcTrackColorHex, 0x33FFFFFF),
+            ArcGlow = ArcGlow,
+            ArcGlowSize = ArcGlowSize,
+        };
+
+        // Layered knob: a static base body + (optionally) a rotating pointer with its own
+        // pivot. Left empty for every other case, so the single-source render is unchanged.
+        if (IsLayeredKnob)
+        {
+            settings.Layers.Add(new RenderLayer { Behavior = LayerBehavior.Static });
+            if (_pointer is not null)
+                settings.Layers.Add(new RenderLayer
+                {
+                    Behavior = LayerBehavior.Rotate,
+                    PivotX = PointerPivotX,
+                    PivotY = PointerPivotY,
+                });
+        }
+
+        return settings;
+    }
+
+    /// <summary>The layer bitmaps matching <see cref="FilmstripSettings.Layers"/> for a
+    /// layered knob — base body first, then the pointer — or null when not layered.</summary>
+    private IReadOnlyList<SKBitmap>? BuildLayerArt()
+    {
+        if (!IsLayeredKnob) return null;
+        var art = new List<SKBitmap> { _baseLayer! };
+        if (_pointer is not null) art.Add(_pointer);
+        return art;
+    }
 
     /// <summary>Parses a "#AARRGGBB"/"#RRGGBB" colour to packed ARGB, or the fallback.</summary>
     private static uint ParseArgb(string hex, uint fallback) =>
@@ -338,7 +394,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// (the live preview uses these before an actual save path is chosen).</summary>
     private CodeSnippetRequest BuildCodeRequest()
     {
-        var baseName = Path.GetFileNameWithoutExtension(_sourcePath) ?? (IsMeter ? "meter" : "filmstrip");
+        var baseName = Path.GetFileNameWithoutExtension(_sourcePath ?? _baseLayerPath) ?? (IsMeter ? "meter" : "filmstrip");
         var asset = $"{baseName}_{FrameCount}frames.png";
         var asset2x = ExportAt2x ? AppendSuffix(asset, "@2x") : null;
         var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? baseName : ParameterId.Trim();
@@ -442,6 +498,118 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
+    // ---- layered knob (base + pointer) ----
+
+    [RelayCommand]
+    private async Task OpenBaseLayerAsync()
+    {
+        var path = await _dialogs.OpenImageAsync();
+        if (path is null) return;
+        LoadBaseLayerFromPath(path);
+    }
+
+    /// <summary>
+    /// Loads the static base body of a layered knob. The body defines the frame size and the
+    /// spin centre (its detected content centre), and seeds the pointer's default pivot to
+    /// that same centre (the knob axis). Shared by the button and any future drop handler;
+    /// touches no Avalonia UI types.
+    /// </summary>
+    public void LoadBaseLayerFromPath(string path)
+    {
+        var bmp = _imageLoad.Load(path);
+        if (bmp is null)
+        {
+            StatusMessage = "Error: could not load the base layer.";
+            return;
+        }
+
+        _baseLayer?.Dispose();
+        _baseLayer = bmp;
+        _baseLayerPath = path;
+        HasBaseLayer = true;
+        BaseLayerInfo = $"{Path.GetFileName(path)} — {bmp.Width}×{bmp.Height}px";
+
+        _suspendRefresh = true;
+        // The body squares the frame and defines the knob centre; the pointer pivot defaults
+        // to that centre (so a same-canvas pointer rotates about the body's axis).
+        FrameWidth = Math.Max(bmp.Width, bmp.Height);
+        FrameHeight = FrameWidth;
+        var (cx, cy) = ContentAnalysis.DetectContentCenter(bmp);
+        SourceCenterX = cx;
+        SourceCenterY = cy;
+        PointerPivotX = cx;
+        PointerPivotY = cy;
+        _suspendRefresh = false;
+
+        StatusMessage = HasPointer
+            ? "Base layer loaded — body static, pointer rotates."
+            : "Base layer loaded — add a pointer layer to animate it.";
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    private void ClearBaseLayer()
+    {
+        _baseLayer?.Dispose();
+        _baseLayer = null;
+        _baseLayerPath = null;
+        HasBaseLayer = false;
+        BaseLayerInfo = "None.";
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    private async Task OpenPointerAsync()
+    {
+        var path = await _dialogs.OpenImageAsync();
+        if (path is null) return;
+        LoadPointerFromPath(path);
+    }
+
+    /// <summary>Loads the rotating pointer layer of a layered knob (drawn on top of the
+    /// base body). Its pivot stays at the body's centre by default — adjust it with the
+    /// pointer-pivot fields. Touches no Avalonia UI types.</summary>
+    public void LoadPointerFromPath(string path)
+    {
+        var bmp = _imageLoad.Load(path);
+        if (bmp is null)
+        {
+            StatusMessage = "Error: could not load the pointer layer.";
+            return;
+        }
+
+        _pointer?.Dispose();
+        _pointer = bmp;
+        HasPointer = true;
+        PointerInfo = $"{Path.GetFileName(path)} — {bmp.Width}×{bmp.Height}px";
+        StatusMessage = HasBaseLayer
+            ? "Pointer layer loaded — only the pointer rotates."
+            : "Pointer loaded — also load a base (body) layer.";
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    private void ClearPointer()
+    {
+        _pointer?.Dispose();
+        _pointer = null;
+        HasPointer = false;
+        PointerInfo = "None.";
+        RefreshPreview();
+    }
+
+    /// <summary>Resets the pointer's rotation pivot to the body's detected centre (the knob axis).</summary>
+    [RelayCommand]
+    private void CenterPointerOnBody()
+    {
+        _suspendRefresh = true;
+        PointerPivotX = SourceCenterX;
+        PointerPivotY = SourceCenterY;
+        _suspendRefresh = false;
+        RefreshPreview();
+    }
+
     [RelayCommand] private void SetFrames32() => FrameCount = 32;
     [RelayCommand] private void SetFrames64() => FrameCount = 64;
     [RelayCommand] private void SetFrames128() => FrameCount = 128;
@@ -521,14 +689,15 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
-    private bool CanExport() => HasSource || IsMeter;   // a procedural meter needs no source
+    // A procedural meter and a layered knob (base body) both render without a single source.
+    private bool CanExport() => HasSource || IsMeter || HasBaseLayer;
 
     [RelayCommand(CanExecute = nameof(CanExport))]
     private async Task ExportAsync()
     {
-        if (_source is null && !IsMeter) return;
+        if (_source is null && !IsMeter && _baseLayer is null) return;
 
-        var baseName = Path.GetFileNameWithoutExtension(_sourcePath) ?? "filmstrip";
+        var baseName = Path.GetFileNameWithoutExtension(_sourcePath ?? _baseLayerPath) ?? "filmstrip";
         var suggested = $"{baseName}_{FrameCount}frames.png";
 
         var path = await _dialogs.SavePngAsync(suggested);
@@ -541,15 +710,16 @@ public partial class MainWindowViewModel : ViewModelBase
             var settings = BuildSettings();
             var src = _source;        // captured for the background render thread
             var bg = _background;
+            var layerArt = BuildLayerArt();   // base + pointer for a layered knob, else null
 
             // Rendering is CPU-bound and pure (no UI types), so run it off-thread.
-            using (var strip = await Task.Run(() => _renderer.RenderStrip(settings, src, bg, 1.0)))
+            using (var strip = await Task.Run(() => _renderer.RenderStrip(settings, src, bg, 1.0, layerArt)))
                 await _export.SavePngAsync(strip, path);
 
             if (ExportAt2x)
             {
                 var path2x = AppendSuffix(path, "@2x");
-                using var strip2x = await Task.Run(() => _renderer.RenderStrip(settings, src, bg, 2.0));
+                using var strip2x = await Task.Run(() => _renderer.RenderStrip(settings, src, bg, 2.0, layerArt));
                 await _export.SavePngAsync(strip2x, path2x);
             }
 
@@ -606,7 +776,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RefreshPreview()
     {
-        if (_source is null && !IsMeter)
+        if (_source is null && !IsMeter && _baseLayer is null)
         {
             PreviewImage = null;
             return;
@@ -631,7 +801,12 @@ public partial class MainWindowViewModel : ViewModelBase
 
             double scale = PreviewDisplaySize / Math.Max(1, Math.Max(FrameWidth, FrameHeight));
 
-            using var frame = _renderer.RenderFrame(settings, source, _background, idx, scale);
+            // A layered knob renders from its base + pointer; everything else from the single
+            // source (kept on the exact 5-arg call so the render path is unchanged).
+            var layerArt = BuildLayerArt();
+            using var frame = layerArt is not null
+                ? _renderer.RenderFrame(settings, source, _background, idx, scale, layerArt)
+                : _renderer.RenderFrame(settings, source, _background, idx, scale);
             PreviewImage = SkiaImageInterop.ToAvaloniaBitmap(frame);
         }
         catch (Exception ex)

@@ -147,6 +147,42 @@
                                        Text="A modern fill arc composited onto every frame; it follows the rotation sweep above. Baked into the PNG." />
                         </StackPanel>
 
+                        <!-- Layer-aware animation: a static body + a separate rotating pointer -->
+                        <controls:SectionHeader Text="LAYERED KNOB (base + pointer)" />
+                        <TextBlock Classes="label" TextWrapping="Wrap"
+                                   Text="Optional. Load a static body and a separate pointer — only the pointer rotates, so the body stays crisp at any resolution. Leave empty to spin the single source image above as before." />
+
+                        <TextBlock Classes="label" Text="Base layer (static body)" Margin="0,8,0,0" />
+                        <Button Content="Load base (body)…" HorizontalAlignment="Stretch"
+                                Command="{Binding OpenBaseLayerCommand}" />
+                        <Button Content="Clear base" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                IsEnabled="{Binding HasBaseLayer}" Command="{Binding ClearBaseLayerCommand}" />
+                        <TextBlock Classes="label" Text="{Binding BaseLayerInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                        <TextBlock Classes="label" Text="Pointer layer (rotates)" Margin="0,8,0,0" />
+                        <Button Content="Load pointer layer…" HorizontalAlignment="Stretch"
+                                Command="{Binding OpenPointerCommand}" />
+                        <Button Content="Clear pointer" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                IsEnabled="{Binding HasPointer}" Command="{Binding ClearPointerCommand}" />
+                        <TextBlock Classes="label" Text="{Binding PointerInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                        <StackPanel IsVisible="{Binding HasPointer}" Spacing="2" Margin="0,6,0,0">
+                            <Grid ColumnDefinitions="*,8,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Pointer pivot X (0–1)" />
+                                    <NumericUpDown Value="{Binding PointerPivotX}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Pointer pivot Y (0–1)" />
+                                    <NumericUpDown Value="{Binding PointerPivotY}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
+                                </StackPanel>
+                            </Grid>
+                            <Button Content="Center pointer on body" HorizontalAlignment="Left" Margin="0,4,0,0"
+                                    Command="{Binding CenterPointerOnBodyCommand}" />
+                            <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Text="The pivot is the point the pointer rotates about (its attachment to the knob centre). Defaults to the body's detected centre." />
+                        </StackPanel>
+
                         <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="label" Text="Start angle (frame 0)" />

@@ -36,11 +36,11 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (72): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (84): renderer golden-image (with committed
   `baselines/`), `ContentAnalysis` + alignment render, view-model load-path, importer
   engine + VM, manifest, batch processor + VM, meter renderer, value-arc renderer
-  (`ValueArcRenderTests`), code-snippet generation (`CodeSnippetServiceTests`), and a
-  headless drop-zone test. See `docs/TESTING.md`.
+  (`ValueArcRenderTests`), layered-knob renderer (`LayeredKnobRenderTests`), code-snippet
+  generation (`CodeSnippetServiceTests`), and a headless drop-zone test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 
@@ -70,6 +70,9 @@ does each thing live" companion.
   `BatchItemResult`, `BatchResult` for the Batch tab.
 - `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise`) +
   `CodeSnippetRequest` record: the inputs for the code-export service.
+- `RenderLayer.cs` — `LayerBehavior` enum (`Static` / `Rotate`) + `RenderLayer` (behaviour +
+  a normalized per-layer pivot): the ordered layer stack for a layered knob (`FilmstripSettings.Layers`).
+  Skia-free; the layer's bitmap is passed alongside to the renderer.
 
 ### `Services/` — the engine and I/O
 
@@ -77,8 +80,9 @@ does each thing live" companion.
   `ComputeTransform` holds the per-component math; `RenderFrame` composites one
   frame with supersampling + Mitchell cubic resampling (meters fill segments via
   `RenderMeterFrame` — procedural bars or a layered on/off-art reveal; knobs may get a
-  value-tracking fill arc via `RenderValueArc`); `RenderStrip` stacks frames into the
-  output PNG. No Avalonia dependency. Do not rewrite this.
+  value-tracking fill arc via `RenderValueArc`, or be composited from a base+pointer layer
+  stack via `RenderLayers` when `settings.Layers` + the `layerArt` are supplied); `RenderStrip`
+  stacks frames into the output PNG. No Avalonia dependency. Do not rewrite this.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / save-PNG / open-folder
   pickers via Avalonia `StorageProvider`. The concrete class holds the `Owner` window,
@@ -108,9 +112,10 @@ does each thing live" companion.
 - `MainWindowViewModel.cs` — all bound state and commands. A single
   `OnPropertyChanged` funnel recomputes derived readouts and refreshes the
   preview; `_suspendRefresh` guards bulk updates. `BuildSettings()` maps the
-  bound properties to a `FilmstripSettings`. See the `live-preview-render-loop`
-  skill — this view model is a worked example of that pattern. Exposes `Importer`
-  and `Batch` (the Import and Batch tab view models).
+  bound properties to a `FilmstripSettings` (and appends the layered-knob `Layers`;
+  `BuildLayerArt()` supplies the matching base/pointer bitmaps). See the
+  `live-preview-render-loop` skill — this view model is a worked example of that pattern.
+  Exposes `Importer` and `Batch` (the Import and Batch tab view models).
 - `ImporterViewModel.cs` — backs the **Import** tab: load an existing strip, run
   detection, scrub the detected frames, and extract / re-stack. Same preview-funnel
   pattern; holds no Avalonia UI types beyond the preview bitmap.

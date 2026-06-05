@@ -138,6 +138,50 @@ public class LoadPathTests
         vm.SourceCenterY.Should().Be(0.18);
     }
 
+    [Fact]
+    public void LoadBaseLayerFromPath_sets_state_squares_the_frame_and_seeds_the_pointer_pivot()
+    {
+        var (vm, load, _) = Build();
+        vm.ComponentType = ComponentType.RotaryKnob;
+        load.Load("body.png").Returns(OffCenter(100, 100)); // opaque box top-left → centre ≈ (0.25, 0.25)
+
+        vm.LoadBaseLayerFromPath("body.png");
+
+        vm.HasBaseLayer.Should().BeTrue();
+        vm.BaseLayerInfo.Should().Contain("body.png").And.Contain("100×100");
+        vm.FrameWidth.Should().Be(100);   // the body squares the knob frame
+        vm.FrameHeight.Should().Be(100);
+        vm.PointerPivotX.Should().BeLessThan(0.4, "the pointer pivot seeds from the body's content centre");
+        vm.PointerPivotY.Should().BeLessThan(0.4);
+        vm.ExportCommand.CanExecute(null).Should().BeTrue("a base layer is exportable without a single source");
+    }
+
+    [Fact]
+    public void LoadPointerFromPath_sets_pointer_state()
+    {
+        var (vm, load, _) = Build();
+        load.Load("ptr.png").Returns(Bmp(100, 100));
+
+        vm.LoadPointerFromPath("ptr.png");
+
+        vm.HasPointer.Should().BeTrue();
+        vm.PointerInfo.Should().Contain("ptr.png").And.Contain("100×100");
+    }
+
+    [Fact]
+    public void Clearing_the_base_layer_disables_export_again()
+    {
+        var (vm, load, _) = Build();
+        load.Load("body.png").Returns(Bmp(64, 64));
+        vm.LoadBaseLayerFromPath("body.png");
+        vm.ExportCommand.CanExecute(null).Should().BeTrue();
+
+        vm.ClearBaseLayerCommand.Execute(null);
+
+        vm.HasBaseLayer.Should().BeFalse();
+        vm.ExportCommand.CanExecute(null).Should().BeFalse("nothing is loaded to export");
+    }
+
     // An image whose opaque content sits in the top-left, not the centre.
     static SKBitmap OffCenter(int w, int h)
     {

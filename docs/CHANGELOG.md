@@ -5,6 +5,28 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [Unreleased]
+
+### Added
+- **Layer-aware knob animation — base + pointer (★ #3, step 1).** A knob can now be built
+  from **two layers**: a **static base** (the body / well, drawn fixed) and a separate
+  **pointer** that rotates with the value — so only the pointer moves and the body stays
+  crisp and re-renderable at any resolution. A general, ordered **layer model**
+  (`RenderLayer` + `LayerBehavior {Static, Rotate}`, with a per-layer normalized pivot) on a
+  new `FilmstripSettings.Layers` list; the renderer composites the stack bottom-first via a
+  new `RenderLayers` path in `RenderFrame`/`RenderStrip` (both gained an optional
+  index-matched `IReadOnlyList<SKBitmap>? layerArt` parameter). The pointer rotates about its
+  **own** pivot (independent of the body), seeded from the body's detected content centre and
+  adjustable via numeric **Pointer pivot X/Y** + a "Center pointer on body" reset. A value arc
+  still composes on top, concentric with the body centre. Create-tab **"LAYERED KNOB (base +
+  pointer)"** panel in the rotary section: Load/Clear **Base** + **Pointer** slots and the
+  pivot controls. **Gated by defaults — an empty `Layers` list renders the single source
+  byte-for-byte as before, so all prior golden baselines are unchanged.** Knob-only for now
+  (faders/sliders/meters ignore layers). Mirrored in the standalone `FilmstripEngine.cs`.
+  **+12 tests (`LayeredKnobRenderTests`: 3 golden baselines + 6 pixel-logic; 3 VM load-path
+  tests in `LoadPathTests`), suite 84 passing.** *(Next layer-aware steps: auto-pointer
+  extraction from flat art, then layered PSD/SVG import.)*
+
 ## [0.7.0] — 2026-06-04
 
 ### Added

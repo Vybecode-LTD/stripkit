@@ -108,11 +108,17 @@ highest-leverage bets across all groups; pursue them first.
 
 ### Render quality / the first mile
 
-- ★ **Layer-aware animation + auto-pointer extraction** — accept layered input
+- 🔄 ★ **Layer-aware animation + auto-pointer extraction** — accept layered input
   (SVG / PSD or base + pointer) and tag per-layer behavior (rotate / stay /
   opacity-ramp / translate) so only the pointer rotates while the body stays
   crisp, re-renderable at any resolution. Plus auto-detect the indicator in FLAT
-  legacy art (seed from the existing `ContentAnalysis`). **(P1, ★)**
+  legacy art (seed from the existing `ContentAnalysis`). **(P1, ★)** — **Step 1 of 3
+  done (Unreleased): base + pointer PNGs.** A general `RenderLayer`/`LayerBehavior` model +
+  `FilmstripSettings.Layers`; `RenderLayers` composites a static body + a rotating pointer
+  (its own pivot) in `RenderFrame`/`RenderStrip`; explicit Base/Pointer slots in the Create
+  tab; gated so empty layers reproduce prior output (suite 72→84). Mirrored in
+  `FilmstripEngine.cs`. **Remaining:** step 2 — auto-pointer extraction from flat art (CV,
+  seed from `ContentAnalysis`); step 3 — layered PSD/SVG import (new parser dependency).
 - ✅ **Procedural value-arc / fill-ring generator** (2026-06-04) — a Serum/Vital-style
   fill arc that tracks the value frame-by-frame is composited onto knob frames:
   configurable radius, thickness, colour, round/butt end caps, optional dim track,

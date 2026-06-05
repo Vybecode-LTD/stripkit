@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (72 tests)
+dotnet test                                      # whole suite (84 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **72 passed / 0 failed / 0 skipped** (~0.8 s).
+Current status: **84 passed / 0 failed / 0 skipped** (~0.5 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (72)
+## Test inventory (84)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -67,9 +67,19 @@ Locks the renderer's pixel output against committed baselines.
   to the right side only at maximum and never enters the bottom wedge; the dim track
   covers the unlit remainder; the arc is a no-op for non-knob components.
 
-### `LoadPathTests.cs` — 7 (`MainWindowViewModel`, NSubstitute)
-The shared Create-tab load path (used by both the button and drag-drop), plus the
-knob-alignment auto-centring it now performs on load.
+### `LayeredKnobRenderTests.cs` — 9 (layer-aware knob renderer)
+Layered knob = a static base body + a separate rotating pointer (the ★ #3 step-1 feature).
+- 3 golden baselines: `layered_knob_{min,mid,max}` — the body stays fixed while only the
+  pointer rotates (−135° / ~0° / +135°).
+- 6 pixel-logic: the pointer rotates to the top at mid-travel (and is elsewhere at frame 0);
+  a static base layer is identical in every frame; the body under a rotating pointer does not
+  move; an **empty layer stack falls back to the single-source path** (the gate is
+  `Layers.Count > 0`); the pointer pivot changes the render; and layers are ignored for
+  non-knob components (also exercises `FilmstripSettings.Clone`'s deep-copy of `Layers`).
+
+### `LoadPathTests.cs` — 10 (`MainWindowViewModel`, NSubstitute)
+The shared Create-tab load path (used by both the button and drag-drop), the knob-alignment
+auto-centring it performs on load, and the layered base/pointer slots.
 - `LoadSourceFromPath_sets_source_state_and_squares_the_frame_for_a_knob`.
 - `LoadSourceFromPath_reports_an_error_when_the_image_cannot_be_decoded`.
 - `OpenSource_button_uses_the_same_load_path_as_a_drop` (asserts no duplication).
@@ -78,6 +88,9 @@ knob-alignment auto-centring it now performs on load.
 - `Loading_an_offcenter_knob_auto_centers_on_its_content` (auto-centre on load).
 - `Source_center_persists_when_the_guide_is_toggled_off` (the "reverts when the
   crosshair is removed" report — the centre survives toggling the guide).
+- `LoadBaseLayerFromPath_sets_state_squares_the_frame_and_seeds_the_pointer_pivot`.
+- `LoadPointerFromPath_sets_pointer_state`.
+- `Clearing_the_base_layer_disables_export_again` (export gating for the layered slot).
 
 ### `ContentAnalysisTests.cs` — 4 (opaque-content centre detection)
 Unit tests for `ContentAnalysis.DetectContentCenter`, which backs the alignment tools
@@ -141,10 +154,10 @@ Per-target loader-code generation (`CodeSnippetService`), all pure string assert
 ## Golden-image regression (`ImageAssert` + `image-regression-testing` skill)
 
 - **Baselines:** `tests/StripKit.Tests/baselines/*.png`, **committed** — they are the
-  assertion; a changed baseline shows up as a visual diff in review. Fifteen baselines:
+  assertion; a changed baseline shows up as a visual diff in review. Eighteen baselines:
   `knob_default_{min,mid,max}`, `knob_strip8`, `vfader_default_mid`, `hslider_default_mid`,
   `meter_proc_up_{empty,mid,full}`, `meter_proc_lr_mid`, `meter_layered_up_mid`,
-  `arc_knob_{min,mid,max}`, `arc_knob_gradient_glow_mid`.
+  `arc_knob_{min,mid,max}`, `arc_knob_gradient_glow_mid`, `layered_knob_{min,mid,max}`.
 - **Tolerance:** a pixel "differs" if any channel differs by > 2/255; the test fails
   if > 0.1 % of pixels differ. Absorbs anti-aliasing jitter, catches real changes.
 - **On mismatch:** writes `expected`/`actual`/`diff` PNGs to
@@ -186,8 +199,9 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 - **No coverage threshold is enforced** yet (coverlet is wired; a gate can be added
   with a CI step).
 - **`FilmstripEngine.cs`** (the standalone portable renderer) is not under test — it
-  is a hand-maintained mirror of `SkiaFilmstripRenderer`; the in-app renderer is the
-  tested one.
+  is a hand-maintained mirror of `SkiaFilmstripRenderer` (now including the `RenderLayers`
+  layered-knob path + the `RenderLayer`/`LayerBehavior` types and `Layers` field); the
+  in-app renderer is the tested one.
 - **`BatchViewModel` meter-settings fields are not tested in a batch context.**
   `ComponentType.Meter` was added to `BatchViewModel.ComponentTypes` this session, but
   the meter-specific fields (`SegmentCount`, `FillDirection`, `SegmentOnColor`,

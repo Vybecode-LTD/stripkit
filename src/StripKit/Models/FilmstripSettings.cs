@@ -119,5 +119,24 @@ public sealed class FilmstripSettings
     /// <summary>Glow blur size, in 1x pixels (used when <see cref="ArcGlow"/>).</summary>
     public double ArcGlowSize { get; set; } = 6.0;
 
-    public FilmstripSettings Clone() => (FilmstripSettings)MemberwiseClone();
+    // ---- Layered animation (knob: base + pointer) ----
+
+    /// <summary>
+    /// Ordered layer stack (bottom-first) for layered knob rendering. Empty (the default)
+    /// renders the single <c>source</c> exactly as before, so existing output is unchanged.
+    /// When non-empty for a rotary knob, the renderer composites these layers — their
+    /// bitmaps passed alongside, index-matched — instead of rotating the single source:
+    /// a <see cref="LayerBehavior.Static"/> base body stays fixed while a
+    /// <see cref="LayerBehavior.Rotate"/> pointer follows the angle sweep. Knob-only for now.
+    /// </summary>
+    public List<RenderLayer> Layers { get; set; } = new();
+
+    /// <summary>A deep copy — the <see cref="Layers"/> list is cloned, not shared, so a
+    /// cloned settings (e.g. a per-file batch clone) can be mutated independently.</summary>
+    public FilmstripSettings Clone()
+    {
+        var copy = (FilmstripSettings)MemberwiseClone();
+        copy.Layers = Layers.Select(l => l.Clone()).ToList();
+        return copy;
+    }
 }
