@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [0.8.0] — 2026-06-05
 
 ### Added
 - **Importer frame-count resampling.** The Import tab can now **re-time** a strip to a
