@@ -58,6 +58,22 @@ public class BatchProcessorTests : IDisposable
         ExportManifest = manifest,
     };
 
+    static FilmstripSettings MeterTemplate() => new()
+    {
+        ComponentType = ComponentType.Meter, FrameCount = 8,
+        FrameWidth = 48, FrameHeight = 160, SegmentCount = 12,
+        FillDirection = MeterFillDirection.Up, Supersample = 1, StackDirection = StackDirection.Vertical,
+    };
+
+    static BatchOptions MeterOptions(IReadOnlyList<string> files, string outDir, bool backdrop) => new()
+    {
+        InputFiles = files,
+        OutputDirectory = outDir,
+        Settings = MeterTemplate(),
+        MatchKnobFrameToSource = false,
+        MeterSourceIsBackdrop = backdrop,
+    };
+
     [Fact]
     public async Task Renders_a_strip_for_each_input()
     {
@@ -119,6 +135,32 @@ public class BatchProcessorTests : IDisposable
         File.Exists(Path.Combine(_outDir, "knob_8frames.png")).Should().BeTrue();
         File.Exists(Path.Combine(_outDir, "knob_8frames@2x.png")).Should().BeTrue();
         File.Exists(Path.Combine(_outDir, "knob.skin.json")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Renders_meters_and_the_backdrop_toggle_changes_the_output()
+    {
+        var file = WriteKnob("m.png", 64);   // arbitrary art, used as the on-state OR the backdrop
+        var layeredDir = Path.Combine(_dir, "layered");
+        var backdropDir = Path.Combine(_dir, "backdrop");
+
+        var rl = await _processor.ProcessAsync(MeterOptions(new[] { file }, layeredDir, backdrop: false), null);
+        var rb = await _processor.ProcessAsync(MeterOptions(new[] { file }, backdropDir, backdrop: true), null);
+
+        rl.SucceededCount.Should().Be(1);
+        rb.SucceededCount.Should().Be(1);
+
+        var layeredPath = Path.Combine(layeredDir, "m_8frames.png");
+        using (var strip = SKBitmap.Decode(layeredPath))
+        {
+            strip.Width.Should().Be(48);
+            strip.Height.Should().Be(160 * 8);
+        }
+
+        var layeredBytes = await File.ReadAllBytesAsync(layeredPath);
+        var backdropBytes = await File.ReadAllBytesAsync(Path.Combine(backdropDir, "m_8frames.png"));
+        layeredBytes.Should().NotEqual(backdropBytes,
+            "layered reveals the source as lit art; backdrop draws procedural LEDs over it");
     }
 
     sealed class CancelAfterFirst(CancellationTokenSource cts) : IProgress<BatchProgress>

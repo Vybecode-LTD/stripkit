@@ -15,6 +15,11 @@ public sealed record BatchOptions
     /// <summary>For knobs, square each frame to that source's larger side (per file).</summary>
     public bool MatchKnobFrameToSource { get; init; } = true;
 
+    /// <summary>Meters only: when true, each source is a housing/backdrop and procedural LED
+    /// segments are drawn over it (source → background, procedural meter); when false, each
+    /// source is the lit on-state art revealed up to the fill (source → on-art, layered meter).</summary>
+    public bool MeterSourceIsBackdrop { get; init; }
+
     public bool ExportAt2x { get; init; }
     public bool ExportManifest { get; init; }
 }

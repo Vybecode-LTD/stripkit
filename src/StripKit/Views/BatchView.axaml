@@ -44,6 +44,30 @@
                         <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,4,0,0" />
                     </StackPanel>
 
+                    <StackPanel IsVisible="{Binding IsMeter}" Spacing="2">
+                        <controls:SectionHeader Text="METER" />
+                        <TextBlock Classes="label" Text="Segments" />
+                        <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1" />
+                        <TextBlock Classes="label" Text="Fill direction" Margin="0,6,0,0" />
+                        <ComboBox HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding FillDirections}" SelectedItem="{Binding FillDirection}" />
+                        <CheckBox Content="Continuous (smooth) fill" IsChecked="{Binding ContinuousFill}" Margin="0,6,0,0" />
+                        <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="label" Text="On colour (#AARRGGBB)" />
+                                <TextBox Text="{Binding OnColorHex}" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="label" Text="Off colour" />
+                                <TextBox Text="{Binding OffColorHex}" />
+                            </StackPanel>
+                        </Grid>
+                        <CheckBox Content="Source is a backdrop (draw procedural LEDs on top)"
+                                  IsChecked="{Binding MeterSourceIsBackdrop}" Margin="0,8,0,0" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Off: each source is the lit (on-state) art, revealed up to the fill. On: each source is a housing/backdrop and procedural LED segments are drawn over it (segments + colours apply)." />
+                    </StackPanel>
+
                     <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
                     <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
                     <ComboBox HorizontalAlignment="Stretch"

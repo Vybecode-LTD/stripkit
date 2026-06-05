@@ -8,6 +8,14 @@
 ## [Unreleased]
 
 ### Added
+- **Batch-tab meter settings.** The Batch tab now exposes the full meter template (segment
+  count, fill direction, continuous/discrete, on/off colours) when the component type is
+  **Meter**, plus a **"source is a backdrop"** toggle that switches each file between the
+  meter's **lit on-state art** (layered — revealed up to the fill) and a **housing/backdrop**
+  with **procedural LED segments** drawn over it. New `BatchOptions.MeterSourceIsBackdrop`;
+  `BatchProcessor` routes the source to the on-art or the background slot accordingly.
+  Resolves the v0.6.0 carryover where `ComponentType.Meter` was selectable in Batch but had
+  no settings. **+2 tests, suite 84→86.**
 - **Layer-aware knob animation — base + pointer (★ #3, step 1).** A knob can now be built
   from **two layers**: a **static base** (the body / well, drawn fixed) and a separate
   **pointer** that rotates with the value — so only the pointer moves and the body stays

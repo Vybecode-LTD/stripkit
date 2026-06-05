@@ -2,6 +2,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using StripKit.Models;
 using StripKit.Services;
+using SkiaSharp;
 
 namespace StripKit.ViewModels;
 
@@ -30,6 +31,8 @@ public partial class BatchViewModel : ViewModelBase
     public ComponentType[] ComponentTypes { get; } =
         [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter];
     public StackDirection[] StackDirections { get; } = [StackDirection.Vertical, StackDirection.Horizontal];
+    public MeterFillDirection[] FillDirections { get; } =
+        [MeterFillDirection.Up, MeterFillDirection.Down, MeterFillDirection.LeftToRight, MeterFillDirection.RightToLeft];
     public int[] SupersampleOptions { get; } = [1, 2, 4, 8];
 
     // ---- folders ----
@@ -47,7 +50,7 @@ public partial class BatchViewModel : ViewModelBase
 
     // ---- render template ----
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRotary))]
+    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsMeter))]
     private ComponentType _componentType = ComponentType.RotaryKnob;
 
     [ObservableProperty] private int _frameCount = 64;
@@ -61,6 +64,17 @@ public partial class BatchViewModel : ViewModelBase
     [ObservableProperty] private bool _exportAt2x = true;
     [ObservableProperty] private bool _exportManifest;
 
+    // ---- meter template (used when ComponentType is Meter) ----
+    [ObservableProperty] private int _segmentCount = 12;
+    [ObservableProperty] private MeterFillDirection _fillDirection = MeterFillDirection.Up;
+    [ObservableProperty] private bool _continuousFill;
+    [ObservableProperty] private string _onColorHex = "#FFE8440A";
+    [ObservableProperty] private string _offColorHex = "#FF2A2A2A";
+
+    /// <summary>When true each source is a backdrop and procedural LED segments are drawn over
+    /// it; when false each source is the lit on-state art revealed up to the fill.</summary>
+    [ObservableProperty] private bool _meterSourceIsBackdrop;
+
     // ---- run state ----
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(RunCommand))]
@@ -73,6 +87,7 @@ public partial class BatchViewModel : ViewModelBase
     [ObservableProperty] private string _resultSummary = "";
 
     public bool IsRotary => ComponentType == ComponentType.RotaryKnob;
+    public bool IsMeter => ComponentType == ComponentType.Meter;
 
     // ---- commands ----
 
@@ -123,6 +138,7 @@ public partial class BatchViewModel : ViewModelBase
             OutputDirectory = OutputFolder,
             Settings = BuildSettings(),
             MatchKnobFrameToSource = MatchKnobFrameToSource,
+            MeterSourceIsBackdrop = MeterSourceIsBackdrop,
             ExportAt2x = ExportAt2x,
             ExportManifest = ExportManifest,
         };
@@ -160,10 +176,6 @@ public partial class BatchViewModel : ViewModelBase
     private FilmstripSettings BuildSettings()
     {
         double half = SweepDegrees / 2.0;
-        // Note: meter-specific fields (SegmentCount, FillDirection, SegmentOnColor,
-        // SegmentOffColor, SegmentGapFraction, ContinuousMeter) are not exposed in the
-        // batch template UI — they use the FilmstripSettings defaults when ComponentType
-        // is Meter (procedural, BottomToTop fill, default colours, 12 segments).
         return new FilmstripSettings
         {
             ComponentType = ComponentType,
@@ -174,8 +186,20 @@ public partial class BatchViewModel : ViewModelBase
             EndAngleDegrees = RotationClockwise ? half : -half,
             Supersample = Supersample,
             StackDirection = StackDirection,
+            // Meter fields (used only when ComponentType is Meter; harmless otherwise).
+            SegmentCount = SegmentCount,
+            FillDirection = FillDirection,
+            ContinuousFill = ContinuousFill,
+            OnColorArgb = ParseArgb(OnColorHex, 0xFFE8440A),
+            OffColorArgb = ParseArgb(OffColorHex, 0xFF2A2A2A),
         };
     }
+
+    /// <summary>Parses a "#AARRGGBB"/"#RRGGBB" colour to packed ARGB, or the fallback.</summary>
+    private static uint ParseArgb(string hex, uint fallback) =>
+        SKColor.TryParse(hex, out var c)
+            ? ((uint)c.Alpha << 24) | ((uint)c.Red << 16) | ((uint)c.Green << 8) | c.Blue
+            : fallback;
 
     private static string BuildSummary(BatchResult result)
     {

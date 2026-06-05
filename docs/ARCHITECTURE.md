@@ -504,8 +504,12 @@ panels.
 
 ## 8. The Batch tab (`BatchViewModel` + `BatchProcessor`)
 
-Renders a whole **folder** of source images into strips in one run. (`BatchViewModel`
-offers only knob/fader/slider — no meter — since a procedural meter needs no source.)
+Renders a whole **folder** of source images into strips in one run. All four component
+types are available, **meters included**: the template exposes the meter settings (segments,
+fill direction, continuous, on/off colours) plus a `MeterSourceIsBackdrop` toggle — each file
+is either the meter's **lit on-state art** (layered) or a **housing/backdrop** with procedural
+LED segments drawn over it (`BatchProcessor` routes the loaded bitmap to the `source` or the
+`background` slot of `RenderStrip` accordingly).
 
 - **Folders & template.** `BatchViewModel` collects an input folder
   (`Directory.EnumerateFiles` filtered to `.png/.webp/.bmp/.jpg/.jpeg`, ordered, →

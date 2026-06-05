@@ -54,16 +54,22 @@ public sealed class BatchProcessor : IBatchProcessor
                         settings.FrameHeight = settings.FrameWidth;
                     }
 
+                    // A meter file is either the lit on-state art (layered) or a housing the
+                    // procedural LEDs are drawn over (backdrop) — see options.MeterSourceIsBackdrop.
+                    bool meterBackdrop = settings.ComponentType == ComponentType.Meter && options.MeterSourceIsBackdrop;
+                    var renderSource = meterBackdrop ? null : source;
+                    var renderBackground = meterBackdrop ? source : null;
+
                     var assetName = $"{baseName}_{settings.FrameCount}frames.png";
                     var outPath = Path.Combine(options.OutputDirectory, assetName);
-                    using (var strip = _renderer.RenderStrip(settings, source, null, 1.0))
+                    using (var strip = _renderer.RenderStrip(settings, renderSource, renderBackground, 1.0))
                         await _export.SavePngAsync(strip, outPath);
 
                     string? asset2xName = null;
                     if (options.ExportAt2x)
                     {
                         asset2xName = $"{baseName}_{settings.FrameCount}frames@2x.png";
-                        using var strip2x = _renderer.RenderStrip(settings, source, null, 2.0);
+                        using var strip2x = _renderer.RenderStrip(settings, renderSource, renderBackground, 2.0);
                         await _export.SavePngAsync(strip2x, Path.Combine(options.OutputDirectory, asset2xName));
                     }
 

@@ -1,6 +1,7 @@
 using FluentAssertions;
 using NSubstitute;
 using SkiaSharp;
+using StripKit.Models;
 using StripKit.Services;
 using StripKit.ViewModels;
 using Xunit;
@@ -59,5 +60,42 @@ public class BatchViewModelTests : IDisposable
         vm.InputSummary.Should().Contain("1 image");
         vm.HasOutput.Should().BeTrue();
         vm.RunCommand.CanExecute(null).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Meter_template_settings_and_backdrop_toggle_flow_into_the_batch_options()
+    {
+        var dialogs = Substitute.For<IFileDialogService>();
+        dialogs.OpenFolderAsync(Arg.Any<string>())
+            .Returns(Task.FromResult<string?>(_inDir), Task.FromResult<string?>(_outDir));
+
+        var processor = Substitute.For<IBatchProcessor>();
+        BatchOptions? captured = null;
+        processor.ProcessAsync(Arg.Any<BatchOptions>(), Arg.Any<IProgress<BatchProgress>?>(), Arg.Any<CancellationToken>())
+            .Returns(ci =>
+            {
+                captured = ci.Arg<BatchOptions>();
+                return Task.FromResult(new BatchResult(System.Array.Empty<BatchItemResult>(), false));
+            });
+
+        var vm = new BatchViewModel(dialogs, processor);
+        await vm.ChooseInputFolderCommand.ExecuteAsync(null);
+        await vm.ChooseOutputFolderCommand.ExecuteAsync(null);
+
+        vm.ComponentType = ComponentType.Meter;
+        vm.IsMeter.Should().BeTrue();
+        vm.SegmentCount = 20;
+        vm.FillDirection = MeterFillDirection.LeftToRight;
+        vm.ContinuousFill = true;
+        vm.MeterSourceIsBackdrop = true;
+
+        await vm.RunCommand.ExecuteAsync(null);
+
+        captured.Should().NotBeNull();
+        captured!.Settings.ComponentType.Should().Be(ComponentType.Meter);
+        captured.Settings.SegmentCount.Should().Be(20);
+        captured.Settings.FillDirection.Should().Be(MeterFillDirection.LeftToRight);
+        captured.Settings.ContinuousFill.Should().BeTrue();
+        captured.MeterSourceIsBackdrop.Should().BeTrue();
     }
 }

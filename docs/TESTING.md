@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (84 tests)
+dotnet test                                      # whole suite (86 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **84 passed / 0 failed / 0 skipped** (~0.5 s).
+Current status: **86 passed / 0 failed / 0 skipped** (~0.9 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (84)
+## Test inventory (86)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -141,15 +141,19 @@ Per-target loader-code generation (`CodeSnippetService`), all pure string assert
 - Identifiers are sanitised; `FileName` maps each target (Theory, 4 rows); `SaveAsync`
   writes the snippet to disk matching `Generate`.
 
-### `BatchProcessorTests.cs` — 4 (integration, real services + temp files)
+### `BatchProcessorTests.cs` — 5 (integration, real services + temp files)
 - `Renders_a_strip_for_each_input` (3 inputs → 3 correctly-sized strips; match-to-source).
 - `Records_a_failure_for_an_undecodable_file_and_keeps_going` (failure isolation).
 - `Honors_cancellation_between_items` (cancels after item 1 via a custom `IProgress`).
 - `Also_writes_at2x_and_manifest_when_requested`.
+- `Renders_meters_and_the_backdrop_toggle_changes_the_output` (both meter modes render at the
+  right size; the layered vs backdrop toggle produces different pixels).
 
-### `BatchViewModelTests.cs` — 2 (`BatchViewModel`, NSubstitute + temp folder)
+### `BatchViewModelTests.cs` — 3 (`BatchViewModel`, NSubstitute + temp folder)
 - `Run_and_cancel_are_disabled_initially`.
 - `Choosing_input_and_output_folders_enables_run`.
+- `Meter_template_settings_and_backdrop_toggle_flow_into_the_batch_options` (segments, fill,
+  continuous, and the backdrop toggle reach the `BatchOptions` passed to the processor).
 
 ## Golden-image regression (`ImageAssert` + `image-regression-testing` skill)
 
@@ -202,10 +206,8 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
   is a hand-maintained mirror of `SkiaFilmstripRenderer` (now including the `RenderLayers`
   layered-knob path + the `RenderLayer`/`LayerBehavior` types and `Layers` field); the
   in-app renderer is the tested one.
-- **`BatchViewModel` meter-settings fields are not tested in a batch context.**
-  `ComponentType.Meter` was added to `BatchViewModel.ComponentTypes` this session, but
-  the meter-specific fields (`SegmentCount`, `FillDirection`, `SegmentOnColor`,
-  `SegmentOffColor`, `SegmentGap`, `ContinuousFill`) are not yet surfaced in the Batch
-  tab UI and therefore have no batch-path test coverage. The meter renderer itself is
-  covered by `MeterRenderTests` and the Create-tab VM path; the gap is specifically
-  the Batch tab template carrying meter settings through to `BatchProcessor`.
+- **The Batch tab's meter on-screen output is not golden-tested.** The meter template now
+  flows through to `BatchProcessor` (covered by `BatchViewModelTests` +
+  `BatchProcessorTests`), and the meter renderer itself is locked by `MeterRenderTests`; the
+  untested seam is purely the on-screen Batch meter *UI* (which fields are visible), a view
+  concern not asserted headlessly.
