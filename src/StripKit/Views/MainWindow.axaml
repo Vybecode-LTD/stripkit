@@ -379,6 +379,10 @@
             <views:BatchView DataContext="{Binding Batch}" />
         </TabItem>
 
+        <TabItem Header="Skin">
+            <views:SkinView DataContext="{Binding Skin}" />
+        </TabItem>
+
         </TabControl>
 
         <!-- Header right side: app wordmark + an About (?) button, across from the tabs. -->

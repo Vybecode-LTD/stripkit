@@ -36,11 +36,12 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (84): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (92): renderer golden-image (with committed
   `baselines/`), `ContentAnalysis` + alignment render, view-model load-path, importer
-  engine + VM, manifest, batch processor + VM, meter renderer, value-arc renderer
-  (`ValueArcRenderTests`), layered-knob renderer (`LayeredKnobRenderTests`), code-snippet
-  generation (`CodeSnippetServiceTests`), and a headless drop-zone test. See `docs/TESTING.md`.
+  engine + VM, manifest (incl. multi-control), batch processor + VM (incl. meter), Skin tab VM
+  (`SkinViewModelTests`), meter renderer, value-arc renderer (`ValueArcRenderTests`),
+  layered-knob renderer (`LayeredKnobRenderTests`), code-snippet generation
+  (`CodeSnippetServiceTests`), and a headless drop-zone test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 
@@ -92,7 +93,8 @@ does each thing live" companion.
   layout from its dimensions (ordered candidate counts + aspect classification),
   extract a single frame, and re-stack to a new orientation. No Avalonia dependency.
 - `IManifestService.cs` / `ManifestService.cs` — build + serialize a `skin.json`
-  manifest (System.Text.Json, camelCase) binding an exported strip to a parameter.
+  manifest (System.Text.Json, camelCase): `BuildSingleControl` (one control, from the Create
+  tab) and `BuildManifest` (multi-control, from the Skin tab) binding strips to parameters.
 - `ICodeSnippetService.cs` / `CodeSnippetService.cs` — emit ready-to-paste loader code
   (JUCE / CSS-HTML / iPlug2 / HISE) for an exported strip: `Generate` / `FileName` (pure)
   + a thin `SaveAsync`. No Avalonia dependency.
@@ -115,20 +117,25 @@ does each thing live" companion.
   bound properties to a `FilmstripSettings` (and appends the layered-knob `Layers`;
   `BuildLayerArt()` supplies the matching base/pointer bitmaps). See the
   `live-preview-render-loop` skill — this view model is a worked example of that pattern.
-  Exposes `Importer` and `Batch` (the Import and Batch tab view models).
+  Exposes `Importer`, `Batch`, and `Skin` (the Import, Batch, and Skin tab view models).
 - `ImporterViewModel.cs` — backs the **Import** tab: load an existing strip, run
   detection, scrub the detected frames, and extract / re-stack. Same preview-funnel
   pattern; holds no Avalonia UI types beyond the preview bitmap.
 - `BatchViewModel.cs` — backs the **Batch** tab: input/output folders + a render
-  template, run a folder export off-thread with progress + cancel + a results summary.
-  No Avalonia UI types.
+  template (now incl. the meter settings + the layered/backdrop toggle), run a folder export
+  off-thread with progress + cancel + a results summary. No Avalonia UI types.
+- `SkinViewModel.cs` — backs the **Skin** tab: a multi-control `skin.json` builder (a controls
+  list, add-from-strip via `FilmstripImporter.Detect`/add-blank, a per-control detail editor,
+  skin metadata, and export-to-folder). No Avalonia UI types.
+- `SkinControlEntry.cs` — the mutable, observable per-control row the Skin list + detail editor
+  bind to; mapped to the immutable `ManifestControl` record on export.
 
 ### `Views/`
 
-- `MainWindow.axaml` — the UI, a `TabControl` with three tabs: **Create** (settings
+- `MainWindow.axaml` — the UI, a `TabControl` with four tabs: **Create** (settings
   panel + preview/scrub/play/export), **Import** (hosts `ImporterView`, bound to
-  `MainWindowViewModel.Importer`), and **Batch** (hosts `BatchView`, bound to
-  `.Batch`). Compiled bindings.
+  `MainWindowViewModel.Importer`), **Batch** (hosts `BatchView`, bound to `.Batch`), and
+  **Skin** (hosts `SkinView`, bound to `.Skin`). Compiled bindings.
 - `MainWindow.axaml.cs` — minimal code-behind: the view-side auto-play
   `DispatcherTimer`, plus the Create preview's file drag-and-drop handlers (scoped
   to its drop border so they don't collide with the other tabs).
@@ -138,6 +145,9 @@ does each thing live" companion.
 - `BatchView.axaml(.cs)` — the Batch tab's `UserControl` (`x:DataType` =
   `BatchViewModel`): render template, input/output folder pickers, Run/Cancel, a
   progress bar, and a results summary. Markup-only code-behind.
+- `SkinView.axaml(.cs)` — the Skin tab's `UserControl` (`x:DataType` = `SkinViewModel`): skin
+  metadata + controls list (left), a per-control detail editor + Export skin.json (right).
+  Markup-only code-behind.
 
 ### `Assets/`
 

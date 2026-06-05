@@ -43,6 +43,19 @@ public sealed class ManifestService : IManifestService
         };
     }
 
+    public SkinManifest BuildManifest(IReadOnlyList<ManifestControl> controls, string name, string? author,
+                                      int baseWidth, int baseHeight, string? background) =>
+        new()
+        {
+            ManifestVersion = 1,
+            Name = string.IsNullOrWhiteSpace(name) ? "skin" : name.Trim(),
+            Author = string.IsNullOrWhiteSpace(author) ? null : author.Trim(),
+            BaseWidth = Math.Max(1, baseWidth),
+            BaseHeight = Math.Max(1, baseHeight),
+            Background = string.IsNullOrWhiteSpace(background) ? null : background.Trim(),
+            Controls = controls,
+        };
+
     public string Serialize(SkinManifest manifest) => JsonSerializer.Serialize(manifest, Options);
 
     public async Task SaveAsync(SkinManifest manifest, string path)

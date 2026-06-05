@@ -39,7 +39,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(IImageLoadService imageLoad, IFilmstripRenderer renderer,
                                IFileDialogService dialogs, IExportService export,
                                IManifestService manifest, ICodeSnippetService codeSnippets,
-                               ImporterViewModel importer, BatchViewModel batch)
+                               ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin)
     {
         _imageLoad = imageLoad;
         _renderer = renderer;
@@ -49,6 +49,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _codeSnippets = codeSnippets;
         Importer = importer;
         Batch = batch;
+        Skin = skin;
 
         SourceInfo = "No image loaded.";
         BackgroundInfo = "None.";
@@ -62,6 +63,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>The "Batch" tab's view model (hosted in a third tab in the window).</summary>
     public BatchViewModel Batch { get; }
+
+    /// <summary>The "Skin" tab's view model (the multi-control manifest builder).</summary>
+    public SkinViewModel Skin { get; }
 
     // ---- combo box choices ----
     public ComponentType[] ComponentTypes { get; } =

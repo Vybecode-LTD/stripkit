@@ -75,6 +75,60 @@ public class ManifestServiceTests
         AssertConformsToSchema(json);
     }
 
+    [Fact]
+    public void BuildManifest_assembles_multiple_controls_and_global_metadata()
+    {
+        var controls = new[]
+        {
+            new ManifestControl
+            {
+                Id = "cutoff", Type = "knob", ParameterId = "filterCutoff",
+                Asset = "cutoff_64.png", Frames = 64, FrameWidth = 80, FrameHeight = 80,
+                Bounds = new ManifestBounds(10, 20, 80, 80),
+            },
+            new ManifestControl
+            {
+                Id = "gain", Type = "vfader", ParameterId = "outGain",
+                Asset = "gain_100.png", Asset2x = "gain_100@2x.png", Frames = 100, FrameWidth = 40, FrameHeight = 128,
+                Stack = "vertical", Bounds = new ManifestBounds(120, 0, 40, 128),
+                ValueMin = 0, ValueMax = 1, ValueDefault = 0.7,
+            },
+        };
+
+        var m = _svc.BuildManifest(controls, "Synth Skin", "VybeCode", 320, 200, "panel.png");
+
+        m.Name.Should().Be("Synth Skin");
+        m.Author.Should().Be("VybeCode");
+        m.BaseWidth.Should().Be(320);
+        m.BaseHeight.Should().Be(200);
+        m.Background.Should().Be("panel.png");
+        m.Controls.Should().HaveCount(2);
+
+        var json = _svc.Serialize(m);
+        AssertConformsToSchema(json);
+        json.Should().Contain("\"background\"").And.Contain("\"author\"").And.Contain("\"valueDefault\"");
+    }
+
+    [Fact]
+    public void BuildManifest_defaults_a_blank_name_and_omits_blank_author_and_background()
+    {
+        var controls = new[]
+        {
+            new ManifestControl
+            {
+                Id = "k", Type = "knob", ParameterId = "k", Asset = "k.png",
+                Frames = 8, FrameWidth = 40, FrameHeight = 40, Bounds = new ManifestBounds(0, 0, 40, 40),
+            },
+        };
+
+        var m = _svc.BuildManifest(controls, "   ", "   ", 40, 40, "   ");
+
+        m.Name.Should().Be("skin");   // blank name → default
+        m.Author.Should().BeNull();
+        m.Background.Should().BeNull();
+        _svc.Serialize(m).Should().NotContain("author").And.NotContain("background");
+    }
+
     // Mirrors the required/enum/type rules of the JSON Schema in plugin-asset-manifest.
     static void AssertConformsToSchema(string json)
     {

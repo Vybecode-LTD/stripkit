@@ -31,6 +31,7 @@ public partial class App : Application
 
         services.AddTransient<ImporterViewModel>();
         services.AddTransient<BatchViewModel>();
+        services.AddTransient<SkinViewModel>();
         services.AddTransient<MainWindowViewModel>();
 
         var provider = services.BuildServiceProvider();

@@ -130,9 +130,12 @@ A small artistic flourish used throughout the sidebars.
 ### 3.5 `ViewModels/`
 
 - `ViewModelBase` — `ObservableObject` base; never references Avalonia UI types.
-- `MainWindowViewModel` — the **Create** tab (§6). Exposes `Importer` and `Batch`.
+- `MainWindowViewModel` — the **Create** tab (§6). Exposes `Importer`, `Batch`, and `Skin`.
 - `ImporterViewModel` — the **Import** tab (§5.7 cross-ref / detailed in §10).
 - `BatchViewModel` — the **Batch** tab (§8). No preview funnel; runs off-thread.
+- `SkinViewModel` (+ `SkinControlEntry`) — the **Skin** tab (§9.2): a multi-control
+  `skin.json` builder. `SkinControlEntry` is the mutable, observable per-control row the list
+  and detail editor bind to (mapped to the immutable `ManifestControl` record on export).
 
 All three are `partial` (CommunityToolkit source generators require it) and use
 `[ObservableProperty]` / `[RelayCommand]`. The only Avalonia reference is
@@ -142,13 +145,16 @@ type, not a control/visual. Logic, files, and domain state stay out of code-behi
 ### 3.6 `Views/`
 
 - `MainWindow.axaml(.cs)` — a `TabControl` with **Create** (inline), **Import** (hosts
-  `ImporterView`), and **Batch** (hosts `BatchView`). Code-behind holds the auto-play
-  `DispatcherTimer`, the Create preview's drag-drop handlers, the alignment crosshair
-  drag (§7.3), and the About-flyout link handler.
+  `ImporterView`), **Batch** (hosts `BatchView`), and **Skin** (hosts `SkinView`). Code-behind
+  holds the auto-play `DispatcherTimer`, the Create preview's drag-drop handlers, the alignment
+  crosshair drag (§7.3), and the About-flyout link handler.
 - `ImporterView.axaml(.cs)` — the Import tab `UserControl` (`x:DataType` =
   `ImporterViewModel`) + its own drag-drop handlers.
 - `BatchView.axaml(.cs)` — the Batch tab `UserControl` (`x:DataType` =
   `BatchViewModel`); markup-only code-behind (no drag-drop — it works on folders).
+- `SkinView.axaml(.cs)` — the Skin tab `UserControl` (`x:DataType` = `SkinViewModel`): the
+  skin metadata fields + controls list on the left, a per-control detail editor + export on
+  the right; markup-only code-behind.
 
 All bindings are compiled (`x:DataType` on every view; `AvaloniaUseCompiledBindingsByDefault`).
 
@@ -170,7 +176,8 @@ services.AddSingleton<FileDialogService>();                                   //
 services.AddSingleton<IFileDialogService>(sp => sp.GetRequiredService<FileDialogService>());
 services.AddTransient<ImporterViewModel>();
 services.AddTransient<BatchViewModel>();
-services.AddTransient<MainWindowViewModel>();                                  // depends on Importer + Batch VMs
+services.AddTransient<SkinViewModel>();
+services.AddTransient<MainWindowViewModel>();                                  // depends on Importer + Batch + Skin VMs
 ```
 
 The stateless engine services are singletons; the view models are transient.
@@ -586,6 +593,26 @@ the thin `SaveAsync(target, request, directory)`. Input is a `CodeSnippetRequest
   access lives in `MainWindow.axaml.cs`, a view concern). The snippet is generated from the
   baked PNG; the renderer and manifest are untouched.
 
+### 9.2 Multi-control skin builder (the Skin tab)
+
+The Create-tab export writes a **one-control** manifest next to its strip (§6.4). The **Skin
+tab** (`SkinViewModel` + `SkinView`) surfaces the `SkinManifest` model's **multi-control**
+capability: bind several already-exported strips to several parameters in one `skin.json`.
+
+- **Controls.** An `ObservableCollection<SkinControlEntry>` — each row added **from a strip**
+  (`FilmstripImporter.Detect` auto-fills frames / frame size / orientation / kind from the PNG,
+  flagging a low-confidence count) or **blank**. The selected row is edited in a detail panel
+  (id, type, parameter id, asset/`@2x`, frames, frame size, stack, on-screen `bounds`, optional
+  value range). `SkinControlEntry` is the mutable observable mirror of the immutable
+  `ManifestControl` record; `SkinViewModel.ToManifestControl` maps each on export (value-range
+  strings parse to `double?`, blank ⇒ omitted; `ComponentType` → the schema's type string).
+- **Skin metadata.** Name, optional author, the design resolution (seeded from the first
+  control), and an optional whole-window `background` (a relative file name).
+- **Export.** `IManifestService.BuildManifest(controls, name, author, baseW, baseH, background)`
+  assembles the `SkinManifest`; the Skin tab writes `<name>.skin.json` into a **chosen folder**
+  (next to the assets, so the relative `asset`/`background` names resolve). The strips
+  themselves are produced on the Create / Batch tabs — the Skin tab only assembles the bindings.
+
 ---
 
 ## 10. The Import tab (`ImporterViewModel` + `FilmstripImporter`)
@@ -633,10 +660,11 @@ re-stack toggles to the opposite orientation and runs off-thread (`Task.Run`).
 
 ### 10.4 Hosting (the TabControl)
 
-`MainWindow.axaml` is a `TabControl` (**Create** | **Import** | **Batch**). The Create
-content is inline (bound to the window's `MainWindowViewModel`). The Import/Batch tabs host
-`<views:ImporterView DataContext="{Binding Importer}"/>` and
-`<views:BatchView DataContext="{Binding Batch}"/>` — `Importer`/`Batch` are the child VMs
+`MainWindow.axaml` is a `TabControl` (**Create** | **Import** | **Batch** | **Skin**). The
+Create content is inline (bound to the window's `MainWindowViewModel`). The other three tabs
+host `<views:ImporterView DataContext="{Binding Importer}"/>`,
+`<views:BatchView DataContext="{Binding Batch}"/>`, and
+`<views:SkinView DataContext="{Binding Skin}"/>` — `Importer`/`Batch`/`Skin` are the child VMs
 exposed by `MainWindowViewModel` and resolved via DI.
 
 ---

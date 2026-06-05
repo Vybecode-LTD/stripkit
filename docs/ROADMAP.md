@@ -101,10 +101,11 @@ highest-leverage bets across all groups; pursue them first.
   live preview/copy, +15 tests. **Remaining (P2):** a **React / Web Component** and
   **Unity / Godot** targets. *(was P1, ★ — the second of the three ★ bets; the first two
   targets were the recommended first wave, all four shipped.)*
-- ⏳ **Multi-control manifests** — surface in the UI what the model already
-  supports: bind several strips to several parameters in one `skin.json`. Pairs
-  directly with theme/skin variants and code export. **(P2)** *(carryover — model
-  exists, UI not yet built.)*
+- ✅ **Multi-control manifests** (Unreleased) — the **Skin tab** surfaces the model's
+  multi-control capability: bind several strips to several parameters in one `skin.json`, with
+  per-control bounds + value range and a skin-level window background. `SkinViewModel` +
+  `SkinControlEntry` + `SkinView`; `IManifestService.BuildManifest`; +6 tests. Pairs directly
+  with theme/skin variants and code export. **(was P2)**
 
 ### Render quality / the first mile
 

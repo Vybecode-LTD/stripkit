@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (86 tests)
+dotnet test                                      # whole suite (92 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **86 passed / 0 failed / 0 skipped** (~0.9 s).
+Current status: **92 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (86)
+## Test inventory (92)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -124,11 +124,22 @@ knob spinning in place instead of orbiting.
 - `LoadStripFromPath_runs_detection_and_publishes_the_layout`.
 - `Extract_and_restack_are_disabled_until_a_strip_is_loaded`.
 
-### `ManifestServiceTests.cs` — 6 (manifest)
+### `ManifestServiceTests.cs` — 8 (manifest)
 - `BuildSingleControl_maps_the_component_type` (Theory, 3 cases).
 - `BuildSingleControl_carries_frames_size_stack_and_assets`.
 - `Serialized_manifest_conforms_to_the_skill_schema` (JSON-Schema conformance).
 - `Optional_fields_are_omitted_when_absent`.
+- `BuildManifest_assembles_multiple_controls_and_global_metadata` (multi-control + window
+  background + value range; schema-conformant).
+- `BuildManifest_defaults_a_blank_name_and_omits_blank_author_and_background`.
+
+### `SkinViewModelTests.cs` — 4 (`SkinViewModel`, NSubstitute)
+The Skin tab's multi-control manifest builder.
+- `Export_is_disabled_until_a_control_is_added` (command gating).
+- `Add_from_strip_detects_the_layout_and_creates_a_control` (importer `Detect` auto-fills the row).
+- `Remove_selected_drops_the_control_and_re_gates_export`.
+- `Export_builds_a_manifest_with_every_control_and_the_globals` (all controls + skin metadata
+  reach `BuildManifest`; the file is written as `<name>.skin.json`).
 
 ### `CodeSnippetServiceTests.cs` — 15 (code/component export)
 Per-target loader-code generation (`CodeSnippetService`), all pure string assertions.

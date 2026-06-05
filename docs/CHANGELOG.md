@@ -8,6 +8,15 @@
 ## [Unreleased]
 
 ### Added
+- **Skin tab — multi-control `skin.json` builder.** A new fourth tab that binds several
+  exported filmstrips to several parameters in one manifest, surfacing what the
+  `SkinManifest` model already supported. Add controls **from a strip** (the importer
+  auto-detects frame count / size / orientation / kind) or **blank**; edit each in a detail
+  panel (id, type, parameter id, asset/@2x, frames, frame size, stack, on-screen **bounds**,
+  optional **value range**); set skin-level **name / author / design resolution / window
+  background**; **Export skin.json…** writes one combined manifest into a chosen folder. New
+  `IManifestService.BuildManifest`, `SkinViewModel` + `SkinControlEntry` + `SkinView`. **+6
+  tests, suite 86→92.**
 - **Batch-tab meter settings.** The Batch tab now exposes the full meter template (segment
   count, fill direction, continuous/discrete, on/off colours) when the component type is
   **Meter**, plus a **"source is a backdrop"** toggle that switches each file between the

@@ -40,9 +40,11 @@ public class LoadPathTests
             Substitute.For<IFileDialogService>(),
             Substitute.For<IExportService>());
         var batch = new BatchViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IBatchProcessor>());
+        var skin = new SkinViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IImageLoadService>(),
+                                     Substitute.For<IFilmstripImporter>(), Substitute.For<IManifestService>());
 
         return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
-                                        new CodeSnippetService(), importer, batch), load, dialogs);
+                                        new CodeSnippetService(), importer, batch, skin), load, dialogs);
     }
 
     [Fact]

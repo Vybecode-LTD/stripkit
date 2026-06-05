@@ -1,0 +1,161 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:StripKit.ViewModels"
+             xmlns:controls="clr-namespace:StripKit.Controls"
+             x:Class="StripKit.Views.SkinView"
+             x:DataType="vm:SkinViewModel">
+
+    <Grid ColumnDefinitions="370,*">
+
+        <!-- ===== LEFT: skin metadata + controls list ===== -->
+        <Border Grid.Column="0" Classes="card" Margin="12,12,6,12">
+            <ScrollViewer>
+                <StackPanel Margin="16" Spacing="2">
+
+                    <TextBlock Text="Skin manifest" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <Border Classes="divider" />
+                    <TextBlock Text="Bind several exported filmstrips to several parameters in one skin.json."
+                               Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <controls:SectionHeader Text="SKIN" />
+                    <TextBlock Classes="label" Text="Name" />
+                    <TextBox Text="{Binding SkinName}" />
+                    <TextBlock Classes="label" Text="Author (optional)" Margin="0,6,0,0" />
+                    <TextBox Text="{Binding Author}" Watermark="e.g. VybeCode" />
+                    <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0">
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Classes="label" Text="Base width" />
+                            <NumericUpDown Value="{Binding BaseWidth}" Minimum="1" Maximum="8192" Increment="1" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Classes="label" Text="Base height" />
+                            <NumericUpDown Value="{Binding BaseHeight}" Minimum="1" Maximum="8192" Increment="1" />
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock Classes="label" Text="Window background (optional)" Margin="0,6,0,0" />
+                    <Grid ColumnDefinitions="*,6,Auto">
+                        <TextBox Grid.Column="0" Text="{Binding WindowBackground}" Watermark="relative file name" />
+                        <Button Grid.Column="2" Content="…" Width="34" Command="{Binding ChooseWindowBackgroundCommand}"
+                                ToolTip.Tip="Pick a window background image" />
+                    </Grid>
+
+                    <controls:SectionHeader Text="CONTROLS" />
+                    <ListBox ItemsSource="{Binding Controls}" SelectedItem="{Binding SelectedControl}"
+                             MinHeight="160" MaxHeight="320">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SkinControlEntry">
+                                <TextBlock Text="{Binding Display}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Grid ColumnDefinitions="*,6,*" Margin="0,6,0,0">
+                        <Button Grid.Column="0" Content="Add from strip…" HorizontalAlignment="Stretch"
+                                Command="{Binding AddFromStripCommand}" />
+                        <Button Grid.Column="2" Content="Add blank" HorizontalAlignment="Stretch"
+                                Command="{Binding AddBlankCommand}" />
+                    </Grid>
+                    <Button Content="Remove selected" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                            Command="{Binding RemoveSelectedCommand}" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,6,0,12"
+                               Text="Export strips on the Create or Batch tab first; add them here by file name. The skin.json is written next to its assets." />
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== RIGHT: selected-control editor + export ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+
+            <Border Grid.Row="0" Classes="card" Padding="16">
+                <Panel>
+                    <TextBlock Text="Select or add a control to edit it."
+                               IsVisible="{Binding !HasSelection}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}" />
+
+                    <ScrollViewer IsVisible="{Binding HasSelection}">
+                        <StackPanel Spacing="2">
+                            <controls:SectionHeader Text="CONTROL" />
+                            <TextBlock Classes="label" Text="Id" />
+                            <TextBox Text="{Binding SelectedControl.Id}" />
+                            <TextBlock Classes="label" Text="Type" Margin="0,6,0,0" />
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding ComponentTypes}" SelectedItem="{Binding SelectedControl.Type}" />
+                            <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
+                            <TextBox Text="{Binding SelectedControl.ParameterId}" Watermark="host/APVTS parameter id" />
+
+                            <controls:SectionHeader Text="ASSET" />
+                            <TextBlock Classes="label" Text="Strip file (1x, relative)" />
+                            <TextBox Text="{Binding SelectedControl.Asset}" Watermark="e.g. cutoff_64frames.png" />
+                            <TextBlock Classes="label" Text="@2x file (optional)" Margin="0,6,0,0" />
+                            <TextBox Text="{Binding SelectedControl.Asset2x}" Watermark="e.g. cutoff_64frames@2x.png" />
+                            <Grid ColumnDefinitions="*,8,*,8,*" Margin="0,6,0,0">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Frames" />
+                                    <NumericUpDown Value="{Binding SelectedControl.Frames}" Minimum="1" Maximum="512" Increment="1" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Frame W" />
+                                    <NumericUpDown Value="{Binding SelectedControl.FrameWidth}" Minimum="1" Maximum="8192" Increment="1" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Classes="label" Text="Frame H" />
+                                    <NumericUpDown Value="{Binding SelectedControl.FrameHeight}" Minimum="1" Maximum="8192" Increment="1" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" />
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding StackDirections}" SelectedItem="{Binding SelectedControl.Stack}" />
+
+                            <controls:SectionHeader Text="BOUNDS (base-resolution px)" />
+                            <Grid ColumnDefinitions="*,8,*,8,*,8,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="X" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsX}" Increment="1" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Y" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsY}" Increment="1" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="4">
+                                    <TextBlock Classes="label" Text="W" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsW}" Minimum="0" Increment="1" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="6">
+                                    <TextBlock Classes="label" Text="H" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsH}" Minimum="0" Increment="1" />
+                                </StackPanel>
+                            </Grid>
+
+                            <Expander Header="Value range (optional)" Margin="0,8,0,0">
+                                <Grid ColumnDefinitions="*,8,*,8,*">
+                                    <StackPanel Grid.Column="0">
+                                        <TextBlock Classes="label" Text="Min" />
+                                        <TextBox Text="{Binding SelectedControl.ValueMin}" Watermark="0" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="2">
+                                        <TextBlock Classes="label" Text="Max" />
+                                        <TextBox Text="{Binding SelectedControl.ValueMax}" Watermark="1" />
+                                    </StackPanel>
+                                    <StackPanel Grid.Column="4">
+                                        <TextBlock Classes="label" Text="Default" />
+                                        <TextBox Text="{Binding SelectedControl.ValueDefault}" Watermark="0.5" />
+                                    </StackPanel>
+                                </Grid>
+                            </Expander>
+                        </StackPanel>
+                    </ScrollViewer>
+                </Panel>
+            </Border>
+
+            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+                <Grid ColumnDefinitions="*,Auto">
+                    <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
+                    <Button Grid.Column="1" Classes="accent" Content="Export skin.json…" MinWidth="170"
+                            Command="{Binding ExportSkinCommand}" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>
