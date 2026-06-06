@@ -19,8 +19,9 @@ public class LoadPathTests
 {
     static SKBitmap Bmp(int w, int h) => new(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
 
-    static (MainWindowViewModel vm, IImageLoadService load, IFileDialogService dialogs) Build()
+    static (MainWindowViewModel vm, IImageLoadService load, IFileDialogService dialogs) Build(IAssetService? assets = null)
     {
+        assets ??= Substitute.For<IAssetService>();
         var load = Substitute.For<IImageLoadService>();
         var renderer = Substitute.For<IFilmstripRenderer>();
         var dialogs = Substitute.For<IFileDialogService>();
@@ -43,8 +44,36 @@ public class LoadPathTests
         var skin = new SkinViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IImageLoadService>(),
                                      Substitute.For<IFilmstripImporter>(), Substitute.For<IManifestService>());
 
+        var tutorial = new TutorialViewModel(new SettingsService(
+            Path.Combine(Path.GetTempPath(), $"stripkit_test_settings_{Guid.NewGuid():N}.json")));
         return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
-                                        new CodeSnippetService(), new LayeredImportService(), importer, batch, skin), load, dialogs);
+                                        new CodeSnippetService(), new LayeredImportService(), assets,
+                                        importer, batch, skin, tutorial), load, dialogs);
+    }
+
+    [Fact]
+    public void AppVersion_reflects_the_assembly_so_the_About_box_never_goes_stale()
+    {
+        var (vm, _, _) = Build();
+        var expected = typeof(MainWindowViewModel).Assembly.GetName().Version!.ToString(3);
+        vm.AppVersion.Should().Be(expected, "the About box binds the live assembly version");
+        vm.AppVersion.Should().MatchRegex(@"^\d+\.\d+\.\d+$");
+    }
+
+    [Fact]
+    public void Tutorial_load_sample_loads_the_bundled_knob_as_a_single_source()
+    {
+        const string samplePath = "sample-knob.png";
+        var assets = Substitute.For<IAssetService>();
+        assets.GetSampleKnobPath().Returns(samplePath);
+
+        var (vm, load, _) = Build(assets);
+        load.Load(samplePath).Returns(Bmp(240, 240));
+
+        vm.Tutorial.LoadSampleCommand.Execute(null);
+
+        vm.HasSource.Should().BeTrue("the tutorial's sample shortcut loads the bundled knob");
+        vm.ComponentType.Should().Be(ComponentType.RotaryKnob);
     }
 
     [Fact]

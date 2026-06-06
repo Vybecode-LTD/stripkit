@@ -46,8 +46,11 @@ public class LayeredImportViewModelTests
         var skin = new SkinViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IImageLoadService>(),
                                      Substitute.For<IFilmstripImporter>(), Substitute.For<IManifestService>());
 
+        var tutorial = new TutorialViewModel(new SettingsService(
+            Path.Combine(Path.GetTempPath(), $"stripkit_test_settings_{Guid.NewGuid():N}.json")));
         var vm = new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
-                                         new CodeSnippetService(), new LayeredImportService(), importer, batch, skin);
+                                         new CodeSnippetService(), new LayeredImportService(), Substitute.For<IAssetService>(),
+                                         importer, batch, skin, tutorial);
         return (vm, dialogs, renderer, load);
     }
 

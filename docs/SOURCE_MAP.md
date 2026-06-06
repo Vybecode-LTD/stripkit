@@ -36,14 +36,15 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (112): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (123): renderer golden-image (with committed
   `baselines/`), `ContentAnalysis` + alignment render, pointer extraction
   (`PointerExtractorTests`), layered-import service + VM + render
   (`LayeredImportServiceTests` / `LayeredImportViewModelTests` / `LayeredImportRenderTests`),
-  view-model load-path, importer engine + VM, manifest (incl. multi-control), batch processor +
-  VM (incl. meter), Skin tab VM (`SkinViewModelTests`), meter renderer, value-arc renderer
-  (`ValueArcRenderTests`), layered-knob renderer (`LayeredKnobRenderTests`), code-snippet
-  generation (`CodeSnippetServiceTests`), and a headless drop-zone test. See `docs/TESTING.md`.
+  onboarding (`TutorialViewModelTests` / `SettingsServiceTests`), view-model load-path, importer
+  engine + VM, manifest (incl. multi-control), batch processor + VM (incl. meter), Skin tab VM
+  (`SkinViewModelTests`), meter renderer, value-arc renderer (`ValueArcRenderTests`), layered-knob
+  renderer (`LayeredKnobRenderTests`), code-snippet generation (`CodeSnippetServiceTests`), and a
+  headless drop-zone test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 
@@ -76,6 +77,9 @@ does each thing live" companion.
 - `RenderLayer.cs` — `LayerBehavior` enum (`Static` / `Rotate`) + `RenderLayer` (behaviour +
   a normalized per-layer pivot): the ordered layer stack for a layered knob (`FilmstripSettings.Layers`).
   Skia-free; the layer's bitmap is passed alongside to the renderer.
+- `AppSettings.cs` — the persisted preferences (currently just `HasSeenTutorial`); the app's only
+  saved state, serialized by `SettingsService`.
+- `TutorialStep.cs` — one Getting Started step (title, body, optional tip, offers-sample flag).
 
 ### `Services/` — the engine and I/O
 
@@ -96,9 +100,14 @@ does each thing live" companion.
   size). Feeds the renderer's existing layer stack; no Avalonia dependency; app-only (NOT in
   `FilmstripEngine.cs`). The interface file holds the `ImportedLayer` / `LayeredImportResult` DTOs.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
-- `IFileDialogService.cs` / `FileDialogService.cs` — open-image / save-PNG / open-folder
-  pickers via Avalonia `StorageProvider`. The concrete class holds the `Owner` window,
-  set in `App.axaml.cs` after the window is created.
+- `IFileDialogService.cs` / `FileDialogService.cs` — open-image / open-layered (SVG/PSD) /
+  save-PNG / open-folder pickers via Avalonia `StorageProvider`. The concrete class holds the
+  `Owner` window, set in `App.axaml.cs` after the window is created.
+- `ISettingsService.cs` / `SettingsService.cs` — load/save the small `AppSettings` JSON
+  (`%APPDATA%/StripKit/settings.json`); the app's only persisted state (the first-run "seen
+  tutorial" flag). Best-effort; constructor-injectable path for tests. No Avalonia dependency.
+- `IAssetService.cs` / `AssetService.cs` — extract a bundled avares asset (the tutorial's sample
+  knob) to a temp file path. App layer (uses Avalonia's asset loader).
 - `IExportService.cs` / `ExportService.cs` — encode an `SKBitmap` to a PNG file.
 - `IFilmstripImporter.cs` / `FilmstripImporter.cs` — detect an existing strip's
   layout from its dimensions (ordered candidate counts + aspect classification),
@@ -143,6 +152,9 @@ does each thing live" companion.
   bind to; mapped to the immutable `ManifestControl` record on export.
 - `ImportedLayerRow.cs` — the observable per-layer row for an imported SVG/PSD (name + editable
   Static/Rotate `Behavior` + the canvas-sized art); drives the Create-tab import list (§6.8).
+- `TutorialViewModel.cs` — backs the Getting Started overlay: the step list, navigation
+  (Next/Back/Skip), first-run auto-open via `ISettingsService`, and the `LoadSampleRequested`
+  event the host VM wires to the bundled sample knob. No Avalonia UI types.
 
 ### `Views/`
 
@@ -162,12 +174,17 @@ does each thing live" companion.
 - `SkinView.axaml(.cs)` — the Skin tab's `UserControl` (`x:DataType` = `SkinViewModel`): skin
   metadata + controls list (left), a per-control detail editor + Export skin.json (right).
   Markup-only code-behind.
+- `TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (`x:DataType` =
+  `TutorialViewModel`): a non-blocking bottom-centre glass card over a click-through scrim,
+  hosted as the top layer of `MainWindow`'s root `Panel`. Markup-only code-behind.
 
 ### `Assets/`
 
 - `README.txt` — where to drop a bundled font/icon. The app uses a **Verdana-led
   sans-serif** fallback chain (Obsidian design; JetBrains Mono was removed) and ships
   `stripkit.ico` / `stripkit.png` for the window / taskbar / installer icon.
+- `sample-knob.png` — the bundled sample knob the tutorial's "Load sample knob" shortcut loads
+  (extracted to a temp file by `AssetService`).
 
 ## Project skills (`.claude/skills/`)
 

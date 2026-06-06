@@ -28,7 +28,7 @@
             </Border.Background>
         </Border>
 
-        <TabControl>
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
 
         <TabItem Header="Create">
             <Grid ColumnDefinitions="370,*">
@@ -46,18 +46,21 @@
                     <!-- Source -->
                     <controls:SectionHeader Text="SOURCE IMAGE" />
                     <Button Content="Load source image…" HorizontalAlignment="Stretch"
+                            ToolTip.Tip="Load a transparent PNG of your control (knob, fader, slider…). You can also drag &amp; drop it onto the preview."
                             Command="{Binding OpenSourceCommand}" />
                     <TextBlock Classes="label" Text="{Binding SourceInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                     <!-- Component type -->
                     <controls:SectionHeader Text="COMPONENT TYPE" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="What you're making. StripKit applies sensible frame sizes and defaults for each type."
                               ItemsSource="{Binding ComponentTypes}"
                               SelectedItem="{Binding ComponentType}" />
 
                     <!-- Frames -->
                     <controls:SectionHeader Text="FRAMES" />
-                    <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1" />
+                    <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1"
+                                   ToolTip.Tip="How many frames the filmstrip has. 32 / 64 / 128 are the standard choices; more = smoother but larger." />
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
                         <Button Content="32" Command="{Binding SetFrames32Command}" />
                         <Button Content="64" Command="{Binding SetFrames64Command}" />
@@ -395,6 +398,7 @@
                         <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
                         <Button Grid.Column="1" Classes="accent" Content="Export filmstrip PNG" MinWidth="190"
+                                ToolTip.Tip="Render and save the stacked PNG filmstrip (plus @2x and a skin.json manifest if those are ticked)."
                                 Command="{Binding ExportCommand}" />
                     </Grid>
                 </StackPanel>
@@ -417,33 +421,47 @@
 
         </TabControl>
 
-        <!-- Header right side: app wordmark + an About (?) button, across from the tabs. -->
+        <!-- Header right side: app wordmark + a Help button + an About (?) button, across from the tabs. -->
         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal"
                     Margin="0,18,18,0" Spacing="12">
             <Image Source="/Assets/software_logo.png" Height="26" VerticalAlignment="Center"
                    IsHitTestVisible="False" RenderOptions.BitmapInterpolationMode="HighQuality" />
+            <Button Content="Help" VerticalAlignment="Center"
+                    ToolTip.Tip="Open the Getting Started guide for the current tab"
+                    Command="{Binding Tutorial.OpenCommand}"
+                    CommandParameter="{Binding SelectedTabIndex}" />
             <Button Content="?" Width="28" Height="28" CornerRadius="14" Padding="0" FontSize="15"
-                    VerticalAlignment="Center" ToolTip.Tip="About StripKit">
-                <Button.Flyout>
-                    <Flyout Placement="BottomEdgeAlignedRight">
-                        <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto" Margin="8">
-                            <Image Grid.Column="0" Grid.RowSpan="4" Source="/Assets/stripkit.png"
-                                   Width="56" Height="56" Margin="0,0,16,0" VerticalAlignment="Center"
-                                   RenderOptions.BitmapInterpolationMode="HighQuality" />
-                            <TextBlock Grid.Column="1" Grid.Row="0" Text="StripKit Filmstrip Generator v0.6.0"
-                                       FontWeight="SemiBold" Foreground="White" />
-                            <TextBlock Grid.Column="1" Grid.Row="1" Text="https://stripkit.pro" Tag="https://stripkit.pro"
-                                       Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
-                                       Foreground="{DynamicResource AccentHiBrush}" Margin="0,3,0,0" />
-                            <TextBlock Grid.Column="1" Grid.Row="2" Text="VybeCode Software"
-                                       Foreground="{DynamicResource Text2Brush}" Margin="0,7,0,0" />
-                            <TextBlock Grid.Column="1" Grid.Row="3" Text="https://vybeco.de" Tag="https://vybeco.de"
-                                       Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
-                                       Foreground="{DynamicResource AccentHiBrush}" Margin="0,3,0,0" />
-                        </Grid>
-                    </Flyout>
-                </Button.Flyout>
-            </Button>
+                    VerticalAlignment="Center" ToolTip.Tip="About StripKit"
+                    Command="{Binding ShowAboutCommand}" />
         </StackPanel>
+
+        <!-- Getting Started guided overlay (top layer; hides itself when closed). -->
+        <views:TutorialOverlay DataContext="{Binding Tutorial}" />
+
+        <!-- About modal: a centred, drop-shadowed solid card over a dimming scrim. -->
+        <Grid IsVisible="{Binding IsAboutOpen}">
+            <Border Background="#99000000" />
+            <Border Classes="dialog" MaxWidth="440" Padding="26"
+                    HorizontalAlignment="Center" VerticalAlignment="Center">
+                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <Image Grid.Column="0" Grid.RowSpan="4" Source="/Assets/stripkit.png"
+                           Width="64" Height="64" Margin="0,0,18,0" VerticalAlignment="Top"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    <TextBlock Grid.Column="1" Grid.Row="0" FontSize="15" FontWeight="SemiBold" Foreground="White"
+                               Text="{Binding AppVersion, StringFormat='StripKit Filmstrip Generator v{0}'}" />
+                    <TextBlock Grid.Column="1" Grid.Row="1" Text="https://stripkit.pro" Tag="https://stripkit.pro"
+                               Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
+                               Foreground="{DynamicResource AccentHiBrush}" Margin="0,4,0,0" />
+                    <TextBlock Grid.Column="1" Grid.Row="2" Text="VybeCode Software"
+                               Foreground="{DynamicResource Text2Brush}" Margin="0,8,0,0" />
+                    <TextBlock Grid.Column="1" Grid.Row="3" Text="https://vybeco.de" Tag="https://vybeco.de"
+                               Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
+                               Foreground="{DynamicResource AccentHiBrush}" Margin="0,4,0,0" />
+                    <Button Grid.Column="0" Grid.ColumnSpan="2" Grid.Row="4" Content="Close"
+                            HorizontalAlignment="Right" Margin="0,20,0,0"
+                            Command="{Binding CloseAboutCommand}" />
+                </Grid>
+            </Border>
+        </Grid>
     </Panel>
 </Window>

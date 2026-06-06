@@ -106,7 +106,10 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
   UI thread (`Task.Run`), with per-item progress and a working cancel.
 - `Services/ImageLoadService.cs` / `ExportService.cs` — decode/encode PNG ↔ `SKBitmap`.
-- `Services/FileDialogService.cs` — open/save pickers (app-layer; holds the Window).
+- `Services/FileDialogService.cs` — open/save/open-layered pickers (app-layer; holds the Window).
+- `Services/SettingsService.cs` — persist `AppSettings` (the first-run "seen tutorial" flag) to
+  `%APPDATA%/StripKit/settings.json`; the app's only saved state. `Services/AssetService.cs` —
+  extract the bundled sample knob to a temp path for the tutorial (app-layer).
 - `Helpers/SkiaImageInterop.cs` — `SKBitmap` -> Avalonia `Bitmap` for preview.
 - `ViewModels/MainWindowViewModel.cs` — Create-tab state + commands; a single
   `OnPropertyChanged` funnel refreshes the preview. Holds the layered-knob Base/Pointer slots +
@@ -118,8 +121,12 @@ once), and **Skin** (assemble a multi-control `skin.json`).
   settings + layered/backdrop toggle, run/cancel, progress); no preview funnel.
 - `ViewModels/SkinViewModel.cs` (+ `SkinControlEntry.cs`) — Skin-tab state + commands: a
   multi-control `skin.json` builder (controls list, add-from-strip / blank, detail editor, export).
-- `Views/MainWindow.axaml(.cs)` — the `TabControl`; code-behind holds the auto-play
-  timer + the Create preview's drag-drop handlers.
+- `ViewModels/TutorialViewModel.cs` — the Getting Started overlay: step list + navigation +
+  first-run auto-open (via `ISettingsService`) + the `LoadSampleRequested` event (sample knob).
+- `Views/MainWindow.axaml(.cs)` — the `TabControl` (+ header "Getting started" button + the
+  `TutorialOverlay` as the top layer); code-behind holds the auto-play timer + the Create
+  preview's drag-drop handlers.
+- `Views/TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (bound to `TutorialViewModel`).
 - `Views/ImporterView.axaml(.cs)` — the Import tab UserControl + its drop handlers.
 - `Views/BatchView.axaml(.cs)` — the Batch tab UserControl (folder pickers, template,
   Run/Cancel, progress bar, results).
@@ -176,6 +183,30 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 
 ## Last completed task
 
+- **2026-06-06 (onboarding P1 — interactive in-app Getting Started tutorial)** — Built the first
+  onboarding item after scoping the forks with the owner (all four recommended options taken). A
+  re-openable **"Getting Started"** guided overlay (`Views/TutorialOverlay.axaml` + `ViewModels/
+  TutorialViewModel.cs`) walks a new user through the core loop (load → pick a type → align → frames/
+  export → loader code → layered import) as an on-brand bottom-centre glass card over a click-through
+  scrim (non-blocking — the app stays usable while the guide is open). It **auto-opens on first
+  launch** (a new minimal `ISettingsService`/`SettingsService` persists `HasSeenTutorial` to
+  `%APPDATA%/StripKit/settings.json` — the app's only saved state) and is re-openable from a header
+  **"Getting started"** button; finishing/skipping persists "seen". Step 1 offers **"Load sample
+  knob"** — a **bundled `Assets/sample-knob.png`** (extracted to temp by a new `IAssetService`/
+  `AssetService`, then run through the normal `LoadSourceFromPath`) so a brand-new user sees the whole
+  flow with no art. Plus **contextual tooltips** on the key controls (load / type / frames / export).
+  `MainWindowViewModel` injects `TutorialViewModel` + `IAssetService`, subscribes to the VM's
+  `LoadSampleRequested` event, and calls `Tutorial.MaybeShowOnFirstRun()`. **No renderer/engine
+  changes** (not in `FilmstripEngine.cs`). DI: `ISettingsService`/`IAssetService` singletons +
+  `TutorialViewModel` transient. **+11 tests** (`SettingsServiceTests` 3, `TutorialViewModelTests` 7,
+  + 1 sample-load integration in `LoadPathTests`), suite **112→123 green**; build 0/0; app boots
+  clean with the overlay auto-opening on first run (compiled bindings type-checked; final visual
+  polish best eyeballed on the GUI, like the Obsidian design sign-off). Owner-confirmed forks: guided
+  overlay (not coach-marks / static); auto-open first run + re-openable; bundle a sample knob; and
+  checkpoint-commit the layered import first (done — `03b441a`). **Unreleased on the working tree
+  (toward 0.9.0); not yet committed.** **Next:** P2 — the website `stripkit.pro/getting-started/`
+  guide (separate `StripKit-Website` repo; depends on the website deploy); plus the standing queue
+  (more code-export targets, website deploy + `updates.json`, code-signing cert, checkout@v4→v5).
 - **2026-06-06 (vNext ★ #3, step 3 — layered PSD/SVG import; completes the layer-aware bet)** —
   The final ★ piece, scoped with the owner before building. A real layered source is now imported
   and mapped onto the renderer's existing layer stack: **"Import layered file (SVG / PSD)…"** in the

@@ -113,7 +113,9 @@ owns a `Window` for the storage pickers).
 | `IBatchProcessor` / `BatchProcessor` | render a folder of sources → many strips off-thread, with progress + cancel (§8). | No |
 | `IImageLoadService` / `ImageLoadService` | decode a file → `SKBitmap` (premultiplied RGBA); returns null on a missing/undecodable file. | No |
 | `IExportService` / `ExportService` | encode an `SKBitmap` → PNG file (creates the directory). | No |
-| `IFileDialogService` / `FileDialogService` | open-image / save-PNG / open-folder pickers via `IStorageProvider`. Holds the `Owner` window. | **Yes** |
+| `IFileDialogService` / `FileDialogService` | open-image / save-PNG / open-folder / open-layered pickers via `IStorageProvider`. Holds the `Owner` window. | **Yes** |
+| `ISettingsService` / `SettingsService` | load/save the small `AppSettings` JSON (`%APPDATA%/StripKit/settings.json`) — currently the first-run "seen tutorial" flag. Best-effort (defaults on missing/corrupt). | No |
+| `IAssetService` / `AssetService` | extract a bundled avares asset (the tutorial's sample knob) to a temp file path. | **Yes** |
 
 ### 3.3 `Helpers/`
 
@@ -502,6 +504,30 @@ runs `ILayeredImportService.Import(path)` off the UI thread.
 MVP boundaries: top-level groups are the layers (no deep flattening / Figma single-root unwrap);
 PSD layer order follows the file (no reorder UI); behaviours are limited to the rendered
 `Static`/`Rotate` (translate/opacity-ramp remain a future renderer increment).
+
+### 6.9 Onboarding — the Getting Started tutorial (P1)
+
+A re-openable guided overlay that lowers the first-mile barrier, built entirely from existing
+controls + design tokens (no renderer/engine change).
+
+- **`TutorialViewModel`** holds an ordered `TutorialStep` list (welcome+sample → pick a type →
+  align → frames/export → loader code → layered import), `CurrentIndex` and derived
+  `CurrentStep`/`StepProgress`/`IsFirstStep`/`IsLastStep`/`NextLabel`, and the `Open`/`Next`/
+  `Previous`/`Skip`/`LoadSample` commands. It holds no Avalonia types.
+- **First-run.** `MaybeShowOnFirstRun()` (called once at the end of the `MainWindowViewModel`
+  constructor) opens the overlay only when `ISettingsService.Settings.HasSeenTutorial` is false;
+  finishing or skipping persists the flag so it never auto-opens again. It stays re-openable from
+  the header **"Getting started"** button (`Tutorial.OpenCommand`).
+- **Sample knob.** Step 1 offers **"Load sample knob"**, which raises `LoadSampleRequested`; the
+  host VM extracts the bundled `Assets/sample-knob.png` via `IAssetService` and runs it through the
+  normal `LoadSourceFromPath` (resetting to a single-source knob first), so a new user sees the full
+  load → preview → export loop with no art of their own.
+- **View (`TutorialOverlay`).** A non-blocking bottom-centre glass `card` (Obsidian tokens) over a
+  faint, click-through scrim, hosted as the top child of the `MainWindow` root `Panel` and bound to
+  `Tutorial`; it hides itself (and stops intercepting input) when `IsOpen` is false. Plus
+  `ToolTip.Tip` hints on the key Create-tab controls.
+- **Persistence (`SettingsService`).** A tiny System.Text.Json file in the app-data folder — the
+  app's only persisted state. The path is constructor-injectable so tests use a temp file.
 
 ---
 

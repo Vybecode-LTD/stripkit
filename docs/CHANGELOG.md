@@ -8,6 +8,15 @@
 ## [Unreleased]
 
 ### Added
+- **Interactive in-app help / tutorial (onboarding, P1).** A re-openable **"Getting Started"**
+  guided overlay walks a new user through the core loop — load art → pick a type → align → frames
+  & export → loader code → layered import — as an on-brand glass card (`TutorialOverlay` +
+  `TutorialViewModel`). It **auto-opens on first launch** (remembered via a new minimal
+  `ISettingsService` writing `%APPDATA%/StripKit/settings.json`) and is re-openable any time from a
+  **"Getting started"** button in the header. Step 1 offers **"Load sample knob"** — a bundled
+  `Assets/sample-knob.png` (via `IAssetService`) so a brand-new user sees the whole flow instantly.
+  Plus **contextual tooltips** on the key controls (load / type / frames / export). No
+  renderer/engine changes. **+11 tests, suite 112→123.**
 - **Layered PSD / SVG import (★ #3, step 3 — completes the layer-aware bet).** A new
   **"Import layered file (SVG / PSD)…"** button in the Create tab's layered panel reads a real
   layered source and maps each layer onto the renderer's existing layer stack, so a designer
@@ -34,6 +43,11 @@
   preview/scrub (assumes the art shows the indicator at the minimum/frame-0 position). Pure
   SkiaSharp, like `ContentAnalysis`; app-only (not in `FilmstripEngine.cs`). **+4 tests, suite
   94→98.** *(Step 3 — layered PSD/SVG import — landed above, completing the layer-aware bet.)*
+
+### Fixed
+- **About box version is no longer hardcoded.** It bound a stale literal ("v0.6.0"); it now binds
+  the live assembly version (`MainWindowViewModel.AppVersion`, driven by the csproj `<Version>`), so
+  it tracks every release bump automatically. **+1 test.**
 
 ## [0.8.0] — 2026-06-05
 

@@ -19,6 +19,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IManifestService _manifest;
     private readonly ICodeSnippetService _codeSnippets;
     private readonly ILayeredImportService _layeredImport;
+    private readonly IAssetService _assets;
 
     private SKBitmap? _source;
     private SKBitmap? _background;
@@ -45,8 +46,9 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(IImageLoadService imageLoad, IFilmstripRenderer renderer,
                                IFileDialogService dialogs, IExportService export,
                                IManifestService manifest, ICodeSnippetService codeSnippets,
-                               ILayeredImportService layeredImport,
-                               ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin)
+                               ILayeredImportService layeredImport, IAssetService assets,
+                               ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin,
+                               TutorialViewModel tutorial)
     {
         _imageLoad = imageLoad;
         _renderer = renderer;
@@ -55,16 +57,52 @@ public partial class MainWindowViewModel : ViewModelBase
         _manifest = manifest;
         _codeSnippets = codeSnippets;
         _layeredImport = layeredImport;
+        _assets = assets;
         Importer = importer;
         Batch = batch;
         Skin = skin;
+        Tutorial = tutorial;
+        Tutorial.LoadSampleRequested += OnTutorialLoadSampleRequested;
 
         SourceInfo = "No image loaded.";
         BackgroundInfo = "None.";
         StatusMessage = "Load a source image to begin.";
         UpdateReadouts();
         UpdateCodePreview();
+
+        // Open the Getting Started guide automatically the first time the app is run.
+        Tutorial.MaybeShowOnFirstRun();
     }
+
+    /// <summary>The Getting Started tutorial overlay's view model.</summary>
+    public TutorialViewModel Tutorial { get; }
+
+    /// <summary>The app version (from the assembly, which the csproj <c>&lt;Version&gt;</c> drives),
+    /// shown in the About box — so it tracks every release bump instead of going stale.</summary>
+    public string AppVersion =>
+        typeof(MainWindowViewModel).Assembly.GetName().Version?.ToString(3) ?? "";
+
+    /// <summary>Loads the bundled sample knob (the tutorial's "Load sample knob" shortcut), so a
+    /// brand-new user can see the whole flow without their own art. Resets to a single-source knob.</summary>
+    private void OnTutorialLoadSampleRequested()
+    {
+        var path = _assets.GetSampleKnobPath();
+        if (path is null)
+        {
+            StatusMessage = "Sample knob is unavailable.";
+            return;
+        }
+
+        DiscardImportedLayers();   // start clean: a single-source knob
+        DiscardBasePointer();
+        if (ComponentType != ComponentType.RotaryKnob)
+            ComponentType = ComponentType.RotaryKnob;
+        LoadSourceFromPath(path);
+        StatusMessage = "Sample knob loaded — scrub the preview, then continue the guide.";
+    }
+
+    [RelayCommand] private void ShowAbout() => IsAboutOpen = true;
+    [RelayCommand] private void CloseAbout() => IsAboutOpen = false;
 
     /// <summary>The "Import" tab's view model (hosted in a second tab in the window).</summary>
     public ImporterViewModel Importer { get; }
@@ -194,6 +232,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private string _statusMessage = "";
     [ObservableProperty] private bool _isPlaying;
 
+    // ---- window-level UI state (tab selection + the About modal) ----
+    [ObservableProperty] private int _selectedTabIndex;
+    [ObservableProperty] private bool _isAboutOpen;
+
     public bool IsRotary => ComponentType == ComponentType.RotaryKnob;
     public bool IsLinear => ComponentType is ComponentType.VerticalFader or ComponentType.HorizontalSlider;
     public bool IsMeter => ComponentType == ComponentType.Meter;
@@ -244,6 +286,8 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(IsMeter):
             case nameof(ShowLoadHint):
             case nameof(IsPlaying):
+            case nameof(SelectedTabIndex):
+            case nameof(IsAboutOpen):
             case nameof(ExportManifest):
             case nameof(HasBaseLayer):
             case nameof(HasPointer):

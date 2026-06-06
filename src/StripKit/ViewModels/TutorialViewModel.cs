@@ -1,0 +1,240 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using StripKit.Models;
+using StripKit.Services;
+
+namespace StripKit.ViewModels;
+
+/// <summary>The four screens (tabs), in tab order, that each have their own tutorial.</summary>
+public enum TutorialScreen { Create = 0, Import = 1, Batch = 2, Skin = 3 }
+
+/// <summary>
+/// The re-openable "Getting Started" guided overlay. Each screen (Create / Import / Batch / Skin)
+/// has its own short walkthrough; <see cref="Open"/> shows the one for the requested tab. Opens
+/// automatically on first run (tracked via <see cref="ISettingsService"/>) and is re-openable any
+/// time from the header Help button. Holds no Avalonia UI types; the host view model wires
+/// <see cref="LoadSampleRequested"/> to the sample-knob load.
+/// </summary>
+public partial class TutorialViewModel : ViewModelBase
+{
+    private readonly ISettingsService _settings;
+    private readonly IReadOnlyDictionary<TutorialScreen, IReadOnlyList<TutorialStep>> _byScreen;
+
+    public TutorialViewModel(ISettingsService settings)
+    {
+        _settings = settings;
+        _byScreen = new Dictionary<TutorialScreen, IReadOnlyList<TutorialStep>>
+        {
+            [TutorialScreen.Create] = BuildCreateSteps(),
+            [TutorialScreen.Import] = BuildImportSteps(),
+            [TutorialScreen.Batch] = BuildBatchSteps(),
+            [TutorialScreen.Skin] = BuildSkinSteps(),
+        };
+        _steps = _byScreen[TutorialScreen.Create];
+    }
+
+    [ObservableProperty] private bool _isOpen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ScreenName))]
+    private TutorialScreen _screen;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentStep), nameof(StepProgress), nameof(IsFirstStep),
+                              nameof(IsLastStep), nameof(NextLabel), nameof(CurrentOffersSample),
+                              nameof(CurrentHasTip))]
+    private IReadOnlyList<TutorialStep> _steps;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CurrentStep), nameof(StepProgress), nameof(IsFirstStep),
+                              nameof(IsLastStep), nameof(NextLabel), nameof(CurrentOffersSample),
+                              nameof(CurrentHasTip))]
+    [NotifyCanExecuteChangedFor(nameof(PreviousCommand))]
+    private int _currentIndex;
+
+    public TutorialStep CurrentStep => Steps[Math.Clamp(CurrentIndex, 0, Steps.Count - 1)];
+    public string StepProgress => $"Step {CurrentIndex + 1} of {Steps.Count}";
+    public bool IsFirstStep => CurrentIndex == 0;
+    public bool IsLastStep => CurrentIndex == Steps.Count - 1;
+    public string NextLabel => IsLastStep ? "Done" : "Next";
+    public bool CurrentOffersSample => CurrentStep.OffersSample;
+    public bool CurrentHasTip => !string.IsNullOrWhiteSpace(CurrentStep.Tip);
+    public string ScreenName => Screen switch
+    {
+        TutorialScreen.Create => "Create",
+        TutorialScreen.Import => "Import",
+        TutorialScreen.Batch => "Batch",
+        TutorialScreen.Skin => "Skin",
+        _ => "",
+    };
+
+    /// <summary>Raised when the user clicks "Load sample knob"; the host VM loads the bundled asset.</summary>
+    public event Action? LoadSampleRequested;
+
+    /// <summary>Opens the tutorial for the given screen index (the current tab). Always restarts at
+    /// step 1 of that screen's walkthrough.</summary>
+    [RelayCommand]
+    private void Open(int screenIndex)
+    {
+        Screen = (TutorialScreen)Math.Clamp(screenIndex, 0, _byScreen.Count - 1);
+        Steps = _byScreen[Screen];
+        CurrentIndex = 0;
+        IsOpen = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanPrevious))]
+    private void Previous()
+    {
+        if (CurrentIndex > 0) CurrentIndex--;
+    }
+
+    private bool CanPrevious() => CurrentIndex > 0;
+
+    [RelayCommand]
+    private void Next()
+    {
+        if (IsLastStep) Finish();
+        else CurrentIndex++;
+    }
+
+    [RelayCommand]
+    private void Skip() => Finish();
+
+    [RelayCommand]
+    private void LoadSample() => LoadSampleRequested?.Invoke();
+
+    /// <summary>Opens the Create walkthrough automatically the first time the app is run (until the
+    /// user has finished or skipped any tutorial once). Called once at startup by the host VM.</summary>
+    public void MaybeShowOnFirstRun()
+    {
+        if (!_settings.Settings.HasSeenTutorial)
+            Open((int)TutorialScreen.Create);
+    }
+
+    private void Finish()
+    {
+        IsOpen = false;
+        if (!_settings.Settings.HasSeenTutorial)
+        {
+            _settings.Settings.HasSeenTutorial = true;
+            _settings.Save();
+        }
+    }
+
+    // ---- per-screen walkthroughs ----
+
+    private static IReadOnlyList<TutorialStep> BuildCreateSteps() =>
+    [
+        new TutorialStep
+        {
+            Title = "Welcome to StripKit 👋",
+            Body = "The Create tab turns one transparent PNG of a control into an animated filmstrip "
+                 + "(sprite sheet) for audio-plugin GUIs. Start by loading your art with “Load source "
+                 + "image…” on the left — or try a sample to see the whole flow right now.",
+            Tip = "Knob art works best with a little transparent margin so it doesn't clip when it spins.",
+            OffersSample = true,
+        },
+        new TutorialStep
+        {
+            Title = "1 · Pick a component type",
+            Body = "Choose what you're making from the Component Type dropdown — Rotary knob, Vertical "
+                 + "fader, Horizontal slider, or Meter. StripKit applies sensible frame sizes and "
+                 + "defaults for each type.",
+        },
+        new TutorialStep
+        {
+            Title = "2 · Align & scrub the preview",
+            Body = "Drag the preview slider to scrub the frames. If a knob wobbles as it turns, click "
+                 + "Auto-center (or use the alignment crosshair) so it spins around its true centre.",
+            Tip = "The preview is continuous; what you export is the frame count in the sidebar.",
+        },
+        new TutorialStep
+        {
+            Title = "3 · Frames, value arc & layered art",
+            Body = "Pick a frame count (32 / 64 / 128 are standard). Knobs can add a Serum-style value "
+                 + "arc, and — for layered art — “Import layered file (SVG / PSD)…” keeps the body crisp "
+                 + "while only the pointer rotates.",
+        },
+        new TutorialStep
+        {
+            Title = "4 · Export & wire it up",
+            Body = "Click Export for one stacked PNG (plus @2x and a skin.json manifest if ticked). Tick "
+                 + "CODE EXPORT and StripKit also writes ready-to-paste loader code for JUCE, CSS/HTML, "
+                 + "iPlug2, or HISE — no hand-wiring.",
+            Tip = "Re-open this guide for any tab any time from the Help button, top-right.",
+        },
+    ];
+
+    private static IReadOnlyList<TutorialStep> BuildImportSteps() =>
+    [
+        new TutorialStep
+        {
+            Title = "Import · re-use an existing strip",
+            Body = "The Import tab works from a finished filmstrip PNG rather than a single frame. Drop "
+                 + "one onto this tab (or use the load button) and StripKit detects its layout — frame "
+                 + "count, orientation, and kind — from the image dimensions.",
+        },
+        new TutorialStep
+        {
+            Title = "1 · Check the detection & scrub",
+            Body = "Review the detected frame count and orientation. Square strips with an ambiguous "
+                 + "count are flagged — fix the count if needed — then scrub the detected frames to "
+                 + "confirm they line up.",
+        },
+        new TutorialStep
+        {
+            Title = "2 · Extract, re-stack or resample",
+            Body = "Pull a single frame out, flip a strip between vertical and horizontal stacking, or "
+                 + "resample it to a new frame count (nearest-frame, so a moving pointer never ghosts). "
+                 + "Then export the result.",
+        },
+    ];
+
+    private static IReadOnlyList<TutorialStep> BuildBatchSteps() =>
+    [
+        new TutorialStep
+        {
+            Title = "Batch · a whole folder at once",
+            Body = "The Batch tab renders many sources into many filmstrips in one pass. Pick an input "
+                 + "folder of source images and an output folder for the strips.",
+        },
+        new TutorialStep
+        {
+            Title = "1 · Set the template",
+            Body = "The render template — component type, frame count, frame size, meter options, and the "
+                 + "layered/backdrop toggle — is applied to every file in the folder. Optionally also "
+                 + "write an @2x copy and a skin.json per strip.",
+        },
+        new TutorialStep
+        {
+            Title = "2 · Run & monitor",
+            Body = "Click Run and watch the per-item progress; Cancel stops cleanly between files, and a "
+                 + "single bad file is skipped without sinking the whole batch. A summary reports what "
+                 + "succeeded and what failed.",
+        },
+    ];
+
+    private static IReadOnlyList<TutorialStep> BuildSkinSteps() =>
+    [
+        new TutorialStep
+        {
+            Title = "Skin · one manifest, many controls",
+            Body = "The Skin tab builds a single skin.json that binds several exported filmstrips to "
+                 + "several plugin parameters — a whole control surface in one file.",
+        },
+        new TutorialStep
+        {
+            Title = "1 · Add your controls",
+            Body = "Add a control from an existing strip (its frame count / size / orientation / kind are "
+                 + "auto-detected) or add a blank one, then edit its id, type, parameter id, asset, frame "
+                 + "size, on-screen bounds, and value range in the detail editor.",
+        },
+        new TutorialStep
+        {
+            Title = "2 · Skin metadata & export",
+            Body = "Set the skin name, author, design resolution, and window background, then “Export "
+                 + "skin.json…” writes the combined manifest to a folder — ready for your loader.",
+            Tip = "Pairs perfectly with the Create tab's code export for a complete, wired skin.",
+        },
+    ];
+}

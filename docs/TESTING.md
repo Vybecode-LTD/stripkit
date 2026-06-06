@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (112 tests)
+dotnet test                                      # whole suite (123 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **112 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **123 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (112)
+## Test inventory (123)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -106,9 +106,20 @@ Parsing a real layered source into the renderer's layer stack. Fixtures are synt
 - Golden `imported_svg_knob_mid` — a parsed SVG composited through the layer path (eyeballed).
 - Pixel-logic: the indicator-named group rotates while the body group stays put across frames.
 
-### `LoadPathTests.cs` — 11 (`MainWindowViewModel`, NSubstitute)
+### `SettingsServiceTests.cs` — 3 (first-run persistence)
+The minimal `AppSettings` JSON store: round-trips, and degrades to defaults for a missing or
+corrupt file (settings are best-effort and never crash the app).
+
+### `TutorialViewModelTests.cs` — 7 (Getting Started overlay, onboarding P1)
+- First-run auto-opens when unseen and stays closed once seen; Skip/Finish persists "seen" so it
+  never auto-reopens; re-opening from Help always restarts at step 1.
+- Next advances and finishes on the last step (label becomes "Done"); Back is disabled on step 1.
+- Step 1 offers the sample and "Load sample knob" raises `LoadSampleRequested`.
+
+### `LoadPathTests.cs` — 12 (`MainWindowViewModel`, NSubstitute)
 The shared Create-tab load path (used by both the button and drag-drop), the knob-alignment
-auto-centring it performs on load, the layered base/pointer slots, and the auto-extraction.
+auto-centring it performs on load, the layered base/pointer slots, the auto-extraction, and the
+tutorial's sample-knob load (`IAssetService` → `LoadSourceFromPath`).
 - `LoadSourceFromPath_sets_source_state_and_squares_the_frame_for_a_knob`.
 - `LoadSourceFromPath_reports_an_error_when_the_image_cannot_be_decoded`.
 - `OpenSource_button_uses_the_same_load_path_as_a_drop` (asserts no duplication).

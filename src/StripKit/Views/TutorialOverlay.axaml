@@ -1,0 +1,69 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:StripKit.ViewModels"
+             x:Class="StripKit.Views.TutorialOverlay"
+             x:DataType="vm:TutorialViewModel">
+
+    <!-- A modal guided dialog: a dimming scrim + a solid, drop-shadowed card centred on screen.
+         Hidden (and non-interactive) unless the tutorial is open. -->
+    <Grid IsVisible="{Binding IsOpen}">
+        <Border Background="#99000000" />
+
+        <Border Classes="dialog" MaxWidth="600" Margin="24" Padding="24"
+                HorizontalAlignment="Center" VerticalAlignment="Center">
+            <DockPanel>
+
+                <!-- Header: screen label + step title + close (✕ = skip) -->
+                <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto">
+                    <StackPanel Grid.Column="0" Spacing="2" VerticalAlignment="Center">
+                        <TextBlock Text="{Binding ScreenName, StringFormat='{}{0} tab · Getting Started'}"
+                                   FontSize="11" FontWeight="SemiBold"
+                                   Foreground="{DynamicResource AccentHiBrush}" />
+                        <TextBlock Text="{Binding CurrentStep.Title}"
+                                   FontSize="16" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" />
+                    </StackPanel>
+                    <Button Grid.Column="1" Content="✕" Width="30" Height="30" Padding="0"
+                            VerticalAlignment="Top" HorizontalContentAlignment="Center"
+                            ToolTip.Tip="Skip the tour" Command="{Binding SkipCommand}" />
+                </Grid>
+
+                <!-- Footer: progress + navigation -->
+                <Grid DockPanel.Dock="Bottom" ColumnDefinitions="*,Auto" Margin="0,18,0,0">
+                    <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center"
+                               Text="{Binding StepProgress}" />
+                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                        <Button Content="Skip tour" Command="{Binding SkipCommand}"
+                                IsVisible="{Binding !IsLastStep}" />
+                        <Button Content="Back" Command="{Binding PreviousCommand}"
+                                IsVisible="{Binding !IsFirstStep}" />
+                        <Button Classes="accent" Content="{Binding NextLabel}" MinWidth="84"
+                                Command="{Binding NextCommand}" />
+                    </StackPanel>
+                </Grid>
+
+                <!-- Body -->
+                <StackPanel Spacing="12" Margin="0,12,0,0">
+                    <TextBlock Text="{Binding CurrentStep.Body}" TextWrapping="Wrap"
+                               FontSize="13" LineHeight="19"
+                               Foreground="{DynamicResource Text1Brush}" />
+
+                    <Button Classes="accent" Content="🎛  Load sample knob"
+                            HorizontalAlignment="Left"
+                            IsVisible="{Binding CurrentOffersSample}"
+                            Command="{Binding LoadSampleCommand}" />
+
+                    <Border IsVisible="{Binding CurrentHasTip}"
+                            Background="{DynamicResource GlassFill}"
+                            BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1"
+                            CornerRadius="6" Padding="10,8">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="💡" FontSize="13" VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding CurrentStep.Tip}" TextWrapping="Wrap"
+                                       FontSize="12" Foreground="{DynamicResource Text2Brush}" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+    </Grid>
+</UserControl>

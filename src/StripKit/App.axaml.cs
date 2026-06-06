@@ -24,6 +24,8 @@ public partial class App : Application
         services.AddSingleton<ICodeSnippetService, CodeSnippetService>();
         services.AddSingleton<IBatchProcessor, BatchProcessor>();
         services.AddSingleton<IExportService, ExportService>();
+        services.AddSingleton<ISettingsService, SettingsService>();
+        services.AddSingleton<IAssetService, AssetService>();
 
         // FileDialogService needs a concrete reference so we can set its Owner
         // after the window exists; expose it through the interface too.
@@ -33,6 +35,7 @@ public partial class App : Application
         services.AddTransient<ImporterViewModel>();
         services.AddTransient<BatchViewModel>();
         services.AddTransient<SkinViewModel>();
+        services.AddTransient<TutorialViewModel>();
         services.AddTransient<MainWindowViewModel>();
 
         var provider = services.BuildServiceProvider();

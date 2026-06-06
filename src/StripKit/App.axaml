@@ -73,6 +73,13 @@
             <GradientStop Offset="1" Color="#16FFFFFF" />
         </LinearGradientBrush>
 
+        <!-- Solid (opaque) elevated surface for modal dialogs (tutorial / about). Unlike the
+             translucent glass card, this is fully opaque + top-lit so dialog text stays crisp. -->
+        <LinearGradientBrush x:Key="DialogFillGradient" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#FF24242C" />
+            <GradientStop Offset="1" Color="#FF191920" />
+        </LinearGradientBrush>
+
         <!-- Frosted base: real acrylic on Windows; FallbackColor (opaque) elsewhere
              so the window is never see-through where acrylic is unavailable. -->
         <ExperimentalAcrylicMaterial x:Key="ObsidianAcrylic"
@@ -201,6 +208,16 @@
             <Setter Property="CornerRadius" Value="12" />
             <!-- Layered shadows (tight contact + deep ambient) = strong elevation. -->
             <Setter Property="BoxShadow" Value="0 2 8 0 #55000000, 0 24 64 0 #8A000000" />
+        </Style>
+
+        <!-- Solid, strongly-elevated modal surface (tutorial / about): opaque fill + deep drop
+             shadow so it reads as a real floating dialog, not translucent glass. -->
+        <Style Selector="Border.dialog">
+            <Setter Property="Background" Value="{DynamicResource DialogFillGradient}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderGradient}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="14" />
+            <Setter Property="BoxShadow" Value="0 8 24 0 #80000000, 0 36 90 0 #C8000000" />
         </Style>
 
         <!-- Etched divider under a title: a light hairline with a dark edge below it. -->

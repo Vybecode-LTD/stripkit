@@ -20,10 +20,11 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
 - **v0.8.0** (2026-06-05) — **Batch-tab meter settings** (+ layered/backdrop toggle), **Skin tab**
   (multi-control `skin.json` builder), **importer frame-count resampling**, and ★ **layer-aware
   knob step 1** (base + pointer). Suite 94.
-- **Unreleased (on `main`)** — ★ **layer-aware step 2**: auto-pointer extraction from flat art
+- **Unreleased (toward 0.9.0)** — ★ **layer-aware step 2**: auto-pointer extraction from flat art
   (`PointerExtractor`, suite 98); ★ **layer-aware step 3**: layered **PSD/SVG import**
-  (`LayeredImportService` — Svg.Skia + Magick.NET, suite 112) — **completes the layer-aware bet.**
-  *(Next release: 0.9.0.)*
+  (`LayeredImportService` — Svg.Skia + Magick.NET, suite 112, committed `03b441a`) — **completes
+  the layer-aware bet**; **interactive in-app tutorial** (Getting Started overlay + first-run +
+  sample knob + tooltips, suite 123 — working tree, uncommitted). *(Next release: 0.9.0.)*
 
 ---
 
@@ -198,11 +199,12 @@ highest-leverage bets across all groups; pursue them first.
 
 ### Onboarding & documentation
 
-- ⏳ **Interactive in-app help / tutorial system** — a guided first-run / tutorial for the
-  desktop app that walks a new user through the core loop (load art → choose a component type →
-  align a knob → export, and wire the generated loader code), with contextual tips on the key
-  controls and a re-openable "Help / Getting started" entry. Lowers the first-mile barrier for
-  the tool. **(P1)** *(owner-requested.)*
+- ✅ **Interactive in-app help / tutorial system** (Unreleased) — a re-openable **"Getting
+  Started"** guided overlay (`TutorialViewModel` + `TutorialOverlay`) walks a new user through the
+  core loop (load art → choose a type → align → export → loader code → layered import). **Auto-opens
+  on first launch** (a new minimal `ISettingsService` persists "seen"), re-openable from the header
+  **"Getting started"** button, with a **bundled sample knob** (`IAssetService`) and **contextual
+  tooltips** on the key controls. +11 tests (suite 112→123). **(was P1)** *(owner-requested.)*
 - ⏳ **Website "Getting started" how-to guide** — a `stripkit.pro/getting-started/` page on the
   `Vybecode-LTD/StripKit-Website` repo: a step-by-step illustrated how-to (install → load a knob →
   align → export → drop in the JUCE/CSS/iPlug2/HISE loader), mirroring the in-app tutorial.
