@@ -1,6 +1,10 @@
 # KICKOFF — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06
+>
+> **Authoritative current state: `docs/HANDOFF.md` + `CLAUDE.md`.** This paste-in prompt can
+> lag a release — trust those two for "where things stand" and "the next task" (this body is a
+> standing rewrite item; it currently predates the v1.0.0 ship).
 >
 > Paste the prompt below into a fresh Claude Code session at the repo root. It
 > orients the agent at the **current** state. The full plan lives in

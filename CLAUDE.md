@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section

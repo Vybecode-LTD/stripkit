@@ -1,8 +1,8 @@
 ---
 document: HANDOFF
-version: 0.8.0
-last-updated: 2026-06-05
-last-audit: 2026-06-05
+version: 1.0.0
+last-updated: 2026-06-06
+last-audit: 2026-06-06
 managed-by: session-orchestrator/handoff-builder
 ---
 
@@ -12,135 +12,217 @@ managed-by: session-orchestrator/handoff-builder
 
 StripKit is a C#/Avalonia desktop tool that renders transparent PNGs into animated
 filmstrip sprite sheets for audio-plugin GUI controls (knobs, faders, sliders, meters).
-Stack: .NET 9 / Avalonia 11.3 / SkiaSharp / Inno Setup. Public, MIT-licensed.
+Stack: **.NET 9 / Avalonia 11.3 / SkiaSharp 3.119.2 / Inno Setup**. Public, MIT-licensed.
+Layered-source import adds **Svg.Skia** (MIT) + **Magick.NET-Q8-x64** (Apache-2.0).
 
-**Phase:** Post-ship (v0.8.0 live). The app is a four-tab `TabControl` —
-**Create | Import | Batch | Skin**. Two of the three ★ vNext bets are done (value-arc,
-code-export); the third (**layer-aware animation**) is in progress — **steps 1 & 2 of 3
-done**, step 3 (PSD/SVG import) remains.
+**Phase:** **v1.0.0 shipped** (signed, live on GitHub Releases; stripkit.pro updated). The app
+is a four-tab `TabControl` — **Create | Import | Batch | Skin** — plus a re-openable, per-tab
+**Getting Started** overlay. The three ★ vNext bets are **all done** (value-arc, code-export,
+layer-aware animation). The release pipeline is now a near-single-command flow that also
+publishes the website changelog.
 
-## Last Session (2026-06-05) — three gap features + v0.8.0 ship + ★ step 2
+---
 
-A long, productive session. Everything is committed on `main` (== origin).
+## This Session (2026-06-06) — ★ #3 finish, onboarding, the 1.0.0 cut, website automation
 
-### Shipped in v0.8.0 (live on GitHub Releases)
-Four features, each its own commit, then cut as **v0.8.0** via `Invoke-Release.ps1 -Bump minor`
-(test gate **94/94** at the cut) → CI VirusTotal-scanned + created the public release:
-- **★ Layer-aware knob — step 1: base + pointer** (`31c203b`). A general layer model
-  (`Models/RenderLayer.cs`: `LayerBehavior {Static, Rotate}` + a per-layer pivot) on
-  `FilmstripSettings.Layers`; `RenderLayers` composites a static body + a rotating pointer in
-  `RenderFrame`/`RenderStrip` (optional index-matched `layerArt` param). Explicit **Base/Pointer
-  slots** in the Create tab's rotary panel; the pointer rotates about its own pivot. **Gated by
-  defaults — empty `Layers` renders the single source byte-identical** (all prior goldens
-  unchanged). Mirrored in `FilmstripEngine.cs`. +12 tests.
-- **Batch-tab meter settings** (`e126daf`). The Batch template exposes the full meter panel
-  (segments, fill, continuous, on/off colours) + a **"source is a backdrop"** toggle (each file is
-  the lit on-state art → layered, or a housing with procedural LEDs → procedural). New
-  `BatchOptions.MeterSourceIsBackdrop`. Resolves the v0.6.0 carryover (BUG-007 follow-up). +2 tests.
-- **Skin tab — multi-control `skin.json` builder** (`4a9e2ac`). A new fourth tab that binds
-  several strips to several parameters in one manifest. Add controls **from a strip**
-  (`FilmstripImporter.Detect` auto-fills) or **blank**; per-control detail editor (id/type/param/
-  asset/frames/size/stack/**bounds**/**value range**); skin name/author/design-resolution/window
-  background; **Export skin.json…** to a folder. New `IManifestService.BuildManifest`,
-  `SkinViewModel` + `SkinControlEntry` + `SkinView`. +6 tests.
-- **Importer frame-count resampling** (`322a80d`). The Import tab re-times a strip to a new frame
-  count (`FilmstripImporter.Resample`, **nearest-frame** `round(j·(N−1)/(M−1))` — endpoints land on
-  min/max, no blending so a pointer never ghosts). New "Resample frame count" target + Export. +2 tests.
+A long, multi-feature session that took the app from 0.8.0 → **1.0.0**. Everything below is
+committed on `main` and **pushed** (origin == local).
 
-Also committed: the **`layer-aware-filmstrip-compositing` project skill** (`5fa2ba4`,
-`.claude/skills/`) — the reusable static-base + transformed-overlay pattern; passed the
-skill-authoring-linter (0/0), distributable `.skill` packaged under `dist/` (gitignored).
+### Commits (oldest → newest)
+| Commit | What |
+|--------|------|
+| `03b441a` | **feat(import): layered PSD/SVG import** (★ #3 step 3) — the layer-aware bet's final piece. |
+| `21e2994` | **feat(onboarding): Getting Started tutorial + About modal** (incl. the About-version fix, the UI polish). |
+| `198230e` | **fix(release): sign via signtool + Trusted Signing dlib** (replaces the broken AzureSignTool call; BOM-safe). |
+| `3849792` | **Release v1.0.0** (version files + the signed installer under `releases/latest/`; tag `v1.0.0`). |
+| `a2c6a16` | **feat(release): reusable website-changelog automation** (Stage 3; `Publish-WebsiteChangelog.ps1`). |
 
-### Unreleased on `main` (after the v0.8.0 tag) — ★ step 2
-- **★ Layer-aware knob — step 2: auto-pointer extraction** (`afca651`). An **"Auto-extract from
-  flat knob…"** button splits a single flat knob image into the base + pointer slots automatically.
-  `Services/PointerExtractor.cs` uses the **radial-symmetry residual**: a knob body is rotationally
-  symmetric, so the indicator is whatever breaks that symmetry — the robust per-radius mean is the
-  symmetric base, the residual is the pointer. Returns a **confidence** (low for asymmetric bodies,
-  flagged). A starting guess the user verifies via the preview/scrub; assumes the art is drawn at
-  the minimum (frame-0) position. Pure SkiaSharp (like `ContentAnalysis`); **app-only — NOT mirrored
-  in `FilmstripEngine.cs`** (the engine holds only render math). +4 tests. **Eyeballed**: the
-  extracted base is a clean symmetric body and the rendered sweep shows a crisp needle rotating
-  about a static body (one minor cosmetic central dot at the pivot, inherent to a needle through
-  the centre). Suite **98/98**.
+(Website repo `Vybecode-LTD/StripKit-Website`: commit `c4fa2f6` added the v1.0.0 `updates.json` entry.)
 
-### Decisions made (not derivable from the diff)
-- **Layer model = a general `RenderLayer` list** (not a single bolt-on pointer field) — chosen to
-  set up steps 2–3, which reuse the same model + slot UI.
-- **Pointer has its own pivot** (independent of the body), seeded from the body centre.
-- **Batch meters via a toggle** — both layered (lit art) and procedural (backdrop + LEDs) modes,
-  because a batch file is meaningful as either; one bool threads through.
-- **Skin authoring = a dedicated tab** (not a Create-tab accumulator) for clean separation.
-- **Resampling = nearest-frame only** — blended resampling intentionally not built (it ghosts a
-  moving indicator; nearest is correct for filmstrips).
-- **Step-2 extraction = radial-symmetry residual** (over luminance thresholding) — principled,
-  shape-agnostic, and produces both layers cleanly; **auto-fill-and-verify** workflow (not a
-  one-shot convert); **assume the flat art is the frame-0 position** (simplest; user verifies).
+### 1. ★ #3 step 3 — layered PSD/SVG import (`03b441a`)
+Completes the layer-aware bet. A new **"Import layered file (SVG / PSD)…"** button (Create-tab
+layered panel) reads a real layered source and maps each layer onto the renderer's **existing**
+N-layer stack — **no renderer change**.
+- **`Services/LayeredImportService.cs`** (app-only, `ILayeredImportService`): SVG groups via
+  **Svg.Skia** (render the doc once for the canonical canvas, then rasterize each top-level `<g>`
+  as a standalone SVG so groups register pixel-for-pixel); PSD/PSB layers via **Magick.NET-Q8**
+  (drop the unlabeled merged composite, blit each named layer onto the canvas at its page offset).
+  Each `ImportedLayer` carries a name-guessed behaviour (pointer/needle/indicator/… → Rotate, else
+  Static).
+- **VM:** `ImportedLayerRow` rows (name + editable Static/Rotate + canvas-sized art) drive
+  `BuildSettings().Layers` + `BuildLayerArt()` when non-empty (`IsImportedKnob`); importing squares
+  the frame, forces the knob type, seeds the rotation axis, and **replaces** the base/pointer slots
+  (the two layered modes are mutually exclusive). Gated → all prior goldens byte-identical.
+- **Not** mirrored into `FilmstripEngine.cs` (parser is app-only; renderer math unchanged).
+- Deps: `Svg.Skia` 5.0.0, `Magick.NET-Q8-x64` 14.13.1; **SkiaSharp 3.119.0 → 3.119.2** (Svg.Skia's
+  floor; no baseline shift). Installer grew ~22 MB (ImageMagick win-x64 native). +14 tests.
+
+### 2. Onboarding P1 — interactive Getting Started tutorial (`21e2994`)
+A re-openable guided overlay (`Views/TutorialOverlay.axaml` + `ViewModels/TutorialViewModel.cs`).
+- **Per-screen:** each tab (Create / Import / Batch / Skin) has its own short walkthrough; the
+  header **Help** button opens the one for the current tab (`Open(int screenIndex)`, bound via
+  `CommandParameter="{Binding SelectedTabIndex}"`).
+- **Auto-opens on first run** (the Create walkthrough) via a new minimal **`ISettingsService` /
+  `SettingsService`** that persists `HasSeenTutorial` to `%APPDATA%/StripKit/settings.json` — the
+  app's only saved state. Finishing/skipping persists "seen".
+- **Bundled sample knob:** step 1 offers **"Load sample knob"** → `IAssetService` extracts
+  `Assets/sample-knob.png` to temp → normal `LoadSourceFromPath`.
+- **Contextual tooltips** on the key Create-tab controls (load / type / frames / export).
+- **UI is a solid, centered, drop-shadowed dialog** (new `Border.dialog` token in `App.axaml`:
+  opaque `DialogFillGradient` + deep shadow) over a dimming scrim. (Owner asked for it to be
+  opaque + centered after the first translucent/bottom version.)
+
+### 3. About box — centered modal + live version (`21e2994`)
+- The header **"?"** opens a **centered, drop-shadowed About modal** (same `dialog` style) over a
+  scrim, with a Close button (replaced the old corner flyout).
+- `MainWindowViewModel.AppVersion` binds the **live assembly version** (`GetName().Version.ToString(3)`,
+  driven by the csproj `<Version>`) — was a hardcoded "v0.6.0" literal. Now tracks every release.
+
+### 4. v1.0.0 release — the major cut (`3849792`) + two tooling snags fixed
+Ran `Invoke-Release.ps1 -Bump major` (0.8.0 → **1.0.0**). It hit **two release-tooling problems**,
+both diagnosed and fixed (see Decisions), then ran clean:
+- Test gate **125** → bump → publish (self-contained win-x64) → **sign `StripKit.exe`** (Trusted
+  Signing, "Succeeded") → Inno installer → **sign the installer** too → stage `releases/latest/` →
+  commit + tag `v1.0.0` + push. CI `auto-release.yml` then **VirusTotal-scanned + created the
+  GitHub Release** (the sole release creator).
+- **Live + signed:** https://github.com/Vybecode-LTD/stripkit/releases/tag/v1.0.0 —
+  `StripKit-Setup-1.0.0-x64.exe`, **58.3 MB** (grew from ~33.5 MB: ImageMagick native + Svg.Skia/
+  HarfBuzz). GitHub warns it's over the *recommended* 50 MB but it's under the 100 MB hard limit.
+
+### 5. Website — the gap, the fix, and reusable automation (`a2c6a16`)
+The owner reported stripkit.pro "didn't update." Root cause: **the app release doesn't touch the
+website repo**, so the host (Railway, auto-deploys the `StripKit-Website` repo on push) had nothing
+new; and the changelog reads `updates.json`, which had no 1.0.0 entry. (The **download button** was
+never stale — `js/download.js` reads the latest GitHub release client-side; it was browser/
+`sessionStorage` cache.)
+- Added the v1.0.0 `updates.json` entry (website `c4fa2f6`) → Railway redeployed → **verified live**.
+- Built **`scripts/Publish-WebsiteChangelog.ps1`** — a **project-agnostic** Stage-3 tool that
+  auto-drafts a version's plain-language `updates.json` entry from `docs/CHANGELOG.md`
+  (Added→new, Fixed/Security→fix, else→improved; strips test/build bookkeeping), prepends it
+  newest-first, validates the JSON, and (with `-Push`) commits + pushes so the host auto-deploys.
+  **Hybrid:** auto-draft → refine the wording → `-Push`. ASCII-only (no BOM trap). Wired into
+  `Invoke-Release.ps1` as an optional Stage 3 (`-WebsiteRepo <path>`).
+
+---
+
+## Decisions made (not derivable from the diff)
+
+- **Layered import: both SVG + PSD in one increment**, via **Svg.Skia (MIT)** + **Magick.NET-Q8
+  (Apache-2.0)** — both permissive, no copyleft/paid. Map only to the **existing Static/Rotate**
+  behaviours (translate/opacity-ramp deferred to a later *renderer* increment). **Auto-guess by
+  layer name + manual per-layer override.** (Owner-confirmed forks.)
+- **Magick package = `-Q8-x64`, not `-AnyCPU`** — the app ships win-x64 only, so the RID-specific
+  package keeps the self-contained publish from bundling every platform's ImageMagick native.
+- **Tutorial = a guided overlay** (not coach-marks / not a static window); **per-screen**; **auto-
+  open first run + re-openable**; **bundle a sample knob**. After first pass: the card must be
+  **opaque + centered** (a `dialog` token), and the **About** box a matching centered modal.
+- **Code-signing is Azure Trusted Signing via `signtool.exe` + the `Microsoft.Trusted.Signing.Client`
+  dlib + `trusted-signing-metadata.json` — NOT AzureSignTool.** AzureSignTool speaks the Key Vault
+  protocol and **403s** against Trusted Signing endpoints (we hit this mid-release). The metadata
+  JSON (Endpoint/CodeSigningAccountName/CertificateProfileName = `VybeCode`) is checked in (no
+  secrets); auth is the `az login` session. **This cert profile signs any VybeCode app.**
+- **`.ps1` files with non-ASCII must keep a UTF-8 BOM** (or be pure ASCII). A no-BOM save of
+  `Invoke-Release.ps1` made PS 5.1 mojibake its em-dashes → parse failure mid-release. Fixed by
+  re-adding the BOM; `Publish-WebsiteChangelog.ps1` was written ASCII-only on purpose.
+- **stripkit.pro is on Railway (auto-deploy on push to the website repo)** — *not* GitHub Pages/
+  shared hosting (the DNS IPs misled an initial diagnosis). So a website-repo push redeploys; an
+  app-repo release does not.
+- **Website changelog automation is hybrid** (auto-draft from CHANGELOG, then refine) — the copy is
+  intentionally friendlier/plainer than the technical `docs/CHANGELOG.md`.
+
+---
 
 ## Current State
 
 ### Working
-- **v0.8.0 live:** https://github.com/Vybecode-LTD/stripkit/releases/tag/v0.8.0
-  (`StripKit-Setup-0.8.0-x64.exe`, ~33.5 MB self-contained).
-- Tests **98/98 green**; build 0/0; app boots clean with all four tabs. CI runs on every push/PR.
-- `main` == origin (step 2 pushed). 0 open bugs.
+- **v1.0.0 live + signed:** https://github.com/Vybecode-LTD/stripkit/releases/tag/v1.0.0
+  (`StripKit-Setup-1.0.0-x64.exe`, 58.3 MB self-contained, code-signed exe + installer).
+- **stripkit.pro updated** (v1.0.0 changelog live; download button auto-points to 1.0.0).
+- Tests **125/125 green**; build 0/0; app boots clean (four tabs + the first-run tutorial). CI runs
+  on every push/PR. `main` == origin; 0 open bugs.
 
 ### Known issues / limitations (not bugs)
-- `FilmstripEngine.cs` is a hand-maintained mirror of the renderer + render-math models (now
-  includes the `RenderLayers` layered path + `RenderLayer`/`LayerBehavior` + `Layers`). It does
-  **not** include `PointerExtractor`/`ContentAnalysis`/importer/etc. (app-only services) — by design.
-- Auto-pointer extraction leaves a small central residual dot when the needle passes through the
-  pivot; it is a verify-and-tweak starting point, knob-only, best on a round body with one indicator.
-- VirusTotal heuristic FPs on the unsigned installer (not a real bug; code-signing cert is the fix).
-- Two untracked files sit in the working tree and are **not ours** — `docs/PRESS-RELEASE.md` and
-  `press/`. They appeared mid-session; left untouched and excluded from every commit. Decide what
-  they are.
+- **`FilmstripEngine.cs`** (repo root) is a hand-maintained mirror of the renderer + render-math
+  models. App-only services (`LayeredImportService`, `PointerExtractor`, `ContentAnalysis`,
+  importer, manifest, batch, code-snippet, settings, asset) are **not** in it — by design.
+- **Layered-import MVP boundaries** (ARCHITECTURE §6.8): top-level SVG groups = layers (no Figma
+  single-root unwrap); PSD layer order follows the file (no reorder UI); behaviours limited to the
+  rendered Static/Rotate.
+- **Installer is 58.3 MB** (> GitHub's *recommended* 50 MB; fine under the 100 MB hard limit). The
+  growth is the ImageMagick native — accepted cost of PSD support.
+- **Two untracked strays remain and are NOT ours** — `docs/PRESS-RELEASE.md` and `press/`. They've
+  sat in the working tree across sessions; excluded from every commit. Decide what they are.
 
-## How to Ship the Next Release
+---
 
+## The release pipeline (now near-single-command, incl. the website)
+
+Three stages, **one release creator** (CI). `Invoke-Release.ps1` (Stage 1, local) → CI
+`auto-release.yml` (Stage 2, the sole `gh release create` + VirusTotal) → the website (Stage 3,
+Railway auto-deploys the site repo).
+
+**To ship the next release** (commit feature work first, then):
 ```powershell
-# pwsh isn't installed on this machine; the script is encoding-safe under Windows PowerShell 5.1:
-powershell -ExecutionPolicy Bypass -File scripts\Invoke-Release.ps1 -Bump minor   # -> 0.9.0
-gh run watch    # CI (auto-release.yml) is the SOLE release creator
+# pwsh isn't installed; use Windows PowerShell 5.1. Requires: az login (signing), AzureSignTool's
+# replacement is the Trusted Signing dlib + signtool (already set up), ISCC, gh auth.
+powershell -ExecutionPolicy Bypass -File scripts\Invoke-Release.ps1 -Bump minor -WebsiteRepo ..\StripKit-Website
+gh run watch            # watch the Auto Release run create the GitHub Release
+#   ...refine ..\StripKit-Website\updates.json (the auto-draft is technical) ...
+powershell -ExecutionPolicy Bypass -File scripts\Publish-WebsiteChangelog.ps1 -WebsiteRepo ..\StripKit-Website -Version <X.Y.Z> -Push
 ```
-Commit feature work **first** (the script only stages the version files + installer). Full flow:
-`docs/PACKAGING.md`. After each release, add a plain-language entry to the website's `updates.json`.
+That single flow does: test-gate → bump (csproj/.iss/CHANGELOG) → publish → **sign exe + installer**
+→ Inno installer → commit/tag/push → (CI: VirusTotal + GitHub Release) → **auto-draft the website
+changelog**; then you refine + `-Push` (hybrid) → Railway redeploys.
+
+**Reuse on another desktop app + download site:** copy `scripts/Publish-WebsiteChangelog.ps1`
+(+ the `-WebsiteRepo` block in `Invoke-Release.ps1`), keep a Keep-a-Changelog `docs/CHANGELOG.md`
+and a website `updates.json` array on an auto-deploy host, and reuse the same Trusted Signing
+profile. See `docs/PACKAGING.md` §8.4.
+
+---
 
 ## Next Steps (priority order)
 
-1. **★ #3 step 3 — layered PSD/SVG import** (the last ★ piece, **the big dependency lift**). No
-   PSD/SVG layer reader is in the .NET stack today, so this needs a **library decision + a license
-   check** (many PSD libs are commercial/GPL — the project cares about licensing). Parse a real
-   layered source with per-layer behaviour tags (rotate / stay / translate / opacity-ramp) → the
-   existing `Layers` model. **Scope the library/approach before building.**
-2. **Interactive in-app help / tutorial system** (P1, owner-requested) — a guided first-run /
-   tutorial for the desktop app (load → choose type → align → export → wire the loader). See ROADMAP.
-3. **Website "Getting started" how-to guide** at `stripkit.pro/getting-started/` (P2,
-   owner-requested) — illustrated step-by-step on the `StripKit-Website` repo; pairs with the deploy.
-4. **Code-export targets** — React / Web Component + Unity / Godot (extend `CodeTarget`).
-5. **Deploy the website to stripkit.pro** + add a v0.7.0 **and** v0.8.0 entry to `updates.json`.
-6. **Code-signing certificate**; **bump `actions/checkout@v4 → v5`** (Node-20 deprecation — CI warns).
+1. **Website P2 — `stripkit.pro/getting-started/` how-to guide** (owner-requested) — the in-app
+   tutorial's web mirror (separate `StripKit-Website` repo; Railway auto-deploys on push). The
+   in-app Getting Started flow is the source of truth to mirror.
+2. **More code-export targets** — React / Web Component + Unity / Godot (extend `CodeTarget` +
+   `CodeSnippetService`).
+3. **`actions/checkout@v4 → v5`** in both workflows (`ci.yml`, `auto-release.yml`) — the v1.0.0
+   Auto Release run warned about Node-20 deprecation (mid-2026).
+4. **Translate / opacity-ramp layer behaviours** — a *renderer* increment (would touch
+   `SkiaFilmstripRenderer` + the `FilmstripEngine.cs` mirror), unlocking faders/fades for layered
+   import beyond Static/Rotate.
+5. **Optional:** decide on the `docs/PRESS-RELEASE.md` / `press/` strays.
 
-## Warnings for Next Agent
+---
 
-- **`FilmstripEngine.cs` (repo root) is a hand-maintained mirror** of the renderer + render-math
-  models. Sync it if renderer math changes. App-only services (`PointerExtractor`, `ContentAnalysis`,
-  importer, manifest, batch, code-snippet) are **not** in it. NOT compiled, NOT tested.
+## Warnings for the next agent
+
 - **Do NOT** rewrite `SkiaFilmstripRenderer`, change the `(N−1)` angle divisor, move VM logic into
   code-behind, or reference Avalonia UI types from VMs (the preview `Bitmap` alias is the one
   exception). Extend, don't rewrite. Gate new render paths behind defaults so prior goldens hold.
-- **Release scripts must read/write UTF-8** (PS 5.1 `Get-Content` without `-Encoding UTF8` corrupts
-  em-dashes — BUG-003); **never inline a changelog body into `gh release create --notes "..."`**
-  (backticks → shell injection — BUG-004; use `--notes-file`). Both already fixed in the pipeline.
-- **House design rule:** Obsidian dark glass, `#e8440a` accent, **sans-serif only** (Verdana-led,
-  no monospace). Reuse the `App.axaml` tokens.
+- **Keep `FilmstripEngine.cs` in sync** only if renderer *math* changes; app-only services stay out.
+- **Code signing:** it's **Trusted Signing via signtool + the dlib**, *not* AzureSignTool (which
+  403s against Trusted Signing). `az login` before a release. The metadata JSON is checked in.
+- **Release scripts: read/write UTF-8 and keep the `.ps1` BOM** (PS 5.1 mojibakes a no-BOM file with
+  non-ASCII → parse fail — BUG-003 corollary, see PACKAGING §9A). Never inline a changelog body into
+  `gh release create --notes "…"` (backticks → shell injection — BUG-004; use `--notes-file`).
+- **The website is a separate concern:** an app release does NOT update stripkit.pro. The download
+  button auto-updates client-side; the **changelog** needs a `updates.json` entry (now scriptable via
+  `Publish-WebsiteChangelog.ps1`) pushed to the website repo, which Railway redeploys.
+- **House design rule:** Obsidian dark glass, `#e8440a` accent, **sans-serif only** (Verdana-led, no
+  monospace). Modals use the `Border.dialog` token (opaque + drop shadow); reuse the `App.axaml` tokens.
 - The two untracked strays (`docs/PRESS-RELEASE.md`, `press/`) are not ours — don't commit them.
+
+---
 
 ## Files to Read First
 
 1. `CLAUDE.md` — project context, conventions, house rules, last task.
-2. `docs/SOURCE_MAP.md` — where everything lives (four tabs, all services).
-3. `docs/ARCHITECTURE.md` — deep reference. Layer-aware: §5.6 (`RenderLayers`), §6.6 (slots),
-   §6.7 (`PointerExtractor`). Skin tab: §9.2. Value-arc §5.5, code export §9.1.
-4. `docs/ROADMAP.md` — releases + the vNext backlog (★ step 3 next; the two new onboarding items).
-5. `docs/PACKAGING.md` — full release-pipeline reference with the BUG-003/004 guards.
+2. `docs/SOURCE_MAP.md` — where everything lives (four tabs, all services, the two release scripts).
+3. `docs/ARCHITECTURE.md` — deep reference. Layered import §6.8; onboarding/tutorial §6.9;
+   `RenderLayers` §5.6; base/pointer §6.6; auto-extract §6.7; Skin tab §9.2.
+4. `docs/PACKAGING.md` — the full release-pipeline reference: §8.4 (Stage-3 website automation +
+   reuse), §9A (UTF-8 / script-BOM guard), §9B (`--notes-file`).
+5. `docs/ROADMAP.md` — releases + the vNext backlog (★ bets all done; website P2 next).

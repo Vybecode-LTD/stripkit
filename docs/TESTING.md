@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).

@@ -1,6 +1,6 @@
 # BUGS — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
 
 **Open bugs: 0.** **Resolved: 7.**
 
@@ -128,9 +128,12 @@ commit `0aaa257` (resource leaks and a silent product gap).
 - No runtime bugs are currently known. The renderer output is locked by golden-image
   tests; a future intentional render change must update baselines (see
   `docs/TESTING.md`).
-- **Informational (not a bug):** VirusTotal reports ~4/71 detections on the unsigned
-  installer — heuristic false-positives. A code-signing certificate is the planned
-  remedy (the build currently ships unsigned → SmartScreen).
+- **Informational (not a bug):** the app **and** installer are now **code-signed** via Azure
+  Trusted Signing (the `VybeCode` certificate profile), wired into the release pipeline since
+  v0.8.0's signed re-release and used for v1.0.0. The earlier "~4/71 VirusTotal FPs on the
+  *unsigned* installer / SmartScreen prompt" caveat is now **historical**. (Signing uses
+  `signtool.exe` + the `Microsoft.Trusted.Signing.Client` dlib — not AzureSignTool, which 403s
+  against Trusted Signing endpoints; see `docs/PACKAGING.md`.)
 - Known *limitations* (not bugs) live in `docs/ROADMAP.md` / `docs/ARCHITECTURE.md`:
   importer detection is a dimension-based guess (editable + verified). **Resolved in
   v0.8.0** (the BUG-007 follow-up + two carryovers): the Batch tab now exposes the meter

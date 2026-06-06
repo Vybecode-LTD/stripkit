@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where

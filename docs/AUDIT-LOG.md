@@ -1,8 +1,68 @@
 # AUDIT-LOG — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-06 — v1.0.0 ship (★ #3 finish + onboarding) + website automation + handoff
+
+**Type:** Feature delivery + major release + release-tooling fixes + reusable Stage-3 automation + handoff.
+
+**Scope:** Finished the last ★ bet (layered PSD/SVG import), built the in-app onboarding tutorial +
+About modal, cut **v1.0.0** (signed, live), closed the website-changelog gap with a project-agnostic
+publisher, and reconciled every managed doc to 1.0.0.
+
+### Delivered (code, each its own commit)
+- **★ #3 step 3 — layered PSD/SVG import** (`03b441a`): `ILayeredImportService`/`LayeredImportService`
+  (Svg.Skia groups + Magick.NET-Q8 PSD layers → named, behaviour-tagged, canvas-registered layers);
+  `ImportedLayerRow` + VM mapping onto the existing `Layers` stack (no renderer change); deps
+  Svg.Skia 5.0.0, Magick.NET-Q8-x64 14.13.1, SkiaSharp 3.119.0→3.119.2. App-only. +14 tests.
+- **Onboarding tutorial + About modal** (`21e2994`): per-screen `TutorialViewModel`/`TutorialOverlay`
+  (auto-open first run via new `ISettingsService`; Help button per tab; bundled sample knob via
+  `IAssetService`; tooltips); solid centered `Border.dialog` token; About flyout → centered modal;
+  `AppVersion` binds the live assembly version (was hardcoded "v0.6.0"). +11 tests.
+- **Website-changelog automation** (`a2c6a16`): project-agnostic `Publish-WebsiteChangelog.ps1`
+  (auto-draft from CHANGELOG → updates.json → optional commit/push); wired into `Invoke-Release.ps1`
+  as optional Stage 3 (`-WebsiteRepo`). ASCII-only (BOM-safe).
+
+### Release-tooling fixes (committed)
+- **Signing** (`198230e`): the release initially signed nothing — the `AzureSignTool sign` call
+  passed no credential, AND AzureSignTool speaks Key Vault and **403s** against Trusted Signing
+  endpoints. Switched to **signtool + `Microsoft.Trusted.Signing.Client` dlib +
+  `trusted-signing-metadata.json`** (owner's correction); now signs **both** the exe and the installer.
+- **Script BOM:** a no-BOM save of `Invoke-Release.ps1` made PS 5.1 mojibake its em-dashes → parse
+  failure mid-release; re-added the UTF-8 BOM and verified a clean parse (PACKAGING §9A corollary).
+
+### Release
+- `Invoke-Release.ps1 -Bump major`: gate **125/125** → 0.8.0 → **1.0.0** (csproj/.iss/CHANGELOG) →
+  publish → **sign exe + installer** ("Succeeded") → Inno installer → commit `3849792` + tag `v1.0.0`
+  + push. CI `auto-release.yml` VirusTotal-scanned and created the public GitHub Release (verified
+  live; `StripKit-Setup-1.0.0-x64.exe`, 58.3 MB, signed).
+- Website: v1.0.0 `updates.json` entry (StripKit-Website `c4fa2f6`) → Railway redeployed →
+  stripkit.pro changelog verified live; download button auto-resolves to 1.0.0.
+
+### Mini-audit of new code
+- New services Avalonia-free where required (`LayeredImportService`, `SettingsService`: SkiaSharp/BCL
+  only; `AssetService` is the app-layer Avalonia holder behind `IAssetService`). VMs hold no Avalonia
+  UI types (the `Bitmap` alias excepted). Source-gen VMs `partial`. Renderer untouched → all prior
+  goldens byte-identical (gated). `FilmstripEngine.cs` correctly **not** changed (parser + onboarding
+  are app-only; no render-math change). DI complete. Build 0/0; no `async void` outside handlers; no
+  `.Result`/`.Wait()`/`System.Drawing`.
+
+### Doc reconciliation
+- All managed docs → **1.0.0 / 2026-06-06**. ARCHITECTURE +§6.8 (layered import) +§6.9 (onboarding)
+  +§3.2 service rows (Settings/Asset/LayeredImport); SOURCE_MAP lists new services/VM/view/models/
+  asset + both release scripts (count → 125); TESTING +LayeredImport*/Tutorial*/Settings suites
+  (count → 125); CHANGELOG `[1.0.0]`; ROADMAP marks v1.0.0 + all three ★ bets + onboarding P1 done;
+  PACKAGING §8.4 (Stage-3 automation + reuse) + §9A (script-BOM); CLAUDE last-task + Current State.
+  HANDOFF rewritten (very detailed).
+
+### Verdict
+**Green.** Build 0/0, **125/125** tests, app boots clean (four tabs + first-run tutorial), `main` ==
+origin, 0 open bugs, **v1.0.0 live + signed**, stripkit.pro updated, all three ★ bets complete. Next:
+website P2 getting-started guide; React/Web-Component + Unity/Godot code targets; `checkout@v4→v5`.
 
 ---
 

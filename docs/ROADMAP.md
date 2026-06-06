@@ -1,6 +1,6 @@
 # ROADMAP — StripKit
 
-> Version 0.8.0 · last-updated 2026-06-05 · last-audit 2026-06-05
+> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and three
@@ -20,11 +20,13 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
 - **v0.8.0** (2026-06-05) — **Batch-tab meter settings** (+ layered/backdrop toggle), **Skin tab**
   (multi-control `skin.json` builder), **importer frame-count resampling**, and ★ **layer-aware
   knob step 1** (base + pointer). Suite 94.
-- **Unreleased (toward 0.9.0)** — ★ **layer-aware step 2**: auto-pointer extraction from flat art
-  (`PointerExtractor`, suite 98); ★ **layer-aware step 3**: layered **PSD/SVG import**
-  (`LayeredImportService` — Svg.Skia + Magick.NET, suite 112, committed `03b441a`) — **completes
-  the layer-aware bet**; **interactive in-app tutorial** (Getting Started overlay + first-run +
-  sample knob + tooltips, suite 123 — working tree, uncommitted). *(Next release: 0.9.0.)*
+- **v1.0.0** (2026-06-06) — **the 1.0 release.** ★ **layer-aware step 2** (auto-pointer extraction,
+  `PointerExtractor`) + ★ **step 3** (layered **PSD/SVG import** via Svg.Skia + Magick.NET) —
+  **completing the layer-aware ★ bet** — plus the **interactive Getting Started tutorial** (per-tab,
+  auto-open first run, bundled sample knob, tooltips) and a **centered About modal** + live-version
+  fix. First **code-signed** release (Azure Trusted Signing — exe + installer). Suite **125**. The
+  release pipeline gained an optional **Stage 3** that auto-drafts the website changelog
+  (`Publish-WebsiteChangelog.ps1`). All three ★ bets are now done.
 
 ---
 
@@ -90,14 +92,16 @@ its own, named the guiding skill, and met a done-condition. Condensed history:
 
 Open items carried from the v0.6.0 release — small, mostly non-feature:
 
-- 🚫 **Deploy the website to `stripkit.pro`** — enable GitHub Pages on
-  `Vybecode-LTD/StripKit-Website` or point the domain. **User step.**
-- ⏳ **Code-signing certificate** for the installer — clears the VirusTotal
-  false-positives and the Windows SmartScreen prompt. Currently shipping unsigned.
-- ⏳ **Per-release maintenance** — add a plain-language entry to the website's
-  `updates.json` alongside the technical `docs/CHANGELOG.md` entry, each release.
-- ⏳ **Minor: bump `actions/checkout`** — `actions/checkout@v4` runs on the
-  soon-deprecated Node 20 (GitHub deprecation mid-2026).
+- ✅ **Deploy the website to `stripkit.pro`** — **live**, hosted on **Railway** (auto-deploys the
+  `Vybecode-LTD/StripKit-Website` repo on push). Download button reads the latest GitHub Release
+  client-side; the changelog reads `updates.json`.
+- ✅ **Code signing** — the app + installer are **code-signed** via **Azure Trusted Signing** (the
+  `VybeCode` profile; `signtool` + the Trusted Signing dlib). Live since v0.8.0's signed re-release.
+- ✅ **Per-release website maintenance — now automated.** `scripts/Publish-WebsiteChangelog.ps1`
+  auto-drafts the `updates.json` entry from `docs/CHANGELOG.md`; wired into `Invoke-Release.ps1`
+  as optional Stage 3 (`-WebsiteRepo`). Hybrid: auto-draft → refine → push.
+- ⏳ **Minor: bump `actions/checkout@v4 → v5`** — v4 runs on the soon-deprecated Node 20 (the
+  v1.0.0 Auto Release run warned about it). Both `ci.yml` and `auto-release.yml`.
 
 ---
 
