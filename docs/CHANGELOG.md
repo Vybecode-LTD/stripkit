@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.0.0] — 2026-06-06
 
 ### Added
 - **Interactive in-app help / tutorial (onboarding, P1).** A re-openable **"Getting Started"**
