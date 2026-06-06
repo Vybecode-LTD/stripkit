@@ -32,6 +32,26 @@ public sealed class FileDialogService : IFileDialogService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    public async Task<string?> OpenLayeredFileAsync()
+    {
+        if (Owner?.StorageProvider is not { } storage)
+            return null;
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Import a layered source (SVG / PSD)",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Layered source") { Patterns = ["*.svg", "*.psd", "*.psb"] },
+                new FilePickerFileType("SVG (vector)") { Patterns = ["*.svg"] },
+                new FilePickerFileType("Photoshop (PSD/PSB)") { Patterns = ["*.psd", "*.psb"] },
+            ],
+        });
+
+        return files.Count > 0 ? files[0].TryGetLocalPath() : null;
+    }
+
     public async Task<string?> SavePngAsync(string suggestedName)
     {
         if (Owner?.StorageProvider is not { } storage)

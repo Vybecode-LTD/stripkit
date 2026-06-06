@@ -36,13 +36,14 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (98): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (112): renderer golden-image (with committed
   `baselines/`), `ContentAnalysis` + alignment render, pointer extraction
-  (`PointerExtractorTests`), view-model load-path, importer engine + VM, manifest (incl.
-  multi-control), batch processor + VM (incl. meter), Skin tab VM (`SkinViewModelTests`), meter
-  renderer, value-arc renderer (`ValueArcRenderTests`), layered-knob renderer
-  (`LayeredKnobRenderTests`), code-snippet generation (`CodeSnippetServiceTests`), and a
-  headless drop-zone test. See `docs/TESTING.md`.
+  (`PointerExtractorTests`), layered-import service + VM + render
+  (`LayeredImportServiceTests` / `LayeredImportViewModelTests` / `LayeredImportRenderTests`),
+  view-model load-path, importer engine + VM, manifest (incl. multi-control), batch processor +
+  VM (incl. meter), Skin tab VM (`SkinViewModelTests`), meter renderer, value-arc renderer
+  (`ValueArcRenderTests`), layered-knob renderer (`LayeredKnobRenderTests`), code-snippet
+  generation (`CodeSnippetServiceTests`), and a headless drop-zone test. See `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
 
@@ -89,6 +90,11 @@ does each thing live" companion.
   pointer via the radial-symmetry residual (★ #3 step 2; auto-fills the layered-knob slots).
   Returns a `PointerExtractionResult` (base, pointer, confidence). No Avalonia dependency;
   app-only (not mirrored in `FilmstripEngine.cs`).
+- `ILayeredImportService.cs` / `LayeredImportService.cs` — `Import` parses a layered `.svg`
+  (Svg.Skia / MIT) or `.psd`/`.psb` (Magick.NET / Apache-2.0) into named, behaviour-tagged,
+  canvas-registered layers (★ #3 step 3) → a `LayeredImportResult` (`ImportedLayer[]` + canvas
+  size). Feeds the renderer's existing layer stack; no Avalonia dependency; app-only (NOT in
+  `FilmstripEngine.cs`). The interface file holds the `ImportedLayer` / `LayeredImportResult` DTOs.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / save-PNG / open-folder
   pickers via Avalonia `StorageProvider`. The concrete class holds the `Owner` window,
@@ -135,6 +141,8 @@ does each thing live" companion.
   skin metadata, and export-to-folder). No Avalonia UI types.
 - `SkinControlEntry.cs` — the mutable, observable per-control row the Skin list + detail editor
   bind to; mapped to the immutable `ManifestControl` record on export.
+- `ImportedLayerRow.cs` — the observable per-layer row for an imported SVG/PSD (name + editable
+  Static/Rotate `Behavior` + the canvas-sized art); drives the Create-tab import list (§6.8).
 
 ### `Views/`
 

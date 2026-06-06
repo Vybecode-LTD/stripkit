@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (98 tests)
+dotnet test                                      # whole suite (112 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **98 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **112 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,7 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (98)
+## Test inventory (112)
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -84,6 +84,27 @@ Splitting a flat knob into a symmetric base + the indicator via the radial-symme
   rotationally symmetric; high confidence).
 - `Extract_returns_null_for_a_missing_image`.
 - `A_plain_symmetric_disc_yields_an_essentially_empty_pointer` (nothing to extract).
+
+### `LayeredImportServiceTests.cs` — 8 (layered PSD/SVG import, ★ #3 step 3)
+Parsing a real layered source into the renderer's layer stack. Fixtures are synthesized in memory
+(an SVG string; a PSD written by Magick.NET) so no binary assets live in the repo.
+- SVG: groups → named, behaviour-guessed layers; layers isolated + registered on the canvas; a
+  group-less SVG is one static layer; a non-indicator group name stays Static.
+- PSD: the merged composite is dropped and the named layers kept with their guessed behaviours;
+  layers isolated + registered on the canvas (proves the [composite, layer, layer…] read model).
+- `Import` returns null for a missing/garbage file; `CanImport` recognizes `.svg`/`.psd`/`.psb` only.
+
+### `LayeredImportViewModelTests.cs` — 4 (the Create-tab import command)
+- Importing an SVG populates tagged rows (body=Static, pointer=Rotate), forces the knob type,
+  squares the frame, and gates the UI (`ShowLoadHint` off, `ExportCommand` enabled).
+- Loading a base layer clears an active import (the two layered modes are mutually exclusive).
+- Clearing the import drops the layers + preview.
+- Exporting feeds the rows to the renderer as `Layers` + index-matched `layerArt`, and a per-layer
+  behaviour **override** flows through to the rendered stack.
+
+### `LayeredImportRenderTests.cs` — 2 (import → render, end-to-end)
+- Golden `imported_svg_knob_mid` — a parsed SVG composited through the layer path (eyeballed).
+- Pixel-logic: the indicator-named group rotates while the body group stays put across frames.
 
 ### `LoadPathTests.cs` — 11 (`MainWindowViewModel`, NSubstitute)
 The shared Create-tab load path (used by both the button and drag-drop), the knob-alignment

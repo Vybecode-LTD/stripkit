@@ -10,6 +10,10 @@ public interface IFileDialogService
     /// <summary>Prompts for an image to open; returns its local path or <c>null</c> if cancelled.</summary>
     Task<string?> OpenImageAsync();
 
+    /// <summary>Prompts for a layered source file (.svg / .psd / .psb); returns its local path or
+    /// <c>null</c> if cancelled.</summary>
+    Task<string?> OpenLayeredFileAsync();
+
     /// <summary>Prompts for a PNG save location; returns the chosen path or <c>null</c> if cancelled.</summary>
     Task<string?> SavePngAsync(string suggestedName);
 

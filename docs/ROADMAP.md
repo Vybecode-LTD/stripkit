@@ -7,7 +7,7 @@ ship — Inno installer, release pipeline, and website) are **complete**, and th
 further releases have shipped since (see **Releases** below). The **vNext — Future
 features** section captures the product-brainstorm backlog, grouped by theme and
 priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
-layer-aware animation (🔄 steps 1–2 of 3 done).
+layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/SVG import).
 
 **Status icons:** ✅ Done · 🔄 Active · ⏳ Next / queued · 🚫 Blocked · ❌ Cancelled.
 
@@ -21,7 +21,9 @@ layer-aware animation (🔄 steps 1–2 of 3 done).
   (multi-control `skin.json` builder), **importer frame-count resampling**, and ★ **layer-aware
   knob step 1** (base + pointer). Suite 94.
 - **Unreleased (on `main`)** — ★ **layer-aware step 2**: auto-pointer extraction from flat art
-  (`PointerExtractor`). Suite 98. *(Next release: 0.9.0.)*
+  (`PointerExtractor`, suite 98); ★ **layer-aware step 3**: layered **PSD/SVG import**
+  (`LayeredImportService` — Svg.Skia + Magick.NET, suite 112) — **completes the layer-aware bet.**
+  *(Next release: 0.9.0.)*
 
 ---
 
@@ -122,18 +124,22 @@ highest-leverage bets across all groups; pursue them first.
 
 ### Render quality / the first mile
 
-- 🔄 ★ **Layer-aware animation + auto-pointer extraction** — accept layered input
-  (SVG / PSD or base + pointer) and tag per-layer behavior (rotate / stay /
-  opacity-ramp / translate) so only the pointer rotates while the body stays
-  crisp, re-renderable at any resolution. Plus auto-detect the indicator in FLAT
-  legacy art (seed from the existing `ContentAnalysis`). **(P1, ★)** — **Steps 1–2 of 3 done.**
+- ✅ ★ **Layer-aware animation + auto-pointer extraction** — accept layered input
+  (SVG / PSD or base + pointer) and tag per-layer behavior (rotate / stay) so only the pointer
+  rotates while the body stays crisp, re-renderable at any resolution. Plus auto-detect the
+  indicator in FLAT legacy art (seed from the existing `ContentAnalysis`). **(P1, ★ — all 3
+  steps done.)**
   **Step 1 (v0.8.0): base + pointer PNGs** — a general `RenderLayer`/`LayerBehavior` model +
   `FilmstripSettings.Layers`; `RenderLayers` composites a static body + a rotating pointer (its
   own pivot) in `RenderFrame`/`RenderStrip`; explicit Base/Pointer slots; gated so empty layers
   reproduce prior output; mirrored in `FilmstripEngine.cs`. **Step 2 (Unreleased): auto-pointer
   extraction from flat art** — `PointerExtractor` (radial-symmetry residual) splits a flat knob
-  into base + pointer and auto-fills the slots, with a confidence score. **Remaining:** step 3 —
-  layered PSD/SVG import (the big dependency lift — no PSD/SVG layer reader in the stack today).
+  into base + pointer and auto-fills the slots, with a confidence score. **Step 3 (Unreleased):
+  layered PSD/SVG import** — `LayeredImportService` (app-only) reads SVG groups (Svg.Skia / MIT)
+  and PSD layers (Magick.NET / Apache-2.0) into the renderer's existing layer stack, with
+  name-guessed Static/Rotate behaviours the user overrides per layer; no renderer change, gated
+  so prior output is byte-identical. *(Future: translate / opacity-ramp behaviours — a renderer
+  increment — and layer reorder / deep-group flattening.)*
 - ✅ **Procedural value-arc / fill-ring generator** (2026-06-04) — a Serum/Vital-style
   fill arc that tracks the value frame-by-frame is composited onto knob frames:
   configurable radius, thickness, colour, round/butt end caps, optional dim track,

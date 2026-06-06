@@ -44,7 +44,7 @@ public class LoadPathTests
                                      Substitute.For<IFilmstripImporter>(), Substitute.For<IManifestService>());
 
         return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
-                                        new CodeSnippetService(), importer, batch, skin), load, dialogs);
+                                        new CodeSnippetService(), new LayeredImportService(), importer, batch, skin), load, dialogs);
     }
 
     [Fact]

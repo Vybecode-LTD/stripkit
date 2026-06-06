@@ -303,7 +303,11 @@ if ($LASTEXITCODE -ne 0) { throw "Publish failed (version files already bumped t
 
 Clean publish into `publish/`. **Self-contained** (`--self-contained true`,
 RID `win-x64`) — bundles the .NET runtime so target machines need no SDK/runtime.
-Output ~33.5 MB after packaging.
+Output was ~33.5 MB; since the layered-import feature (★ #3 step 3) it includes the
+**win-x64 ImageMagick native** (`Magick.Native-Q8-x64.dll`, ~22 MB, for PSD import) plus the
+small Svg.Skia / HarfBuzz Win32 assets, so expect **~55 MB** from 0.9.0 on. (Still over the
+32 MB simple-upload limit — the CI release already uses the large-file endpoint, §see release
+upload.) The `-x64` Magick package, not `-AnyCPU`, keeps the publish from bundling other RIDs.
 
 > The error message is a deliberate breadcrumb: if publish fails, **the version
 > files are already bumped**. Recovery is in [§10.1](#101-build-fails-after-a-version-bump).

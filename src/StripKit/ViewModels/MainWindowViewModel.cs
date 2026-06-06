@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -17,6 +18,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IExportService _export;
     private readonly IManifestService _manifest;
     private readonly ICodeSnippetService _codeSnippets;
+    private readonly ILayeredImportService _layeredImport;
 
     private SKBitmap? _source;
     private SKBitmap? _background;
@@ -27,6 +29,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private SKBitmap? _baseLayer;
     private SKBitmap? _pointer;
     private string? _baseLayerPath;
+
+    // Imported layered source (SVG/PSD → N tagged layers). When non-empty it drives the layered
+    // render instead of the base/pointer slots; the two layered modes are mutually exclusive.
+    private string? _importPath;
 
     // Suppresses the preview/recompute funnel while we set several properties at
     // once (e.g. applying type defaults), so we refresh only once afterwards.
@@ -39,6 +45,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(IImageLoadService imageLoad, IFilmstripRenderer renderer,
                                IFileDialogService dialogs, IExportService export,
                                IManifestService manifest, ICodeSnippetService codeSnippets,
+                               ILayeredImportService layeredImport,
                                ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin)
     {
         _imageLoad = imageLoad;
@@ -47,6 +54,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _export = export;
         _manifest = manifest;
         _codeSnippets = codeSnippets;
+        _layeredImport = layeredImport;
         Importer = importer;
         Batch = batch;
         Skin = skin;
@@ -158,6 +166,17 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private double _pointerPivotX = 0.5;
     [ObservableProperty] private double _pointerPivotY = 0.5;
 
+    // ---- imported layered source (SVG / PSD → N tagged layers) ----
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
+    [NotifyPropertyChangedFor(nameof(ShowLoadHint))]
+    private bool _hasImportedLayers;
+    [ObservableProperty] private string _importInfo = "None.";
+
+    /// <summary>The parsed layers of an imported SVG/PSD (bottom-first): each row's name +
+    /// user-overridable behaviour + canvas-sized art. Drives the layered render when non-empty.</summary>
+    public ObservableCollection<ImportedLayerRow> ImportedLayers { get; } = [];
+
     // ---- code export (loader snippets) ----
     [ObservableProperty] private bool _exportCode;
     [ObservableProperty] private bool _emitCodeJuce = true;
@@ -181,12 +200,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>The "load a source" overlay shows only when there is nothing to preview;
     /// a procedural meter renders without a source, and a layered knob previews from its
-    /// base layer.</summary>
-    public bool ShowLoadHint => !HasSource && !IsMeter && !HasBaseLayer;
+    /// base layer or an imported layer stack.</summary>
+    public bool ShowLoadHint => !HasSource && !IsMeter && !HasBaseLayer && !HasImportedLayers;
 
-    /// <summary>True when a layered knob (a base body, optionally a pointer) should drive
-    /// the render instead of the single source. Knob-only.</summary>
-    private bool IsLayeredKnob => IsRotary && _baseLayer is not null;
+    /// <summary>True when a layered knob — either the base/pointer slots or an imported SVG/PSD
+    /// stack — should drive the render instead of the single source. Knob-only.</summary>
+    private bool IsLayeredKnob => IsRotary && (_baseLayer is not null || HasImportedLayers);
+
+    /// <summary>True when an imported SVG/PSD stack (rather than the base/pointer slots) is the
+    /// active layered source. Takes precedence over the base/pointer slots.</summary>
+    private bool IsImportedKnob => IsRotary && HasImportedLayers;
 
     /// <summary>Source pixel size (0 when none) — the alignment overlay uses it to map the
     /// crosshair onto the drawn art within the preview frame.</summary>
@@ -226,6 +249,8 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(HasPointer):
             case nameof(BaseLayerInfo):
             case nameof(PointerInfo):
+            case nameof(HasImportedLayers):
+            case nameof(ImportInfo):
             case nameof(GeneratedCode):
             case nameof(ExportCode):
             case nameof(EmitCodeJuce):
@@ -341,9 +366,21 @@ public partial class MainWindowViewModel : ViewModelBase
             ArcGlowSize = ArcGlowSize,
         };
 
-        // Layered knob: a static base body + (optionally) a rotating pointer with its own
-        // pivot. Left empty for every other case, so the single-source render is unchanged.
-        if (IsLayeredKnob)
+        // Layered knob. An imported SVG/PSD stack (N tagged layers) takes precedence; otherwise the
+        // base/pointer slots. Left empty for every other case, so the single-source render is unchanged.
+        if (IsImportedKnob)
+        {
+            // Every imported layer is the same canvas size, so a Rotate layer's normalized pivot is
+            // the shared knob axis (the detected content centre) for all of them.
+            foreach (var row in ImportedLayers)
+                settings.Layers.Add(new RenderLayer
+                {
+                    Behavior = row.Behavior,
+                    PivotX = SourceCenterX,
+                    PivotY = SourceCenterY,
+                });
+        }
+        else if (IsLayeredKnob)
         {
             settings.Layers.Add(new RenderLayer { Behavior = LayerBehavior.Static });
             if (_pointer is not null)
@@ -358,10 +395,11 @@ public partial class MainWindowViewModel : ViewModelBase
         return settings;
     }
 
-    /// <summary>The layer bitmaps matching <see cref="FilmstripSettings.Layers"/> for a
-    /// layered knob — base body first, then the pointer — or null when not layered.</summary>
+    /// <summary>The layer bitmaps matching <see cref="FilmstripSettings.Layers"/> — the imported
+    /// stack in order, or the base body + pointer, or null when not layered.</summary>
     private IReadOnlyList<SKBitmap>? BuildLayerArt()
     {
+        if (IsImportedKnob) return ImportedLayers.Select(r => r.Art).ToList();
         if (!IsLayeredKnob) return null;
         var art = new List<SKBitmap> { _baseLayer! };
         if (_pointer is not null) art.Add(_pointer);
@@ -527,6 +565,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        DiscardImportedLayers();   // base/pointer and an imported stack are mutually exclusive
         _baseLayer?.Dispose();
         _baseLayer = bmp;
         _baseLayerPath = path;
@@ -583,6 +622,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        DiscardImportedLayers();   // base/pointer and an imported stack are mutually exclusive
         _pointer?.Dispose();
         _pointer = bmp;
         HasPointer = true;
@@ -643,6 +683,7 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        DiscardImportedLayers();   // base/pointer and an imported stack are mutually exclusive
         _baseLayer?.Dispose();
         _pointer?.Dispose();
         _baseLayer = result.BaseLayer;
@@ -667,6 +708,116 @@ public partial class MainWindowViewModel : ViewModelBase
             : $"Pointer auto-extracted ({result.Confidence * 100:0}% confidence). Scrub to verify the sweep; adjust the pointer pivot if needed.";
         UpdateReadouts();
         RefreshPreview();
+    }
+
+    // ---- imported layered source (SVG / PSD) ----
+
+    /// <summary>
+    /// Imports a real layered source — an <c>.svg</c> (vector groups) or <c>.psd</c>/<c>.psb</c>
+    /// (raster layers) — via <see cref="ILayeredImportService"/>, mapping each parsed layer onto the
+    /// renderer's layer stack with a name-guessed Static/Rotate behaviour the user can override per
+    /// layer. Knob-only; replaces the base/pointer slots (the two layered modes are mutually
+    /// exclusive). A starting point the user verifies via the preview/scrub — like the importer and
+    /// the auto-extract workflow, it assumes the art is drawn at the minimum (frame-0) position.
+    /// </summary>
+    [RelayCommand]
+    private async Task ImportLayeredFileAsync()
+    {
+        var path = await _dialogs.OpenLayeredFileAsync();
+        if (path is null) return;
+
+        // Parsing (SVG rasterize / PSD decode) is CPU-bound, so keep it off the UI thread.
+        var result = await Task.Run(() => _layeredImport.Import(path));
+        if (result is null || result.Layers.Count == 0)
+        {
+            StatusMessage = "Could not read any layers from that file (expected SVG groups or PSD layers).";
+            return;
+        }
+
+        DiscardBasePointer();       // the import replaces the base/pointer slots
+        DiscardImportedLayers();    // dispose any previous import
+
+        foreach (var layer in result.Layers)
+        {
+            var row = new ImportedLayerRow(layer.Name, layer.Art, layer.SuggestedBehavior);
+            row.PropertyChanged += OnImportedLayerChanged;
+            ImportedLayers.Add(row);
+        }
+        HasImportedLayers = true;
+        _importPath = path;
+        ImportInfo = $"{Path.GetFileName(path)} — {result.Layers.Count} layer{(result.Layers.Count == 1 ? "" : "s")} ({result.SourceFormat})";
+
+        int rotateCount = result.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
+
+        _suspendRefresh = true;
+        if (ComponentType != ComponentType.RotaryKnob)
+            ComponentType = ComponentType.RotaryKnob;   // layered import is knob-only
+        // Square the frame to the document canvas; seed the rotation axis from the whole knob's centre.
+        FrameWidth = Math.Max(result.CanvasWidth, result.CanvasHeight);
+        FrameHeight = FrameWidth;
+        var (cx, cy) = DetectImportedCenter(result.CanvasWidth, result.CanvasHeight);
+        SourceCenterX = cx;
+        SourceCenterY = cy;
+        _suspendRefresh = false;
+
+        StatusMessage = $"Imported {result.Layers.Count} layers from {Path.GetFileName(path)} "
+                      + $"({rotateCount} set to rotate). Verify each layer's behaviour and scrub to check the sweep.";
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
+    [RelayCommand]
+    private void ClearImportedLayers()
+    {
+        DiscardImportedLayers();
+        RefreshPreview();
+    }
+
+    /// <summary>Detects the knob's rotation axis from the merged imported layers (all canvas-sized,
+    /// so the normalized centre is shared by every Rotate layer's pivot).</summary>
+    private (double cx, double cy) DetectImportedCenter(int w, int h)
+    {
+        if (ImportedLayers.Count == 0 || w <= 0 || h <= 0) return (0.5, 0.5);
+        using var merged = new SKBitmap(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using (var c = new SKCanvas(merged))
+        {
+            c.Clear(SKColors.Transparent);
+            foreach (var row in ImportedLayers)
+                c.DrawBitmap(row.Art, 0, 0);
+        }
+        return ContentAnalysis.DetectContentCenter(merged);
+    }
+
+    private void OnImportedLayerChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ImportedLayerRow.Behavior))
+            RefreshPreview();   // re-render live when the user re-tags a layer
+    }
+
+    private void DiscardImportedLayers()
+    {
+        foreach (var row in ImportedLayers)
+        {
+            row.PropertyChanged -= OnImportedLayerChanged;
+            row.DisposeArt();
+        }
+        ImportedLayers.Clear();
+        HasImportedLayers = false;
+        ImportInfo = "None.";
+        _importPath = null;
+    }
+
+    private void DiscardBasePointer()
+    {
+        _baseLayer?.Dispose();
+        _pointer?.Dispose();
+        _baseLayer = null;
+        _pointer = null;
+        _baseLayerPath = null;
+        HasBaseLayer = false;
+        HasPointer = false;
+        BaseLayerInfo = "None.";
+        PointerInfo = "None.";
     }
 
     [RelayCommand] private void SetFrames32() => FrameCount = 32;
@@ -748,15 +899,15 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
-    // A procedural meter and a layered knob (base body) both render without a single source.
-    private bool CanExport() => HasSource || IsMeter || HasBaseLayer;
+    // A procedural meter and a layered knob (base body or an imported stack) render without a source.
+    private bool CanExport() => HasSource || IsMeter || HasBaseLayer || HasImportedLayers;
 
     [RelayCommand(CanExecute = nameof(CanExport))]
     private async Task ExportAsync()
     {
-        if (_source is null && !IsMeter && _baseLayer is null) return;
+        if (_source is null && !IsMeter && _baseLayer is null && !HasImportedLayers) return;
 
-        var baseName = Path.GetFileNameWithoutExtension(_sourcePath ?? _baseLayerPath) ?? "filmstrip";
+        var baseName = Path.GetFileNameWithoutExtension(_sourcePath ?? _baseLayerPath ?? _importPath) ?? "filmstrip";
         var suggested = $"{baseName}_{FrameCount}frames.png";
 
         var path = await _dialogs.SavePngAsync(suggested);
@@ -835,7 +986,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void RefreshPreview()
     {
-        if (_source is null && !IsMeter && _baseLayer is null)
+        if (_source is null && !IsMeter && _baseLayer is null && !HasImportedLayers)
         {
             PreviewImage = null;
             return;

@@ -8,6 +8,20 @@
 ## [Unreleased]
 
 ### Added
+- **Layered PSD / SVG import (★ #3, step 3 — completes the layer-aware bet).** A new
+  **"Import layered file (SVG / PSD)…"** button in the Create tab's layered panel reads a real
+  layered source and maps each layer onto the renderer's existing layer stack, so a designer
+  drops a layered knob and gets a layered filmstrip with no hand-splitting. **SVG** groups are
+  rasterized per-layer via **Svg.Skia** (MIT, SkiaSharp-native); **PSD/PSB** layers are read via
+  **Magick.NET-Q8** (Apache-2.0). Each parsed layer becomes a row with a name and a behaviour the
+  user can override (**Static** / **Rotate**), auto-guessed from the layer name
+  (pointer/needle/indicator… → Rotate). The new `ILayeredImportService` is **app-only** (like
+  `FilmstripImporter` / `PointerExtractor`) and **not** mirrored into `FilmstripEngine.cs` — the
+  renderer math is unchanged, so it's gated behind defaults and every prior golden is byte-identical.
+  Replaces the manual base/pointer slots when active (the two layered modes are mutually exclusive).
+  **+14 tests, suite 98→112.** New dependencies: `Svg.Skia` 5.0.0, `Magick.NET-Q8-x64` 14.13.1
+  (SkiaSharp pinned 3.119.0→3.119.2 to meet Svg.Skia's floor); the self-contained win-x64 installer
+  grows by the ImageMagick native (~22 MB).
 - **Auto-pointer extraction from flat art (★ #3, step 2).** An **"Auto-extract from flat
   knob…"** button in the Create tab's layered panel splits a single FLAT knob image (body +
   indicator baked together) into a static **base** + a rotating **pointer**, filling both
@@ -19,7 +33,7 @@
   the user falls back to manual). It's a starting guess the user verifies via the
   preview/scrub (assumes the art shows the indicator at the minimum/frame-0 position). Pure
   SkiaSharp, like `ContentAnalysis`; app-only (not in `FilmstripEngine.cs`). **+4 tests, suite
-  94→98.** *(Next: step 3 — layered PSD/SVG import.)*
+  94→98.** *(Step 3 — layered PSD/SVG import — landed above, completing the layer-aware bet.)*
 
 ## [0.8.0] — 2026-06-05
 

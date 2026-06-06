@@ -27,7 +27,9 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 ## Stack
 
 - .NET 9, Avalonia 11.3, CommunityToolkit.Mvvm 8.4 (source generators),
-  SkiaSharp 3.119.
+  SkiaSharp 3.119.2.
+- Layered-source import (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) + **Magick.NET-Q8-x64**
+  14.13.1 (Apache-2.0, PSD/PSB layers). Both permissive; not in `FilmstripEngine.cs`.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`).
@@ -93,6 +95,10 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 - `Services/PointerExtractor.cs` — split a flat knob into a static base + a rotating pointer
   via the **radial-symmetry residual** (auto-fills the layered-knob slots; ★ #3 step 2). Static,
   pure SkiaSharp like `ContentAnalysis`; app-only (not in `FilmstripEngine.cs`).
+- `Services/LayeredImportService.cs` — import a real layered **SVG** (Svg.Skia) / **PSD/PSB**
+  (Magick.NET) into named, behaviour-tagged, canvas-registered layers (★ #3 step 3 — the final
+  layer-aware piece) → a `LayeredImportResult`. Feeds the renderer's existing layer stack with
+  no renderer change; app-only (not in `FilmstripEngine.cs`).
 - `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json):
   `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
 - `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
@@ -104,7 +110,8 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 - `Helpers/SkiaImageInterop.cs` — `SKBitmap` -> Avalonia `Bitmap` for preview.
 - `ViewModels/MainWindowViewModel.cs` — Create-tab state + commands; a single
   `OnPropertyChanged` funnel refreshes the preview. Holds the layered-knob Base/Pointer slots +
-  the auto-extract command. Exposes `Importer`, `Batch`, and `Skin`.
+  the auto-extract command + the **layered SVG/PSD import** (an `ImportedLayers` row list with
+  per-layer Static/Rotate dropdowns; `ImportedLayerRow`). Exposes `Importer`, `Batch`, and `Skin`.
 - `ViewModels/ImporterViewModel.cs` — Import-tab state + commands (detect / scrub / extract /
   re-stack / resample; same funnel).
 - `ViewModels/BatchViewModel.cs` — Batch-tab state + commands (folders, template incl. the meter
@@ -169,6 +176,34 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 
 ## Last completed task
 
+- **2026-06-06 (vNext ★ #3, step 3 — layered PSD/SVG import; completes the layer-aware bet)** —
+  The final ★ piece, scoped with the owner before building. A real layered source is now imported
+  and mapped onto the renderer's existing layer stack: **"Import layered file (SVG / PSD)…"** in the
+  Create-tab layered panel. New **app-only** `Services/LayeredImportService.cs` (`ILayeredImportService`)
+  parses **SVG** groups via **Svg.Skia** (MIT — render the doc once for the canonical canvas, then
+  rasterize each top-level `<g>` as a standalone SVG so groups register pixel-for-pixel) and **PSD/PSB**
+  layers via **Magick.NET-Q8-x64** (Apache-2.0 — drop the unlabeled merged composite, blit each named
+  layer onto the canvas at its page offset). Each `ImportedLayer` carries a **name-guessed behaviour**
+  (pointer/needle/indicator… → Rotate, else Static) the user overrides per layer. VM: an
+  `ObservableCollection<ImportedLayerRow>` (`ImportedLayerRow` = name + editable Static/Rotate + art)
+  drives `BuildSettings().Layers` + `BuildLayerArt()` when non-empty (`IsImportedKnob`), each Rotate
+  layer pivoting about the shared detected centre; importing squares the frame, forces the knob type,
+  seeds the axis, and **replaces** the base/pointer slots (mutually exclusive). **No renderer change**
+  (it already composites an N-layer stack) → **NOT mirrored in `FilmstripEngine.cs`**; gated behind
+  defaults so the single-source + base/pointer paths and **every prior golden are byte-identical**.
+  Owner-confirmed forks: **both** SVG+PSD in one increment; Svg.Skia + Magick.NET (both permissive,
+  no copyleft/paid); map to the existing **Static/Rotate** only (translate/opacity-ramp deferred to a
+  later renderer increment); **auto-guess by name + manual override**. Deps added: `Svg.Skia` 5.0.0,
+  `Magick.NET-Q8-x64` 14.13.1 (SkiaSharp 3.119.0→**3.119.2** for Svg.Skia's floor — no baseline shift);
+  the win-x64 installer grows ~22 MB (ImageMagick native — accepted Magick.NET cost). **+14 tests**
+  (`LayeredImportServiceTests` 8 SVG+PSD round-trips incl. PSD synthesized via Magick.NET write,
+  `LayeredImportViewModelTests` 4 command/gating/wiring, `LayeredImportRenderTests` 2 — golden
+  `imported_svg_knob_mid` **eyeballed** + pixel-logic), suite **98→112 green**; build 0/0; app boots
+  clean. **Unreleased on `main` (toward 0.9.0); not yet committed.** MVP boundaries (noted in
+  ARCHITECTURE §6.8): top-level groups = layers (no Figma single-root unwrap), PSD file order (no
+  reorder UI), Static/Rotate only. **Next:** the two onboarding items — interactive in-app
+  help/tutorial (P1) and the website `stripkit.pro/getting-started/` guide (P2); plus more code-export
+  targets, website deploy + `updates.json`, code-signing cert, `actions/checkout@v4→v5`.
 - **2026-06-05 (vNext ★ #3, step 2 — auto-pointer extraction; + session handoff)** — Built the
   second of the three layer-aware steps and performed a full handoff. An **"Auto-extract from flat
   knob…"** button (Create-tab layered panel) splits a single FLAT knob image into the base + pointer

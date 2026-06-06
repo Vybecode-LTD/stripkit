@@ -106,7 +106,8 @@ owns a `Window` for the storage pickers).
 | `IFilmstripRenderer` / `SkiaFilmstripRenderer` | **the heart**: `ComputeTransform`, `RenderFrame`, `RenderStrip` (+ private `RenderMeterFrame`). | No |
 | `ContentAnalysis` (static) | `DetectContentCenter` — pixel analysis backing the alignment tools (§7). | No |
 | `PointerExtractor` (static) | `Extract` — splits a flat knob into a base + pointer via the radial-symmetry residual (§6.7). Returns a `PointerExtractionResult` (base, pointer, confidence). | No |
-| `IFilmstripImporter` / `FilmstripImporter` | `Detect` (layout from dimensions), `ExtractFrame`, `Restack`. | No |
+| `ILayeredImportService` / `LayeredImportService` | `Import` — parse a layered `.svg` (Svg.Skia) / `.psd`/`.psb` (Magick.NET) into named, behaviour-tagged, canvas-registered layers (§6.8). Returns a `LayeredImportResult` (`ImportedLayer[]` + canvas size). | No |
+| `IFilmstripImporter` / `FilmstripImporter` | `Detect` (layout from dimensions), `ExtractFrame`, `Restack`, `Resample`. | No |
 | `IManifestService` / `ManifestService` | `BuildSingleControl`, `Serialize`, `SaveAsync`. | No |
 | `ICodeSnippetService` / `CodeSnippetService` | `Generate` / `FileName` / `SaveAsync` — emit JUCE / CSS / iPlug2 / HISE loader code (§9.1). | No |
 | `IBatchProcessor` / `BatchProcessor` | render a folder of sources → many strips off-thread, with progress + cancel (§8). | No |
@@ -465,6 +466,42 @@ asset becomes layered without hand-splitting.
 - **Boundaries.** Pure SkiaSharp + BCL (like `ContentAnalysis`), runs once on load (not per frame),
   knob-only, and **app-only** — it is *not* mirrored into `FilmstripEngine.cs` (which holds only
   render math). A small central residual is inherent when the needle passes through the pivot.
+
+### 6.8 Layered PSD / SVG import (`ILayeredImportService`, ★ #3 step 3)
+
+The final layer-aware step: instead of hand-loading a base + pointer (§6.6) or auto-extracting them
+from flat art (§6.7), import a **real layered source** and let each layer map straight onto the
+renderer's stack. The **"Import layered file (SVG / PSD)…"** button (`ImportLayeredFileCommand`)
+runs `ILayeredImportService.Import(path)` off the UI thread.
+
+- **Parsing (`LayeredImportService`, app-only).** Dispatch by extension:
+  - **`.svg`** — render the whole document once with **Svg.Skia** (MIT, SkiaSharp-native, no Avalonia
+    dep) to fix the canonical canvas box, then for each top-level `<g>` build a standalone SVG (the
+    root + shared `<defs>` + that one group) and rasterize it through the same transform, so the
+    isolated groups register pixel-for-pixel. Names come from `inkscape:label` / `id` / `data-name`;
+    document order = paint order = bottom-first.
+  - **`.psd` / `.psb`** — read layers with **Magick.NET-Q8** (Apache-2.0). ImageMagick returns
+    `[merged composite, layer, layer, …]`; the unlabeled composite is dropped, each named layer's
+    RGBA pixels are blitted onto a full-canvas bitmap at its page offset (so layers register).
+  - Each `ImportedLayer` carries a **name-guessed behaviour** (an indicator-like name —
+    pointer/needle/indicator/tick… — → `Rotate`, else `Static`), a starting guess the user overrides.
+  - The service is **not** mirrored into `FilmstripEngine.cs` (render math only); it's pure
+    SkiaSharp + the two libraries, like `FilmstripImporter` / `PointerExtractor`.
+- **Mapping (the view model).** Each parsed layer becomes an `ImportedLayerRow` (name + an editable
+  `Behavior` + the canvas-sized art) in `ImportedLayers`. When that list is non-empty (`IsImportedKnob`),
+  `BuildSettings` appends one `RenderLayer` per row — every `Rotate` layer pivots about the **shared**
+  detected knob centre (`SourceCenterX/Y`, since all imported layers are the same canvas size) — and
+  `BuildLayerArt` returns the rows' bitmaps. So the **renderer is untouched**: it already composites an
+  N-layer stack (§5.6). Importing **squares the frame to the canvas**, forces the type to knob, seeds the
+  axis from the merged layers' content centre, and **replaces the base/pointer slots** (the two layered
+  modes are mutually exclusive). Re-tagging a row (the per-layer Static/Rotate dropdown) re-renders live.
+- **Gating.** Empty `ImportedLayers` ⇒ nothing changes; the single-source / base-pointer paths and every
+  golden baseline are byte-identical. It's a starting point the user verifies via the preview/scrub
+  (assumes the art is drawn at the minimum / frame-0 position), like the importer and auto-extract.
+
+MVP boundaries: top-level groups are the layers (no deep flattening / Figma single-root unwrap);
+PSD layer order follows the file (no reorder UI); behaviours are limited to the rendered
+`Static`/`Rotate` (translate/opacity-ramp remain a future renderer increment).
 
 ---
 

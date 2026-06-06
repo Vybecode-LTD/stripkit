@@ -152,6 +152,33 @@
                         <TextBlock Classes="label" TextWrapping="Wrap"
                                    Text="Optional. Load a static body and a separate pointer — only the pointer rotates, so the body stays crisp at any resolution. Leave empty to spin the single source image above as before." />
 
+                        <!-- Import a real layered file (SVG/PSD) → N tagged layers (★ #3 step 3) -->
+                        <Button Content="Import layered file (SVG / PSD)…" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                Command="{Binding ImportLayeredFileCommand}" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Drop in a layered knob exported from Illustrator / Inkscape / Figma (.svg) or Photoshop (.psd). Each layer is listed below — set the body layers to Static and the indicator to Rotate. Replaces the manual base/pointer slots." />
+
+                        <StackPanel IsVisible="{Binding HasImportedLayers}" Spacing="2" Margin="0,6,0,0">
+                            <TextBlock Classes="label" Text="{Binding ImportInfo}" TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding ImportedLayers}" Margin="0,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ImportedLayerRow">
+                                        <Grid ColumnDefinitions="*,8,Auto" Margin="0,0,0,4">
+                                            <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center"
+                                                       Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                            <ComboBox Grid.Column="2" MinWidth="98"
+                                                      ItemsSource="{Binding Behaviors}" SelectedItem="{Binding Behavior}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Clear import" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                    Command="{Binding ClearImportedLayersCommand}" />
+                        </StackPanel>
+
+                        <Separator Margin="0,10,0,6" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Text="…or build a layered knob by hand:" />
+
                         <Button Content="Auto-extract from flat knob…" HorizontalAlignment="Stretch" Margin="0,8,0,0"
                                 Command="{Binding AutoExtractPointerCommand}" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
