@@ -30,7 +30,10 @@
 param(
     [ValidateSet('none', 'patch', 'minor', 'major')]
     [string]$Bump = 'patch',
-    [switch]$SkipTests
+    [switch]$SkipTests,
+    # Optional Stage 3: after the release, auto-draft this version's website changelog entry
+    # into <WebsiteRepo>\updates.json (hybrid - refine the copy, then push to auto-deploy).
+    [string]$WebsiteRepo
 )
 
 $ErrorActionPreference = 'Stop'
@@ -216,6 +219,16 @@ Step "Done"
 Write-Host "Pushed v$new. GitHub Actions (auto-release.yml) will now VirusTotal-scan the"
 Write-Host "installer and create the GitHub Release. Watch it with:  gh run watch"
 Write-Host ""
+
+# --- Stage 3: website changelog (optional, hybrid auto-draft) ---------------
+if ($WebsiteRepo) {
+    Step "Stage 3 - drafting the website changelog entry for v$new"
+    & (Join-Path $PSScriptRoot 'Publish-WebsiteChangelog.ps1') -WebsiteRepo $WebsiteRepo -AppChangelog $changelog -Version $new
+    Write-Host ""
+    Write-Host "Website entry DRAFTED (not pushed). Refine the wording, then publish with:" -ForegroundColor Yellow
+    Write-Host "  scripts\Publish-WebsiteChangelog.ps1 -WebsiteRepo `"$WebsiteRepo`" -Version $new -Push" -ForegroundColor Yellow
+}
+
 Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
 Write-Host " REMINDER: add a plain-language entry to the WEBSITE changelog!"   -ForegroundColor Yellow
 Write-Host ""                                                                   -ForegroundColor Yellow

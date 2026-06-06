@@ -183,6 +183,24 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 
 ## Last completed task
 
+- **2026-06-06 (v1.0.0 shipped + reusable website-changelog automation)** — Cut **v1.0.0** (the
+  major release: layered PSD/SVG import + the in-app tutorial + the About fix). Hit two release-tooling
+  snags first, both fixed: signing needed the **Trusted Signing** path (signtool + `Microsoft.Trusted.
+  Signing.Client` dlib; AzureSignTool 403s against Trusted Signing endpoints), and the `.ps1` lost its
+  UTF-8 BOM (PS 5.1 mojibake → parse fail; re-added). Release pipeline ran clean: 125 tests → bump →
+  publish → **sign exe + installer** → Inno → push → CI VirusTotal + `gh release create`. **Live + signed:**
+  `github.com/Vybecode-LTD/stripkit/releases/tag/v1.0.0` (58.3 MB). Then closed the website gap: the app
+  release doesn't touch the **website** repo, so stripkit.pro's changelog only moves on a `updates.json`
+  commit (Railway auto-deploys the `StripKit-Website` repo on push). Added the v1.0.0 entry (live,
+  verified) AND built a **project-agnostic** `scripts/Publish-WebsiteChangelog.ps1` (ASCII-only, no BOM
+  trap): auto-drafts a version's plain-language entry from `docs/CHANGELOG.md` (Added→new/Fixed→fix/
+  else→improved; strips test/build bookkeeping), prepends to a site's `updates.json`, and with `-Push`
+  publishes (→ auto-deploy). **Hybrid:** auto-draft → refine → push. Wired into `Invoke-Release.ps1` as
+  an optional Stage 3 (`-WebsiteRepo <path>`). Reusable on any desktop app + download site (same Azure
+  Trusted Signing profile signs all). Docs: PACKAGING §8.4 (Stage-3 automation + reuse) + §9A (the
+  script-BOM guard), SOURCE_MAP. **Next:** **handoff is overdue** — reconcile all managed docs to 1.0.0
+  (`HANDOFF.md` + `AUDIT-LOG.md` + version headers). Then the standing queue (website P2 getting-started
+  guide, more code-export targets, `actions/checkout@v4→v5`).
 - **2026-06-06 (onboarding P1 — interactive in-app Getting Started tutorial)** — Built the first
   onboarding item after scoping the forks with the owner (all four recommended options taken). A
   re-openable **"Getting Started"** guided overlay (`Views/TutorialOverlay.axaml` + `ViewModels/

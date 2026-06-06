@@ -26,7 +26,10 @@ does each thing live" companion.
   `wizard-small.bmp` (install-wizard art: StripKit brandmark + VybeCode logo).
   `installer/Output/` is the git-ignored ISCC output.
 - `scripts/` — `Invoke-Release.ps1`, the Stage-1 local release driver (test-gate →
-  bump → publish → ISCC → stage `releases/latest/` → commit + tag + push). See `docs/PACKAGING.md`.
+  bump → publish → sign → ISCC → sign → stage `releases/latest/` → commit + tag + push; optional
+  `-WebsiteRepo` runs Stage 3). `Publish-WebsiteChangelog.ps1`, the **project-agnostic** Stage-3
+  tool that auto-drafts a version's `updates.json` entry from `docs/CHANGELOG.md` and (with `-Push`)
+  publishes it to a forward-facing site's repo (auto-deploys). See `docs/PACKAGING.md`.
 - `.github/workflows/` — `ci.yml` (build + test on every push/PR to main, windows-latest,
   .NET 9) + `auto-release.yml` (Stage-2 CI release creator: VirusTotal scan + the sole
   `gh release create`, triggered by a pushed `releases/latest/*.exe`).

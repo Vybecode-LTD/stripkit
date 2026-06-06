@@ -798,11 +798,32 @@ gh release view "vX.Y.Z" --repo Vybecode-LTD/stripkit --json assets --jq '.asset
 ```
 
 ### 8.4 What the website does afterward (Stage 3)
-Nothing to deploy. `Vybecode-LTD/StripKit-Website` (`js/download.js`) reads the
-latest release from the GitHub API and surfaces the new `.exe` download link
-automatically. **Separately**, per `SOFTWARE_RELEASE.md`, add a **plain-language**
-entry to the website's `updates.json` (the user-facing changelog, intentionally
-decoupled from the technical `docs/CHANGELOG.md`).
+The **download link is automatic**: `Vybecode-LTD/StripKit-Website` (`js/download.js`)
+reads the latest release from the GitHub API client-side and surfaces the new `.exe`
+with no deploy. The **changelog** is the one content step — a **plain-language** entry in
+the website's `updates.json` (intentionally decoupled from the technical
+`docs/CHANGELOG.md`), which the host (**Railway**) **auto-deploys on push** to the website repo.
+
+**Automated (hybrid).** `scripts/Publish-WebsiteChangelog.ps1` drafts that entry: it
+extracts the version's section from `docs/CHANGELOG.md` (Added→new, Fixed/Security→fix,
+everything else→improved; build/test bookkeeping stripped), prepends it to the website
+repo's `updates.json`, and — with `-Push` — commits + pushes so Railway redeploys. It's
+wired into the release as an **optional Stage 3**: pass `-WebsiteRepo <path>` to
+`Invoke-Release.ps1` and it auto-drafts after the GitHub release. **Hybrid by design** —
+auto-draft → refine the wording → `-Push`:
+
+```powershell
+# one "release it" that also drafts the website changelog:
+scripts\Invoke-Release.ps1 -Bump minor -WebsiteRepo ..\StripKit-Website
+#   ...refine ..\StripKit-Website\updates.json to taste...
+scripts\Publish-WebsiteChangelog.ps1 -WebsiteRepo ..\StripKit-Website -Version X.Y.Z -Push
+```
+
+**Reuse on another app + site.** `Publish-WebsiteChangelog.ps1` is project-agnostic — it
+only assumes a Keep-a-Changelog `docs/CHANGELOG.md` and a website `updates.json` array
+(`{version,date,summary,changes:[{type,text}]}`) on an auto-deploy host. Copy it into any
+app's `scripts/`, point `-WebsiteRepo` / `-AppChangelog` at that project, and you're done —
+and the same Azure Trusted Signing profile (`trusted-signing-metadata.json`) signs every app.
 
 ---
 
@@ -830,6 +851,13 @@ back corrupted.
 / `>` redirection. PS 5.1 will silently revert to ANSI/UTF-16 and re-break the
 em-dash. (PowerShell 7 defaults to UTF-8, but this script targets 5.1 and must
 not assume the host.)
+
+**Corollary — the `.ps1` files themselves must keep a UTF-8 BOM** (or be pure ASCII).
+`Invoke-Release.ps1` contains non-ASCII (em-dashes, box-drawing); if an editor saves it
+**without** a BOM, `powershell.exe` (5.1) parses it as ANSI → the em-dashes mojibake →
+the script fails to even parse. This recurred once (a no-BOM save broke a release run).
+Keep the BOM on any script with non-ASCII, or keep the script ASCII-only — e.g.
+`Publish-WebsiteChangelog.ps1` is deliberately ASCII-only so its encoding can never bite.
 
 ### 9B. DO NOT REINTRODUCE — pass notes via `--notes-file` and `env:`, never inline
 **Symptom (fixed in `a408bc9`):** an earlier workflow built the release with
