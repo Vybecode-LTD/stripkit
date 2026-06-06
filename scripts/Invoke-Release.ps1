@@ -1,4 +1,4 @@
-#requires -Version 5.1
+﻿#requires -Version 5.1
 <#
 .SYNOPSIS
     StripKit local release driver (Stage 1 of SOFTWARE_RELEASE.md).
@@ -38,15 +38,21 @@ $root = Split-Path -Parent $PSScriptRoot
 $emdash = [char]0x2014
 
 # ── Azure Trusted Signing ─────────────────────────────────────────────────────
-# Endpoint and certificate profile for code signing. Both binaries are signed:
-# StripKit.exe (before packaging) and the installer/uninstaller (via Inno's
-# SignTool= directive during ISCC). Requires:
-#   1. dotnet tool install --global AzureSignTool   (one-time)
-#   2. az login                                      (before each release session)
-#   3. "Trusted Signing Certificate Profile Signer" role on the VybeCode profile
-$atsEndpoint    = 'https://eus.codesigning.azure.net'
-$atsCertProfile = 'VybeCode'
-$atsTimestamp   = 'http://timestamp.acs.microsoft.com'
+# Code signing via Azure Trusted Signing. Uses Windows SDK signtool.exe + the
+# Microsoft.Trusted.Signing.Client NuGet dlib (NOT AzureSignTool, which only
+# supports Key Vault and returns 403 against Trusted Signing endpoints).
+# Both binaries are signed: StripKit.exe (before ISCC) and the installer (after
+# ISCC). Inno's SignTool= directive cannot invoke this command, so signing is
+# done externally in this script.
+#
+# Prerequisites (one-time per machine):
+#   1. Windows SDK installed            (provides signtool.exe)
+#   2. Microsoft.Trusted.Signing.Client (NuGet; provides Azure.CodeSigning.Dlib.dll)
+#   3. trusted-signing-metadata.json    (repo root; checked in — no secrets)
+#   4. az login                         (before each release session)
+#   5. "Trusted Signing Certificate Profile Signer" RBAC role on the profile
+$atsTimestamp = 'http://timestamp.acs.microsoft.com'
+$atsMetadata  = Join-Path $root 'trusted-signing-metadata.json'
 
 $csproj         = Join-Path $root 'src\StripKit\StripKit.csproj'
 $iss            = Join-Path $root 'installer\StripKit.iss'
@@ -61,21 +67,53 @@ function Save-Text($path, $text) {
 
 function Step($msg) { Write-Host "`n=== $msg ===" -ForegroundColor Cyan }
 
-function Invoke-AzureSign([string[]]$Files) {
-    if (-not (Get-Command AzureSignTool -ErrorAction SilentlyContinue)) {
-        throw "AzureSignTool not found. Install it once with:  dotnet tool install --global AzureSignTool"
+function Find-SignTool {
+    # Search Windows SDK installations for signtool.exe (newest SDK version first)
+    $sdkRoot = Join-Path ${env:ProgramFiles(x86)} 'Windows Kits\10\bin'
+    if (Test-Path $sdkRoot) {
+        $found = Get-ChildItem $sdkRoot -Directory |
+            Where-Object { $_.Name -match '^\d+\.' } |
+            Sort-Object { [version]($_.Name) } -Descending |
+            ForEach-Object { Join-Path $_.FullName 'x64\signtool.exe' } |
+            Where-Object { Test-Path $_ } |
+            Select-Object -First 1
+        if ($found) { return $found }
+    }
+    # Fallback: check PATH
+    $cmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+    if ($cmd) { return $cmd.Source }
+    throw "signtool.exe not found. Install the Windows 10/11 SDK (winget install Microsoft.WindowsSDK.10.0.26100)."
+}
+
+function Find-TrustedSigningDlib {
+    # Search the NuGet global-packages folder for the Trusted Signing Client dlib
+    $nugetRoot = Join-Path $env:USERPROFILE '.nuget\packages\microsoft.trusted.signing.client'
+    if (-not (Test-Path $nugetRoot)) {
+        throw "Microsoft.Trusted.Signing.Client NuGet package not found.`nInstall it once — see SOFTWARE_RELEASE_AUTOMATION.md 'Machine setup'."
+    }
+    $found = Get-ChildItem $nugetRoot -Directory |
+        Sort-Object { try { [version]$_.Name } catch { [version]'0.0.0' } } -Descending |
+        ForEach-Object { Join-Path $_.FullName 'bin\x64\Azure.CodeSigning.Dlib.dll' } |
+        Where-Object { Test-Path $_ } |
+        Select-Object -First 1
+    if (-not $found) {
+        throw "Azure.CodeSigning.Dlib.dll not found under $nugetRoot.`nRe-install the Microsoft.Trusted.Signing.Client NuGet package."
+    }
+    return $found
+}
+
+function Invoke-TrustedSign([string[]]$Files) {
+    $signtool = Find-SignTool
+    $dlib     = Find-TrustedSigningDlib
+    if (-not (Test-Path $atsMetadata)) {
+        throw "Metadata file not found: $atsMetadata`nCreate trusted-signing-metadata.json in the repo root with Endpoint, CodeSigningAccountName, and CertificateProfileName."
     }
     foreach ($f in $Files) {
         Write-Host "  Signing: $(Split-Path $f -Leaf)" -ForegroundColor Gray
-        AzureSignTool sign `
-            --azure-key-vault-url       $atsEndpoint `
-            --azure-key-vault-certificate $atsCertProfile `
-            --timestamp-rfc3161         $atsTimestamp `
-            --timestamp-digest          sha256 `
-            --file-digest               sha256 `
-            $f
+        & $signtool sign /v /fd SHA256 /tr $atsTimestamp /td SHA256 `
+            /dlib $dlib /dmdf $atsMetadata $f
         if ($LASTEXITCODE -ne 0) {
-            throw "Signing failed for $f.`n  • Are you logged in?  Run: az login`n  • Does your account have the 'Trusted Signing Certificate Profile Signer' role on the '$atsCertProfile' profile in Azure?"
+            throw "Signing failed for $f.`n  * Are you logged in?  Run: az login`n  * Does your account have the 'Trusted Signing Certificate Profile Signer' role?"
         }
     }
 }
@@ -140,10 +178,10 @@ dotnet publish $csproj -c Release -r win-x64 --self-contained true -o $publishDi
 if ($LASTEXITCODE -ne 0) { throw "Publish failed (version files already bumped to $new - re-run with -Bump none after fixing, or 'git checkout' the version files)." }
 
 # --- Sign the app binary BEFORE packaging -----------------------------------
-# Sign StripKit.exe so the binary inside the installer is signed.
-# The installer + embedded uninstaller are signed by Inno's SignTool= directive.
+# Sign StripKit.exe so the binary inside the installer is already signed.
+# The installer itself is signed AFTER ISCC below (Inno can't invoke Trusted Signing).
 Step "Signing StripKit.exe (Azure Trusted Signing)"
-Invoke-AzureSign @((Join-Path $publishDir 'StripKit.exe'))
+Invoke-TrustedSign @((Join-Path $publishDir 'StripKit.exe'))
 
 # --- Package with Inno Setup ------------------------------------------------
 Step "Packaging installer with Inno Setup"
@@ -151,6 +189,10 @@ Step "Packaging installer with Inno Setup"
 if ($LASTEXITCODE -ne 0) { throw "Inno Setup compile failed." }
 $installer = Join-Path $issOutDir "StripKit-Setup-$new-x64.exe"
 if (-not (Test-Path $installer)) { throw "Expected installer not produced: $installer" }
+
+# --- Sign the installer AFTER packaging ------------------------------------
+Step "Signing installer (Azure Trusted Signing)"
+Invoke-TrustedSign @($installer)
 
 # --- Stage under releases/latest (the CI trigger path) ----------------------
 Step "Staging installer under releases/latest/"
