@@ -5,8 +5,8 @@ using StripKit.Services;
 
 namespace StripKit.ViewModels;
 
-/// <summary>The four screens (tabs), in tab order, that each have their own tutorial.</summary>
-public enum TutorialScreen { Create = 0, Import = 1, Batch = 2, Skin = 3 }
+/// <summary>The screens (tabs), in tab order, that each have their own tutorial.</summary>
+public enum TutorialScreen { Create = 0, Import = 1, Batch = 2, Skin = 3, Generate = 4 }
 
 /// <summary>
 /// The re-openable "Getting Started" guided overlay. Each screen (Create / Import / Batch / Skin)
@@ -29,6 +29,7 @@ public partial class TutorialViewModel : ViewModelBase
             [TutorialScreen.Import] = BuildImportSteps(),
             [TutorialScreen.Batch] = BuildBatchSteps(),
             [TutorialScreen.Skin] = BuildSkinSteps(),
+            [TutorialScreen.Generate] = BuildGenerateSteps(),
         };
         _steps = _byScreen[TutorialScreen.Create];
     }
@@ -65,6 +66,7 @@ public partial class TutorialViewModel : ViewModelBase
         TutorialScreen.Import => "Import",
         TutorialScreen.Batch => "Batch",
         TutorialScreen.Skin => "Skin",
+        TutorialScreen.Generate => "Generate",
         _ => "",
     };
 
@@ -235,6 +237,40 @@ public partial class TutorialViewModel : ViewModelBase
             Body = "Set the skin name, author, design resolution, and window background, then “Export "
                  + "skin.json…” writes the combined manifest to a folder — ready for your loader.",
             Tip = "Pairs perfectly with the Create tab's code export for a complete, wired skin.",
+        },
+    ];
+
+    private static IReadOnlyList<TutorialStep> BuildGenerateSteps() =>
+    [
+        new TutorialStep
+        {
+            Title = "Generate · AI knob art from a prompt",
+            Body = "No source image? The Generate tab uses your own OpenAI, Gemini, or Claude API key "
+                 + "to draw a layered knob SVG — a static body plus a separate rotating pointer — ready "
+                 + "to animate. You bring the key; the art is generated on demand.",
+            Tip = "Your API key is encrypted with your Windows account and never leaves this PC except to call the provider you choose.",
+        },
+        new TutorialStep
+        {
+            Title = "1 · Pick a provider & paste your key",
+            Body = "Choose a provider, paste the matching API key, and click Save key (it's stored "
+                 + "encrypted for next time). Optionally pin a specific model — otherwise a sensible "
+                 + "default is used.",
+        },
+        new TutorialStep
+        {
+            Title = "2 · Describe it & Generate",
+            Body = "Pick a style, accent colour, and add any extra direction (\"amber LED, knurled "
+                 + "edge\"). Click Generate; each click is a fresh take, so Regenerate until you like "
+                 + "it. The preview is the real imported result, so what you see will import cleanly.",
+        },
+        new TutorialStep
+        {
+            Title = "3 · Use in Create",
+            Body = "Click “Use in Create” to send the knob to the Create tab as a layered import — only "
+                 + "the pointer rotates — then set the frame count and Export the filmstrip. Or Save the "
+                 + "SVG to disk to reuse anywhere.",
+            Tip = "Generated art is clean modern vector — great for synth-style controls.",
         },
     ];
 }

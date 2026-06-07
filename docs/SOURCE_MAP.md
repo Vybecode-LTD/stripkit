@@ -39,8 +39,10 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (123): renderer golden-image (with committed
-  `baselines/`), `ContentAnalysis` + alignment render, pointer extraction
+- `tests/StripKit.Tests/` — xUnit tests (152): renderer golden-image (with committed
+  `baselines/`), the Generate-tab pipeline (`SvgSanitizerTests`, `SecretStoreTests`,
+  `AssetGenerationProviderTests` via a fake HTTP handler, `AssetGenerationServiceTests`,
+  `GenerateViewModelTests`, `GenerateViewTests`), `ContentAnalysis` + alignment render, pointer extraction
   (`PointerExtractorTests`), layered-import service + VM + render
   (`LayeredImportServiceTests` / `LayeredImportViewModelTests` / `LayeredImportRenderTests`),
   onboarding (`TutorialViewModelTests` / `SettingsServiceTests`), view-model load-path, importer
@@ -80,8 +82,11 @@ does each thing live" companion.
 - `RenderLayer.cs` — `LayerBehavior` enum (`Static` / `Rotate`) + `RenderLayer` (behaviour +
   a normalized per-layer pivot): the ordered layer stack for a layered knob (`FilmstripSettings.Layers`).
   Skia-free; the layer's bitmap is passed alongside to the renderer.
-- `AppSettings.cs` — the persisted preferences (currently just `HasSeenTutorial`); the app's only
-  saved state, serialized by `SettingsService`.
+- `AppSettings.cs` — the persisted preferences (`HasSeenTutorial`; plus the Generate tab's
+  last-used `GenerateProvider` + per-provider model overrides), serialized by `SettingsService`.
+  API keys are **not** here — they live encrypted in the secret store.
+- `GenerationModels.cs` — the Generate-tab data: `AiProvider` enum (Claude/OpenAI/Gemini),
+  `GenerationStyle` enum, and the `GenerationRequest` / `GenerationResult` records. No deps.
 - `TutorialStep.cs` — one Getting Started step (title, body, optional tip, offers-sample flag).
 
 ### `Services/` — the engine and I/O
@@ -104,8 +109,8 @@ does each thing live" companion.
   `FilmstripEngine.cs`). The interface file holds the `ImportedLayer` / `LayeredImportResult` DTOs.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / open-layered (SVG/PSD) /
-  save-PNG / open-folder pickers via Avalonia `StorageProvider`. The concrete class holds the
-  `Owner` window, set in `App.axaml.cs` after the window is created.
+  save-PNG / **save-SVG** / open-folder pickers via Avalonia `StorageProvider`. The concrete class
+  holds the `Owner` window, set in `App.axaml.cs` after the window is created.
 - `ISettingsService.cs` / `SettingsService.cs` — load/save the small `AppSettings` JSON
   (`%APPDATA%/StripKit/settings.json`); the app's only persisted state (the first-run "seen
   tutorial" flag). Best-effort; constructor-injectable path for tests. No Avalonia dependency.
@@ -125,6 +130,22 @@ does each thing live" companion.
 - `IBatchProcessor.cs` / `BatchProcessor.cs` — render a folder of sources into many
   strips off the UI thread (`Task.Run`), with per-item progress and between-item
   cancellation; isolates per-file failures. No Avalonia dependency.
+- `IAssetGenerationService.cs` / `AssetGenerationService.cs` — the **Generate tab** orchestrator:
+  builds the StripKit-aware SVG prompt (square canvas, ~10% margin, `body`+`pointer` groups,
+  pointer at 12 o'clock), dispatches to the chosen provider, then extracts + sanitizes the SVG and
+  returns a `GenerationResult`. Networked + non-deterministic (unlike the rest); app-only, not in
+  `FilmstripEngine.cs`.
+- `IAssetGenerationProvider.cs` (+ `GenerationException` + `HttpAssetGenerationProvider` base) and
+  `ClaudeProvider.cs` / `OpenAiProvider.cs` / `GeminiProvider.cs` — one provider per AI service
+  (Anthropic Messages / OpenAI Chat Completions / Gemini generateContent), each with its own URL,
+  per-request auth header, request body, and response parse; non-2xx → a friendly `GenerationException`.
+  Share one DI-singleton `HttpClient`.
+- `SvgSanitizer.cs` — static: carves the `<svg>…</svg>` out of a chatty/fenced model reply and strips
+  anything active or external (script / event handlers / `<image>` / `<foreignObject>` / off-document
+  `href`) before it reaches the renderer. Pure (`System.Xml.Linq`), no Skia.
+- `ISecretStore.cs` / `DpapiSecretStore.cs` — per-provider API-key storage encrypted at rest via
+  Windows **DPAPI** (`ProtectedData`, CurrentUser) → `%APPDATA%/StripKit/secrets.dat` (ciphertext;
+  base64 fallback off-Windows for dev/test). Constructor-injectable path for tests.
 
 ### `Helpers/`
 
@@ -141,7 +162,9 @@ does each thing live" companion.
   bound properties to a `FilmstripSettings` (and appends the layered-knob `Layers`;
   `BuildLayerArt()` supplies the matching base/pointer bitmaps). See the
   `live-preview-render-loop` skill — this view model is a worked example of that pattern.
-  Exposes `Importer`, `Batch`, and `Skin` (the Import, Batch, and Skin tab view models).
+  Exposes `Importer`, `Batch`, `Skin`, and `Generate` (the other tabs' view models); wires the
+  Generate tab's `UseInCreateRequested` event to jump to Create and import the generated SVG
+  (`ImportLayeredFromPathAsync`, shared with the file picker).
 - `ImporterViewModel.cs` — backs the **Import** tab: load an existing strip, run
   detection, scrub the detected frames, and extract / re-stack. Same preview-funnel
   pattern; holds no Avalonia UI types beyond the preview bitmap.
@@ -155,16 +178,22 @@ does each thing live" companion.
   bind to; mapped to the immutable `ManifestControl` record on export.
 - `ImportedLayerRow.cs` — the observable per-layer row for an imported SVG/PSD (name + editable
   Static/Rotate `Behavior` + the canvas-sized art); drives the Create-tab import list (§6.8).
+- `GenerateViewModel.cs` — backs the **Generate** tab: provider/model/key/style state, the async
+  cancellable Generate command, preview via `ILayeredImportService.Import` (which also validates the
+  layered structure), Save/Copy SVG, and the `UseInCreateRequested` handoff event. Persists the
+  provider/model prefs (`ISettingsService`) and the key (`ISecretStore`). No Avalonia UI types beyond
+  the preview bitmap.
 - `TutorialViewModel.cs` — backs the Getting Started overlay: the step list, navigation
   (Next/Back/Skip), first-run auto-open via `ISettingsService`, and the `LoadSampleRequested`
   event the host VM wires to the bundled sample knob. No Avalonia UI types.
 
 ### `Views/`
 
-- `MainWindow.axaml` — the UI, a `TabControl` with four tabs: **Create** (settings
+- `MainWindow.axaml` — the UI, a `TabControl` with five tabs: **Create** (settings
   panel + preview/scrub/play/export), **Import** (hosts `ImporterView`, bound to
-  `MainWindowViewModel.Importer`), **Batch** (hosts `BatchView`, bound to `.Batch`), and
-  **Skin** (hosts `SkinView`, bound to `.Skin`). Compiled bindings.
+  `MainWindowViewModel.Importer`), **Batch** (hosts `BatchView`, bound to `.Batch`),
+  **Skin** (hosts `SkinView`, bound to `.Skin`), and **Generate** (hosts `GenerateView`, bound to
+  `.Generate`). Compiled bindings.
 - `MainWindow.axaml.cs` — minimal code-behind: the view-side auto-play
   `DispatcherTimer`, plus the Create preview's file drag-and-drop handlers (scoped
   to its drop border so they don't collide with the other tabs).
@@ -177,6 +206,10 @@ does each thing live" companion.
 - `SkinView.axaml(.cs)` — the Skin tab's `UserControl` (`x:DataType` = `SkinViewModel`): skin
   metadata + controls list (left), a per-control detail editor + Export skin.json (right).
   Markup-only code-behind.
+- `GenerateView.axaml(.cs)` — the Generate tab's `UserControl` (`x:DataType` = `GenerateViewModel`):
+  provider/key/model + style/accent/size + Generate/Cancel (left), the SVG preview + status +
+  Use-in-Create / Save / Copy + a raw-response expander (right). Code-behind holds only the
+  clipboard copy (a top-level concern), like the Create tab's snippet copy.
 - `TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (`x:DataType` =
   `TutorialViewModel`): a non-blocking bottom-centre glass card over a click-through scrim,
   hosted as the top layer of `MainWindow`'s root `Panel`. Markup-only code-behind.

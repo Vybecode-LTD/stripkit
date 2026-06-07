@@ -30,6 +30,9 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
   SkiaSharp 3.119.2.
 - Layered-source import (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) + **Magick.NET-Q8-x64**
   14.13.1 (Apache-2.0, PSD/PSB layers). Both permissive; not in `FilmstripEngine.cs`.
+- AI SVG generation (Generate tab, app-only): OpenAI / Gemini / Claude via their text APIs over a
+  shared `HttpClient`; user API keys encrypted at rest with **System.Security.Cryptography.ProtectedData**
+  9.0.0 (Windows DPAPI). Not in `FilmstripEngine.cs`.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`).
@@ -73,9 +76,10 @@ heuristic FPs until a code-signing cert is added).
 Every render is: *for each of N frames, place the source art inside a fixed frame
 cell under a per-frame transform, then stack the cells into one PNG.* The four
 component types are knob, vertical fader, horizontal slider, and **meter**
-(progressive segment fill). The app is a `TabControl` with **four** tabs — **Create**
+(progressive segment fill). The app is a `TabControl` with **five** tabs — **Create**
 (make a strip), **Import** (re-use / re-slice / resample one), **Batch** (a whole folder at
-once), and **Skin** (assemble a multi-control `skin.json`).
+once), **Skin** (assemble a multi-control `skin.json`), and **Generate** (AI-generate a layered
+knob SVG from your own OpenAI / Gemini / Claude key, then hand it to Create).
 
 - `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract),
   `FrameTransform`, `StripDetection` (importer output),
@@ -105,6 +109,11 @@ once), and **Skin** (assemble a multi-control `skin.json`).
   iPlug2 / HISE) for an exported strip; pure string-gen mirroring `ManifestService`.
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
   UI thread (`Task.Run`), with per-item progress and a working cancel.
+- `Services/AssetGenerationService.cs` (+ `IAssetGenerationProvider` → `ClaudeProvider` /
+  `OpenAiProvider` / `GeminiProvider`, `SvgSanitizer`, `ISecretStore`/`DpapiSecretStore`) — the
+  **Generate** tab: build a StripKit-aware SVG prompt → call the user's chosen AI over a shared
+  `HttpClient` → sanitize the reply to a clean **layered** SVG (`body`+`pointer` groups) → feed the
+  existing layered-import pipeline. Keys DPAPI-encrypted. App-only; not in `FilmstripEngine.cs`.
 - `Services/ImageLoadService.cs` / `ExportService.cs` — decode/encode PNG ↔ `SKBitmap`.
 - `Services/FileDialogService.cs` — open/save/open-layered pickers (app-layer; holds the Window).
 - `Services/SettingsService.cs` — persist `AppSettings` (the first-run "seen tutorial" flag) to
@@ -114,15 +123,21 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 - `ViewModels/MainWindowViewModel.cs` — Create-tab state + commands; a single
   `OnPropertyChanged` funnel refreshes the preview. Holds the layered-knob Base/Pointer slots +
   the auto-extract command + the **layered SVG/PSD import** (an `ImportedLayers` row list with
-  per-layer Static/Rotate dropdowns; `ImportedLayerRow`). Exposes `Importer`, `Batch`, and `Skin`.
+  per-layer Static/Rotate dropdowns; `ImportedLayerRow`). Exposes `Importer`, `Batch`, `Skin`, and
+  `Generate`; `ImportLayeredFromPathAsync` is shared by the layered file picker and the Generate
+  tab's "Use in Create" handoff.
 - `ViewModels/ImporterViewModel.cs` — Import-tab state + commands (detect / scrub / extract /
   re-stack / resample; same funnel).
 - `ViewModels/BatchViewModel.cs` — Batch-tab state + commands (folders, template incl. the meter
   settings + layered/backdrop toggle, run/cancel, progress); no preview funnel.
 - `ViewModels/SkinViewModel.cs` (+ `SkinControlEntry.cs`) — Skin-tab state + commands: a
   multi-control `skin.json` builder (controls list, add-from-strip / blank, detail editor, export).
+- `ViewModels/GenerateViewModel.cs` — Generate-tab state + commands: provider/model/key/style,
+  the async cancellable generate, preview-by-importing (validates the layered SVG), Save/Copy SVG,
+  and the `UseInCreateRequested` handoff. Persists provider/model prefs + the encrypted key.
 - `ViewModels/TutorialViewModel.cs` — the Getting Started overlay: step list + navigation +
   first-run auto-open (via `ISettingsService`) + the `LoadSampleRequested` event (sample knob).
+  Now also has a **Generate** walkthrough (`TutorialScreen.Generate`).
 - `Views/MainWindow.axaml(.cs)` — the `TabControl` (+ header "Getting started" button + the
   `TutorialOverlay` as the top layer); code-behind holds the auto-play timer + the Create
   preview's drag-drop handlers.
@@ -132,6 +147,9 @@ once), and **Skin** (assemble a multi-control `skin.json`).
   Run/Cancel, progress bar, results).
 - `Views/SkinView.axaml(.cs)` — the Skin tab UserControl (skin metadata + controls list;
   per-control detail editor + Export skin.json).
+- `Views/GenerateView.axaml(.cs)` — the Generate tab UserControl (provider/key/model + style/accent/
+  size + Generate/Cancel on the left; SVG preview + Use-in-Create / Save / Copy + raw-response
+  expander on the right). Code-behind: clipboard copy only.
 - Repo-root `FilmstripEngine.cs` — standalone portable copy of the renderer (NOT in
   the build); keep in sync with `SkiaFilmstripRenderer` if the math changes.
 
@@ -183,6 +201,35 @@ once), and **Skin** (assemble a multi-control `skin.json`).
 
 ## Last completed task
 
+- **2026-06-07 (Generate tab — AI-generated SVG control art)** — Built a new **fifth tab** that uses
+  the user's **own** OpenAI / Gemini / Claude API key to generate a **layered knob SVG** (a static
+  `<g id="body">` + a separate `<g id="pointer">`) as filmstrip source art — "exactly like the
+  starter knob," but generated. Scoped the forks with the owner first (all four recommended taken):
+  **all three providers** behind one interface, **layered** body+pointer SVG, **DPAPI-encrypted**
+  keys, **knob-first**. The key insight: a generated SVG drops straight into the **existing**
+  `LayeredImportService` → renderer layer stack, so **no renderer change** and **nothing mirrored
+  into `FilmstripEngine.cs`**. New app-only pieces: `IAssetGenerationService`/`AssetGenerationService`
+  (builds the StripKit-aware prompt — square canvas, ~10% rotation margin, body+pointer groups,
+  pointer at 12 o'clock — then dispatches + sanitizes); `IAssetGenerationProvider` + `ClaudeProvider`
+  (Messages) / `OpenAiProvider` (Chat Completions) / `GeminiProvider` (generateContent) over a shared
+  DI `HttpClient`, each with friendly non-2xx errors; `SvgSanitizer` (carves the `<svg>` out of a
+  chatty/fenced reply, strips script/`<image>`/`<foreignObject>`/event-handlers/off-document href —
+  pure `System.Xml.Linq`); `ISecretStore`/`DpapiSecretStore` (per-provider keys encrypted at rest via
+  Windows DPAPI → `%APPDATA%/StripKit/secrets.dat`, ciphertext only). `GenerateViewModel` +
+  `GenerateView` (Obsidian-styled, mirrors Create/Skin) **validate by importing the SVG** — the
+  preview is the real imported result, so what you see imports — then **"Use in Create"** jumps to
+  Create and runs the shared `ImportLayeredFromPathAsync`; **Save SVG** / **Copy SVG** too. New dep:
+  `System.Security.Cryptography.ProtectedData` 9.0.0. DI: providers + service + secret store as
+  singletons (+ the `HttpClient`), `GenerateViewModel` transient; a **Generate** tutorial walkthrough
+  added. **+27 tests (SvgSanitizer, SecretStore round-trip, the 3 providers via a fake
+  `HttpMessageHandler`, the service incl. chatty-reply→importable-SVG, the VM, + a headless
+  `GenerateView` realization), suite 125→152 green; build 0/0; app boots clean (full DI graph
+  resolves).** **Unreleased on the working tree (toward 1.1.0); not yet committed.** Forks left for
+  later: faders/sliders/meters generation (linear; layered path is knob-only today), and the **final
+  visual polish is best eyeballed on the GUI** (compiled bindings type-checked + headless-realized,
+  like prior Obsidian sign-offs). **Next:** owner to add real API keys and try a live generation;
+  then handoff (HANDOFF/AUDIT-LOG + version headers) when ready, plus the standing queue (website P2
+  getting-started guide, more code-export targets, `actions/checkout@v4→v5`).
 - **2026-06-06 (v1.0.0 shipped + reusable website-changelog automation)** — Cut **v1.0.0** (the
   major release: layered PSD/SVG import + the in-app tutorial + the About fix). Hit two release-tooling
   snags first, both fixed: signing needed the **Trusted Signing** path (signtool + `Microsoft.Trusted.

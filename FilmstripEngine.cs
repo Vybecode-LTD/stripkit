@@ -237,13 +237,14 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         {
             case ComponentType.RotaryKnob:
             {
-                // The art keeps its natural (aspect-fit, rectangle-centred) position — it is
-                // NOT moved. We only rotate about its content centre (SourceCenterX/Y within
-                // the art) so an off-centre knob spins in place. (0.5, 0.5) pivots at the
-                // frame centre = the classic behaviour.
+                // Position the art so its content centre (SourceCenterX/Y within the art) lands
+                // on the frame centre — an off-centre knob is genuinely centred, not just spun in
+                // place. At (0.5, 0.5) this equals the classic rectangle-centred placement, so
+                // output is byte-identical; only off-centre sources move. We then pivot on that
+                // same point (= the frame centre).
                 var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
-                float drawX = (fw - drawW) / 2f;
-                float drawY = (fh - drawH) / 2f;
+                float drawX = fw / 2f - (float)settings.SourceCenterX * drawW;
+                float drawY = fh / 2f - (float)settings.SourceCenterY * drawH;
 
                 double angle = settings.StartAngleDegrees
                              + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t;

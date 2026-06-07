@@ -16,7 +16,9 @@ StripKit turns a single transparent PNG into an animated **control filmstrip**
 sliders, and **meters** — and the reverse: it **imports** an existing strip, detects
 its layout, and extracts/re-stacks it. It can also emit a **`skin.json` manifest**
 that binds a strip to a plugin parameter for a data-driven skinning engine / JUCE
-`LookAndFeel`, and it can render a **whole folder** of sources in one batch run.
+`LookAndFeel`, and it can render a **whole folder** of sources in one batch run. When you have no
+source art at all, it can **generate** one with your own OpenAI / Gemini / Claude key — a layered
+knob SVG that flows straight into the same pipeline (§11).
 
 The output PNG is consumed by a filmstrip loader that shows **one frame per parameter
 value** (frame 0 = minimum, frame N−1 = maximum).
@@ -113,9 +115,13 @@ owns a `Window` for the storage pickers).
 | `IBatchProcessor` / `BatchProcessor` | render a folder of sources → many strips off-thread, with progress + cancel (§8). | No |
 | `IImageLoadService` / `ImageLoadService` | decode a file → `SKBitmap` (premultiplied RGBA); returns null on a missing/undecodable file. | No |
 | `IExportService` / `ExportService` | encode an `SKBitmap` → PNG file (creates the directory). | No |
-| `IFileDialogService` / `FileDialogService` | open-image / save-PNG / open-folder / open-layered pickers via `IStorageProvider`. Holds the `Owner` window. | **Yes** |
-| `ISettingsService` / `SettingsService` | load/save the small `AppSettings` JSON (`%APPDATA%/StripKit/settings.json`) — currently the first-run "seen tutorial" flag. Best-effort (defaults on missing/corrupt). | No |
+| `IFileDialogService` / `FileDialogService` | open-image / save-PNG / save-SVG / open-folder / open-layered pickers via `IStorageProvider`. Holds the `Owner` window. | **Yes** |
+| `ISettingsService` / `SettingsService` | load/save the small `AppSettings` JSON (`%APPDATA%/StripKit/settings.json`) — the first-run "seen tutorial" flag + the Generate tab's last provider/model prefs. Best-effort (defaults on missing/corrupt). | No |
 | `IAssetService` / `AssetService` | extract a bundled avares asset (the tutorial's sample knob) to a temp file path. | **Yes** |
+| `IAssetGenerationService` / `AssetGenerationService` | the **Generate** tab orchestrator (§11): build the prompt → dispatch → sanitize → `GenerationResult`. Networked. | No |
+| `IAssetGenerationProvider` + `ClaudeProvider` / `OpenAiProvider` / `GeminiProvider` | one AI service each (URL + auth + body + parse), over a shared `HttpClient`; non-2xx → `GenerationException` (§11). | No |
+| `SvgSanitizer` (static) | carve the `<svg>` out of a chatty reply + strip script / `<image>` / `<foreignObject>` / `on*` / off-document `href` (§11). | No |
+| `ISecretStore` / `DpapiSecretStore` | per-provider API keys encrypted at rest via Windows DPAPI → `%APPDATA%/StripKit/secrets.dat` (§11). | No |
 
 ### 3.3 `Helpers/`
 
@@ -134,14 +140,17 @@ A small artistic flourish used throughout the sidebars.
 ### 3.5 `ViewModels/`
 
 - `ViewModelBase` — `ObservableObject` base; never references Avalonia UI types.
-- `MainWindowViewModel` — the **Create** tab (§6). Exposes `Importer`, `Batch`, and `Skin`.
+- `MainWindowViewModel` — the **Create** tab (§6). Exposes `Importer`, `Batch`, `Skin`, and `Generate`.
 - `ImporterViewModel` — the **Import** tab (§5.7 cross-ref / detailed in §10).
 - `BatchViewModel` — the **Batch** tab (§8). No preview funnel; runs off-thread.
 - `SkinViewModel` (+ `SkinControlEntry`) — the **Skin** tab (§9.2): a multi-control
   `skin.json` builder. `SkinControlEntry` is the mutable, observable per-control row the list
   and detail editor bind to (mapped to the immutable `ManifestControl` record on export).
+- `GenerateViewModel` — the **Generate** tab (§11): provider/key/model + the async cancellable
+  generate, preview-by-importing, and the `UseInCreateRequested` handoff to Create.
+- `TutorialViewModel` — the Getting Started overlay (§6.9); a per-screen walkthrough incl. Generate.
 
-All three are `partial` (CommunityToolkit source generators require it) and use
+All are `partial` (CommunityToolkit source generators require it) and use
 `[ObservableProperty]` / `[RelayCommand]`. The only Avalonia reference is
 `using AvBitmap = Avalonia.Media.Imaging.Bitmap;` for the preview image — a **media**
 type, not a control/visual. Logic, files, and domain state stay out of code-behind.
@@ -149,9 +158,9 @@ type, not a control/visual. Logic, files, and domain state stay out of code-behi
 ### 3.6 `Views/`
 
 - `MainWindow.axaml(.cs)` — a `TabControl` with **Create** (inline), **Import** (hosts
-  `ImporterView`), **Batch** (hosts `BatchView`), and **Skin** (hosts `SkinView`). Code-behind
-  holds the auto-play `DispatcherTimer`, the Create preview's drag-drop handlers, the alignment
-  crosshair drag (§7.3), and the About-flyout link handler.
+  `ImporterView`), **Batch** (hosts `BatchView`), **Skin** (hosts `SkinView`), and **Generate**
+  (hosts `GenerateView`). Code-behind holds the auto-play `DispatcherTimer`, the Create preview's
+  drag-drop handlers, the alignment crosshair drag (§7.3), and the About-flyout link handler.
 - `ImporterView.axaml(.cs)` — the Import tab `UserControl` (`x:DataType` =
   `ImporterViewModel`) + its own drag-drop handlers.
 - `BatchView.axaml(.cs)` — the Batch tab `UserControl` (`x:DataType` =
@@ -159,6 +168,9 @@ type, not a control/visual. Logic, files, and domain state stay out of code-behi
 - `SkinView.axaml(.cs)` — the Skin tab `UserControl` (`x:DataType` = `SkinViewModel`): the
   skin metadata fields + controls list on the left, a per-control detail editor + export on
   the right; markup-only code-behind.
+- `GenerateView.axaml(.cs)` — the Generate tab `UserControl` (`x:DataType` = `GenerateViewModel`):
+  provider/key/model + style/accent/size on the left, the SVG preview + Use-in-Create / Save / Copy
+  + raw-response expander on the right. Code-behind: clipboard copy only.
 
 All bindings are compiled (`x:DataType` on every view; `AvaloniaUseCompiledBindingsByDefault`).
 
@@ -753,16 +765,57 @@ re-stack toggles to the opposite orientation and runs off-thread (`Task.Run`).
 
 ### 10.4 Hosting (the TabControl)
 
-`MainWindow.axaml` is a `TabControl` (**Create** | **Import** | **Batch** | **Skin**). The
-Create content is inline (bound to the window's `MainWindowViewModel`). The other three tabs
-host `<views:ImporterView DataContext="{Binding Importer}"/>`,
-`<views:BatchView DataContext="{Binding Batch}"/>`, and
-`<views:SkinView DataContext="{Binding Skin}"/>` — `Importer`/`Batch`/`Skin` are the child VMs
-exposed by `MainWindowViewModel` and resolved via DI.
+`MainWindow.axaml` is a `TabControl` (**Create** | **Import** | **Batch** | **Skin** |
+**Generate**). The Create content is inline (bound to the window's `MainWindowViewModel`). The other
+four tabs host `<views:ImporterView DataContext="{Binding Importer}"/>`,
+`<views:BatchView DataContext="{Binding Batch}"/>`, `<views:SkinView DataContext="{Binding Skin}"/>`,
+and `<views:GenerateView DataContext="{Binding Generate}"/>` — `Importer`/`Batch`/`Skin`/`Generate`
+are the child VMs exposed by `MainWindowViewModel` and resolved via DI (see §11 for Generate).
 
 ---
 
-## 11. Drag-and-drop (the `avalonia-drag-drop-files` pattern)
+## 11. The Generate tab (`GenerateViewModel` + `AssetGenerationService`)
+
+The newest tab **generates** source art instead of importing it: it uses the **user's own** OpenAI /
+Gemini / Claude API key to produce a **layered knob SVG**, which feeds the *same* layered-import
+pipeline as §6.8 — so there is **no renderer change** and nothing is mirrored into
+`FilmstripEngine.cs`. It is also the only **networked, non-deterministic** part of the app, so it
+brings the first secret (an API key) and the first HTTP I/O.
+
+**Flow.** `GenerateViewModel.GenerateAsync` → `IAssetGenerationService.GenerateAsync(request,
+provider, key, model, ct)`:
+
+1. **Prompt.** `AssetGenerationService` builds a StripKit-aware prompt — a square `viewBox`, ~10%
+   transparent rotation margin, a static `<g id="body">` plus a separate `<g id="pointer">` drawn at
+   **12 o'clock**. (The renderer applies the start→end sweep to the pointer, so a 12-o'clock rest
+   pose with the default −135…+135° lands frame 0 at 7 o'clock as usual — §15 invariants.) The group
+   names match the importer's Rotate hints, so the import auto-tags `pointer`→Rotate, `body`→Static.
+2. **Dispatch.** It calls the chosen **`IAssetGenerationProvider`** — `ClaudeProvider` (Messages API,
+   `x-api-key`), `OpenAiProvider` (Chat Completions, Bearer), or `GeminiProvider` (generateContent,
+   `x-goog-api-key`) — over a shared DI `HttpClient`. The `HttpAssetGenerationProvider` base turns any
+   non-2xx / transport fault into a friendly `GenerationException` carrying the API's own
+   `error.message`.
+3. **Sanitize.** `SvgSanitizer.TryClean` carves the `<svg>…</svg>` out of the (often fenced/chatty)
+   reply, parses it, and strips anything active or external — `<script>`, `<image>`,
+   `<foreignObject>`, `on*` handlers, and any `href` that isn't a local `#id`. Pure
+   `System.Xml.Linq`; Svg.Skia (via the importer) is the final validator.
+
+**Preview = validation.** The VM writes the SVG to a temp file and runs it through the *real*
+`ILayeredImportService.Import`; the preview is the flattened import, so a visible preview
+**guarantees** the Create tab can import it. **"Use in Create"** raises `UseInCreateRequested(path)`;
+the host VM switches to the Create tab and calls the shared `ImportLayeredFromPathAsync` (§6.8).
+**Save SVG** / **Copy SVG** persist it for reuse anywhere.
+
+**Keys & persistence.** `ISecretStore`/`DpapiSecretStore` encrypts each provider's key at rest with
+Windows DPAPI (`ProtectedData`, CurrentUser) in `%APPDATA%/StripKit/secrets.dat` — ciphertext only
+(a base64 passthrough off-Windows keeps dev/test round-tripping). The last-used provider + a
+per-provider model override persist in `AppSettings` (never the key). DI: the providers, the service,
+and the secret store are singletons (with the `HttpClient`); `GenerateViewModel` is transient. **v1
+is knob-only** (the layered path is knob-only); faders/sliders/meters are future work.
+
+---
+
+## 12. Drag-and-drop (the `avalonia-drag-drop-files` pattern)
 
 A drop target is inert until (1) `DragDrop.AllowDrop="True"` (set in XAML on the preview
 `Border` of each tab) and (2) `DragOver` sets `e.DragEffects` — **skip DragOver and `Drop`
@@ -777,7 +830,7 @@ folders).
 
 ---
 
-## 12. Threading model
+## 13. Threading model
 
 - **Rendering / re-stacking** (CPU-bound, pure) runs **off the UI thread** via `Task.Run`
   in the export/restack commands; the `await` resumes on the UI context to update
@@ -795,7 +848,7 @@ folders).
 
 ---
 
-## 13. SkiaSharp ↔ Avalonia interop
+## 14. SkiaSharp ↔ Avalonia interop
 
 The engine works entirely in `SKBitmap` (premultiplied `Rgba8888`). Loading uses
 `SKBitmap.Decode` (premultiplied RGBA by default — exactly the layout the renderer
@@ -806,7 +859,7 @@ and `Stretch="Uniform"`.
 
 ---
 
-## 14. The standalone engine (`FilmstripEngine.cs`)
+## 15. The standalone engine (`FilmstripEngine.cs`)
 
 The repo-root `FilmstripEngine.cs` is a **single-file, copy-paste-portable** copy of the
 core renderer in namespace `StripKit.Engine`, with only a SkiaSharp dependency. **It is
@@ -835,7 +888,7 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 
 ---
 
-## 15. Conventions & invariants (do not break)
+## 16. Conventions & invariants (do not break)
 
 - **Filmstrip:** frames stack **vertically** by default; frame 0 = min, frame N−1 = max.
   Rotary angle for frame i = `Start + (End − Start)·i/(N−1)` (the `(N−1)` divisor is
@@ -868,7 +921,7 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 
 ---
 
-## 16. Data-flow walkthroughs
+## 17. Data-flow walkthroughs
 
 **Export (Create):** adjust settings → funnel recomputes derived values + re-renders the
 (continuous, ≥1024-step, display-sized) preview → click Export → `SavePngAsync` path →
@@ -891,7 +944,7 @@ items → result summary.
 
 ---
 
-## 17. Tests (`tests/StripKit.Tests`)
+## 18. Tests (`tests/StripKit.Tests`)
 
 xUnit + NSubstitute + FluentAssertions + `Avalonia.Headless`. Coverage spans: golden-image
 renderer baselines (`RendererGoldenTests`), alignment renders (`AlignmentRenderTests`),
@@ -911,7 +964,7 @@ See `docs/TESTING.md` for the methodology and the current count.
 
 ---
 
-## 18. Extension points
+## 19. Extension points
 
 - The **manifest** model already supports multi-control skins, per-control/window
   backgrounds, and value ranges — surface them when a multi-asset workflow lands.

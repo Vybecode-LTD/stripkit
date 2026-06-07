@@ -419,6 +419,10 @@
             <views:SkinView DataContext="{Binding Skin}" />
         </TabItem>
 
+        <TabItem Header="Generate">
+            <views:GenerateView DataContext="{Binding Generate}" />
+        </TabItem>
+
         </TabControl>
 
         <!-- Header right side: app wordmark + a Help button + an About (?) button, across from the tabs. -->

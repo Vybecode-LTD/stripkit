@@ -50,7 +50,7 @@ public class LayeredImportViewModelTests
             Path.Combine(Path.GetTempPath(), $"stripkit_test_settings_{Guid.NewGuid():N}.json")));
         var vm = new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
                                          new CodeSnippetService(), new LayeredImportService(), Substitute.For<IAssetService>(),
-                                         importer, batch, skin, tutorial);
+                                         importer, batch, skin, tutorial, TestFakes.GenerateVm());
         return (vm, dialogs, renderer, load);
     }
 

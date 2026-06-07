@@ -26,6 +26,14 @@ public partial class App : Application
         services.AddSingleton<IExportService, ExportService>();
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IAssetService, AssetService>();
+        services.AddSingleton<ISecretStore, DpapiSecretStore>();
+
+        // Generate tab (AI SVG art): one shared HttpClient + three providers behind one service.
+        services.AddSingleton(_ => new HttpClient { Timeout = TimeSpan.FromSeconds(120) });
+        services.AddSingleton<IAssetGenerationProvider, ClaudeProvider>();
+        services.AddSingleton<IAssetGenerationProvider, OpenAiProvider>();
+        services.AddSingleton<IAssetGenerationProvider, GeminiProvider>();
+        services.AddSingleton<IAssetGenerationService, AssetGenerationService>();
 
         // FileDialogService needs a concrete reference so we can set its Owner
         // after the window exists; expose it through the interface too.
@@ -35,6 +43,7 @@ public partial class App : Application
         services.AddTransient<ImporterViewModel>();
         services.AddTransient<BatchViewModel>();
         services.AddTransient<SkinViewModel>();
+        services.AddTransient<GenerateViewModel>();
         services.AddTransient<TutorialViewModel>();
         services.AddTransient<MainWindowViewModel>();
 

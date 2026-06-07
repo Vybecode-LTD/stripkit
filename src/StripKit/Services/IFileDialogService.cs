@@ -17,6 +17,9 @@ public interface IFileDialogService
     /// <summary>Prompts for a PNG save location; returns the chosen path or <c>null</c> if cancelled.</summary>
     Task<string?> SavePngAsync(string suggestedName);
 
+    /// <summary>Prompts for an SVG save location; returns the chosen path or <c>null</c> if cancelled.</summary>
+    Task<string?> SaveSvgAsync(string suggestedName);
+
     /// <summary>Prompts for a folder; returns its local path or <c>null</c> if cancelled.</summary>
     Task<string?> OpenFolderAsync(string title);
 }

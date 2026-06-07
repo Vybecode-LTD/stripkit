@@ -68,6 +68,26 @@ public class AlignmentRenderTests
     }
 
     [Fact]
+    public void Centering_on_content_places_an_offcenter_knob_at_the_frame_centre()
+    {
+        // An off-centre knob, once centred on its content, is genuinely positioned at the frame
+        // centre (not just spun in place off to one side). This is the "starter knob isn't centred"
+        // fix; the old rectangle-centred placement left the disc at its raw (24,28) position.
+        using var src = OffCenterDisc(120, 0.30f, 0.35f, 0.18f);
+        var (cx, cy) = ContentAnalysis.DetectContentCenter(src);
+
+        var renderer = new SkiaFilmstripRenderer();
+        var settings = KnobSettings();   // 80×80 frame
+        settings.SourceCenterX = cx;
+        settings.SourceCenterY = cy;
+
+        using var f0 = renderer.RenderFrame(settings, src, null, 0, 1.0);
+        var (x, y) = ContentCenter(f0);
+        x.Should().BeApproximately(settings.FrameWidth / 2.0, 1.5, "the content centre is placed on the frame centre");
+        y.Should().BeApproximately(settings.FrameHeight / 2.0, 1.5);
+    }
+
+    [Fact]
     public void Without_centering_the_offcenter_knob_orbits()
     {
         // Sanity: the default (0.5, 0.5) centre leaves an off-centre disc orbiting, so

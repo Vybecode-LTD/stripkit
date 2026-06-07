@@ -1,0 +1,316 @@
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using SkiaSharp;
+using StripKit.Helpers;
+using StripKit.Models;
+using StripKit.Services;
+using AvBitmap = Avalonia.Media.Imaging.Bitmap;
+
+namespace StripKit.ViewModels;
+
+/// <summary>
+/// Backs the "Generate" tab: use the user's own OpenAI / Gemini / Claude key to generate a layered
+/// knob SVG (a static <c>body</c> group + a rotating <c>pointer</c> group), preview it, and hand it
+/// to the Create tab to build the filmstrip. The generated SVG is validated by running it through the
+/// real <see cref="ILayeredImportService"/> — so a preview here guarantees Create can import it. Keys
+/// are stored encrypted via <see cref="ISecretStore"/>. Holds no Avalonia UI types (the
+/// <see cref="AvBitmap"/> preview mirrors the Create tab's existing pattern).
+/// </summary>
+public partial class GenerateViewModel : ViewModelBase
+{
+    private readonly IAssetGenerationService _generation;
+    private readonly ISecretStore _secrets;
+    private readonly ISettingsService _settings;
+    private readonly ILayeredImportService _layeredImport;
+    private readonly IFileDialogService _dialogs;
+
+    private CancellationTokenSource? _cts;
+    private string? _lastSvgPath;   // the temp SVG of the current result (handed to Create)
+    private int _genCount;
+
+    public GenerateViewModel(IAssetGenerationService generation, ISecretStore secrets,
+                             ISettingsService settings, ILayeredImportService layeredImport,
+                             IFileDialogService dialogs)
+    {
+        _generation = generation;
+        _secrets = secrets;
+        _settings = settings;
+        _layeredImport = layeredImport;
+        _dialogs = dialogs;
+
+        Providers = _generation.AvailableProviders.ToArray();
+
+        // Restore the last-used provider, then load its stored key + preferred model directly (setting
+        // the backing field avoids firing OnSelectedProviderChanged during construction).
+        var initial = _settings.Settings.GenerateProvider;
+        _selectedProvider = Providers.Contains(initial) ? initial
+                          : Providers.Length > 0 ? Providers[0] : AiProvider.Claude;
+        _apiKey = _secrets.Get(_selectedProvider) ?? "";
+        _hasKey = _secrets.Has(_selectedProvider);
+        _model = ModelPrefFor(_selectedProvider);
+        _suggestedModels = _generation.ModelsFor(_selectedProvider);
+        _keyStatus = _hasKey ? "Key saved (loaded)." : "No key stored for this provider.";
+    }
+
+    /// <summary>Raised by "Use in Create" with the temp SVG path; the host VM imports it on the Create tab.</summary>
+    public event Action<string>? UseInCreateRequested;
+
+    // ---- choices ----
+    public AiProvider[] Providers { get; }
+    public GenerationStyle[] Styles { get; } =
+        [GenerationStyle.Modern, GenerationStyle.Minimal, GenerationStyle.Skeuomorphic, GenerationStyle.Vintage, GenerationStyle.Flat];
+    public int[] CanvasSizes { get; } = [256, 512, 768, 1024];
+
+    private IReadOnlyList<string> _suggestedModels = Array.Empty<string>();
+    public IReadOnlyList<string> SuggestedModels
+    {
+        get => _suggestedModels;
+        private set => SetProperty(ref _suggestedModels, value);
+    }
+
+    // ---- provider / key / model ----
+    [ObservableProperty] private AiProvider _selectedProvider;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveKeyCommand))]
+    private string _apiKey;
+
+    [ObservableProperty] private string _model;
+    [ObservableProperty] private bool _hasKey;
+    [ObservableProperty] private string _keyStatus;
+
+    // ---- prompt shaping ----
+    [ObservableProperty] private GenerationStyle _style = GenerationStyle.Modern;
+    [ObservableProperty] private string _styleNotes = "";
+    [ObservableProperty] private string _accentColorHex = "#E8440A";
+    [ObservableProperty] private string _bodyColorHex = "";
+    [ObservableProperty] private int _canvasSize = 512;
+
+    // ---- style effects ----
+    [ObservableProperty] private bool _hasDropShadow;
+    [ObservableProperty] private bool _hasOuterGlow;
+    [ObservableProperty] private bool _hasBevel;
+    [ObservableProperty] private bool _hasMetallicSheen;
+
+    // ---- result / status ----
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    private bool _isGenerating;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPreview))]
+    private AvBitmap? _previewImage;
+
+    [ObservableProperty] private string? _generatedSvg;
+    [ObservableProperty] private string? _lastRawResponse;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(UseInCreateCommand))]
+    [NotifyCanExecuteChangedFor(nameof(SaveSvgCommand))]
+    private bool _hasResult;
+
+    [ObservableProperty] private string _statusMessage =
+        "Pick a provider, paste your API key, describe the knob, then Generate.";
+
+    public bool HasPreview => PreviewImage is not null;
+
+    // ---- reactions ----
+
+    partial void OnSelectedProviderChanged(AiProvider value)
+    {
+        ApiKey = _secrets.Get(value) ?? "";
+        HasKey = _secrets.Has(value);
+        SuggestedModels = _generation.ModelsFor(value);
+        Model = ModelPrefFor(value);
+        KeyStatus = HasKey ? "Key saved (loaded)." : "No key stored for this provider.";
+        _settings.Settings.GenerateProvider = value;
+        _settings.Save();
+    }
+
+    private string ModelPrefFor(AiProvider p) =>
+        _settings.Settings.GenerateModels.TryGetValue(p.ToString(), out var m) && !string.IsNullOrWhiteSpace(m)
+            ? m
+            : _generation.DefaultModelFor(p);
+
+    // ---- commands ----
+
+    private bool CanGenerate() => !IsGenerating && !string.IsNullOrWhiteSpace(ApiKey);
+
+    [RelayCommand(CanExecute = nameof(CanGenerate))]
+    private async Task GenerateAsync()
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        IsGenerating = true;
+        try
+        {
+            var model = (Model ?? "").Trim();
+
+            // Remember the provider + model the user committed to (null-safe for settings written by
+            // an older build that predates these fields).
+            _settings.Settings.GenerateProvider = SelectedProvider;
+            (_settings.Settings.GenerateModels ??= new())[SelectedProvider.ToString()] = model;
+            _settings.Save();
+
+            var shownModel = string.IsNullOrWhiteSpace(model) ? _generation.DefaultModelFor(SelectedProvider) : model;
+            StatusMessage = $"Generating with {SelectedProvider} ({shownModel})…";
+
+            var request = new GenerationRequest
+            {
+                ComponentType = ComponentType.RotaryKnob,
+                Style = Style,
+                StyleNotes = StyleNotes,
+                AccentColor = AccentColorHex,
+                BodyColor = BodyColorHex,
+                CanvasSize = CanvasSize,
+                Layered = true,
+                HasDropShadow = HasDropShadow,
+                HasOuterGlow = HasOuterGlow,
+                HasBevel = HasBevel,
+                HasMetallicSheen = HasMetallicSheen,
+            };
+
+            var result = await _generation.GenerateAsync(request, SelectedProvider, ApiKey, model, ct);
+            LastRawResponse = result.RawResponse;
+
+            if (!result.Success)
+            {
+                StatusMessage = result.Error ?? "Generation failed.";
+                return;
+            }
+
+            // Validate + preview by running the SVG through the SAME layered-import pipeline the
+            // Create tab uses — a successful preview here guarantees Create can import it.
+            var path = WriteTempSvg(result.Svg!);
+            var import = await Task.Run(() => _layeredImport.Import(path), ct);
+            if (import is null || import.Layers.Count == 0)
+            {
+                StatusMessage = "The model returned an SVG, but its layers couldn't be read. Try Regenerate.";
+                return;
+            }
+
+            int rotate = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
+            GeneratedSvg = result.Svg;
+            _lastSvgPath = path;
+            PreviewImage = TryCompositePreview(import);   // best-effort — a result stands even if preview can't render
+            HasResult = true;
+            StatusMessage = $"Generated a {import.Layers.Count}-layer knob ({rotate} set to rotate). "
+                          + "Use in Create to build the filmstrip, or Save the SVG.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Generation cancelled.";
+        }
+        catch (Exception ex)
+        {
+            // A generation must NEVER take the app down — surface the real error instead, and keep
+            // the full detail in the raw-response panel for diagnosis.
+            LastRawResponse = string.IsNullOrEmpty(LastRawResponse) ? ex.ToString() : $"{LastRawResponse}\n\n{ex}";
+            StatusMessage = $"Generation failed: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
+    }
+
+    private bool CanCancel() => IsGenerating;
+
+    [RelayCommand(CanExecute = nameof(CanCancel))]
+    private void Cancel() => _cts?.Cancel();
+
+    private bool CanSaveKey() => !string.IsNullOrWhiteSpace(ApiKey);
+
+    [RelayCommand(CanExecute = nameof(CanSaveKey))]
+    private void SaveKey()
+    {
+        _secrets.Set(SelectedProvider, ApiKey);
+        HasKey = _secrets.Has(SelectedProvider);
+        KeyStatus = HasKey ? "Key saved (encrypted on this PC)." : "No key stored.";
+        StatusMessage = $"API key saved for {SelectedProvider}, encrypted with your Windows account.";
+    }
+
+    [RelayCommand]
+    private void ClearKey()
+    {
+        _secrets.Clear(SelectedProvider);
+        ApiKey = "";
+        HasKey = false;
+        KeyStatus = "No key stored.";
+        StatusMessage = $"Cleared the stored {SelectedProvider} key.";
+    }
+
+    private bool CanUseInCreate() => HasResult && _lastSvgPath is not null;
+
+    [RelayCommand(CanExecute = nameof(CanUseInCreate))]
+    private void UseInCreate()
+    {
+        if (_lastSvgPath is null) return;
+        UseInCreateRequested?.Invoke(_lastSvgPath);
+        StatusMessage = "Sent to the Create tab — set the frame count, then Export the filmstrip PNG.";
+    }
+
+    private bool CanSaveSvg() => HasResult;
+
+    [RelayCommand(CanExecute = nameof(CanSaveSvg))]
+    private async Task SaveSvgAsync()
+    {
+        if (GeneratedSvg is null) return;
+        var path = await _dialogs.SaveSvgAsync($"{SelectedProvider.ToString().ToLowerInvariant()}-knob");
+        if (path is null) return;
+        try
+        {
+            await File.WriteAllTextAsync(path, GeneratedSvg);
+            StatusMessage = $"Saved SVG → {Path.GetFileName(path)}";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Couldn't save: {ex.Message}";
+        }
+    }
+
+    // ---- helpers ----
+
+    /// <summary>Writes the SVG to a per-session temp file the Create-tab handoff can re-import by path.</summary>
+    private string WriteTempSvg(string svg)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "StripKit");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"generated-{++_genCount}.svg");
+        File.WriteAllText(path, svg);
+        return path;
+    }
+
+    /// <summary>Flattens the imported layers into one at-rest preview bitmap, then disposes them
+    /// (the Create tab re-imports from the file fresh, so the preview copies aren't needed after).
+    /// Best-effort: returns null if the Avalonia bitmap can't be built (e.g. no render platform under
+    /// unit tests) — the generated result still stands and can be handed off / saved.</summary>
+    private static AvBitmap? TryCompositePreview(LayeredImportResult import)
+    {
+        try
+        {
+            using var merged = new SKBitmap(import.CanvasWidth, import.CanvasHeight, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using (var c = new SKCanvas(merged))
+            {
+                c.Clear(SKColors.Transparent);
+                foreach (var layer in import.Layers)
+                    c.DrawBitmap(layer.Art, 0, 0);
+            }
+            return SkiaImageInterop.ToAvaloniaBitmap(merged);
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            foreach (var layer in import.Layers)
+                layer.Art.Dispose();
+        }
+    }
+}

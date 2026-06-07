@@ -48,7 +48,7 @@ public partial class MainWindowViewModel : ViewModelBase
                                IManifestService manifest, ICodeSnippetService codeSnippets,
                                ILayeredImportService layeredImport, IAssetService assets,
                                ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin,
-                               TutorialViewModel tutorial)
+                               TutorialViewModel tutorial, GenerateViewModel generate)
     {
         _imageLoad = imageLoad;
         _renderer = renderer;
@@ -62,7 +62,9 @@ public partial class MainWindowViewModel : ViewModelBase
         Batch = batch;
         Skin = skin;
         Tutorial = tutorial;
+        Generate = generate;
         Tutorial.LoadSampleRequested += OnTutorialLoadSampleRequested;
+        Generate.UseInCreateRequested += OnGenerateUseInCreate;
 
         SourceInfo = "No image loaded.";
         BackgroundInfo = "None.";
@@ -101,6 +103,14 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = "Sample knob loaded — scrub the preview, then continue the guide.";
     }
 
+    /// <summary>The Generate tab's "Use in Create" handoff: jump to the Create tab and import the
+    /// generated layered SVG through the normal layered-import path.</summary>
+    private async void OnGenerateUseInCreate(string svgPath)
+    {
+        SelectedTabIndex = 0;
+        await ImportLayeredFromPathAsync(svgPath);
+    }
+
     [RelayCommand] private void ShowAbout() => IsAboutOpen = true;
     [RelayCommand] private void CloseAbout() => IsAboutOpen = false;
 
@@ -112,6 +122,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>The "Skin" tab's view model (the multi-control manifest builder).</summary>
     public SkinViewModel Skin { get; }
+
+    /// <summary>The "Generate" tab's view model (AI-generated SVG control art).</summary>
+    public GenerateViewModel Generate { get; }
 
     // ---- combo box choices ----
     public ComponentType[] ComponentTypes { get; } =
@@ -769,7 +782,16 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         var path = await _dialogs.OpenLayeredFileAsync();
         if (path is null) return;
+        await ImportLayeredFromPathAsync(path);
+    }
 
+    /// <summary>
+    /// Imports a layered SVG/PSD from a path into the Create tab's layer list — shared by the file
+    /// picker and the Generate tab's "Use in Create" handoff. Off-thread parse; replaces the manual
+    /// base/pointer slots and any previous import.
+    /// </summary>
+    public async Task ImportLayeredFromPathAsync(string path)
+    {
         // Parsing (SVG rasterize / PSD decode) is CPU-bound, so keep it off the UI thread.
         var result = await Task.Run(() => _layeredImport.Import(path));
         if (result is null || result.Layers.Count == 0)
@@ -1045,6 +1067,16 @@ public partial class MainWindowViewModel : ViewModelBase
             // while the crosshair is on to keep it snappy; the normal preview keeps quality and
             // export always uses the full supersample setting.
             settings.Supersample = ShowCenterGuide ? 1 : Math.Min(settings.Supersample, 2);
+
+            // While the crosshair is on, render the art at its neutral (rectangle-centred) position
+            // so dragging the crosshair marks a point on a STATIONARY knob. The chosen centre is
+            // applied once the guide is turned off — and the crosshair overlay maps to exactly this
+            // rectangle-centred art (see ArtRectOnScreen), so the mark lands where you drop it.
+            if (ShowCenterGuide)
+            {
+                settings.SourceCenterX = 0.5;
+                settings.SourceCenterY = 0.5;
+            }
 
             // Continuous preview: a fixed, fine virtual frame resolution (1024) so the preview
             // and the aligned position are smooth and NOT quantised to the (possibly coarse)

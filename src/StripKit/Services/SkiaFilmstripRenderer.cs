@@ -36,20 +36,20 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         {
             case ComponentType.RotaryKnob:
             {
-                // The art keeps its natural (aspect-fit, rectangle-centred) position in the
-                // cell — it is NOT moved. We only rotate about its *content* centre
-                // (SourceCenterX/Y within the drawn art) so an off-centre knob spins in
-                // place instead of orbiting. (0.5, 0.5) pivots at the frame centre = the
-                // classic behaviour. Give knob art ~10% transparent margin so corners
-                // don't clip as it rotates.
+                // Position the art so its *content* centre (SourceCenterX/Y within the drawn art)
+                // lands on the frame centre — an off-centre knob is genuinely centred, not just
+                // spun in place, so it doesn't sit off to one side. At (0.5, 0.5) this is exactly
+                // the classic rectangle-centred placement, so existing output is byte-identical;
+                // only off-centre sources move. We then pivot on that same point (= the frame
+                // centre). Give knob art ~10% transparent margin so corners don't clip as it rotates.
                 var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
-                float drawX = (fw - drawW) / 2f;
-                float drawY = (fh - drawH) / 2f;
+                float drawX = fw / 2f - (float)settings.SourceCenterX * drawW;
+                float drawY = fh / 2f - (float)settings.SourceCenterY * drawH;
 
                 double angle = settings.StartAngleDegrees
                              + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t;
 
-                // Pivot = the marked content point in frame coordinates (+ manual nudge).
+                // Pivot = the marked content point in frame coordinates (now the frame centre) + nudge.
                 float pivotX = drawX + (float)settings.SourceCenterX * drawW + (float)settings.PivotOffsetX;
                 float pivotY = drawY + (float)settings.SourceCenterY * drawH + (float)settings.PivotOffsetY;
 

@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (123 tests)
+dotnet test                                      # whole suite (152 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **123 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **152 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
@@ -43,7 +43,25 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (123)
+## Test inventory (152)
+
+### Generate tab (AI SVG generation) — 27
+The networked, non-deterministic feature is covered without ever hitting a network:
+- `SvgSanitizerTests.cs` — 6: carve the SVG out of a fenced/chatty reply; strip
+  script/`<image>`/`<foreignObject>`/event-handlers/off-document `href`; keep local `#id`
+  refs; reject non-SVG and malformed XML.
+- `SecretStoreTests.cs` — 4: per-provider set/get round-trip, persistence across instances,
+  blank-clears / clear-removes, and that the on-disk file never contains the plaintext key.
+- `AssetGenerationProviderTests.cs` — 5: each provider against a fake `HttpMessageHandler` —
+  the right URL, auth header, and body go out and the right field parses back; a 401 becomes a
+  friendly `GenerationException` carrying the API's message; identity + default model.
+- `AssetGenerationServiceTests.cs` — 6: a chatty reply reduces to a clean SVG that round-trips
+  the real importer as tagged body/pointer layers; the prompt encodes the conventions + model
+  fallback; failure paths (no SVG, provider error, missing key); provider display order.
+- `GenerateViewModelTests.cs` — 5: key gating, per-provider key save/reload, the success path
+  (import-validated + Create handoff fires with a real temp SVG), and the two failure paths.
+- `GenerateViewTests.cs` — 1: headless realization of `GenerateView` (compiled bindings,
+  design tokens, the reveal binding, and the `StringConverters` usage all load at runtime).
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.

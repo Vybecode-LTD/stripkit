@@ -1,0 +1,154 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:StripKit.ViewModels"
+             xmlns:controls="clr-namespace:StripKit.Controls"
+             xmlns:helpers="clr-namespace:StripKit.Helpers"
+             x:Class="StripKit.Views.GenerateView"
+             x:DataType="vm:GenerateViewModel">
+
+    <UserControl.Resources>
+        <helpers:HexToColorBrushConverter x:Key="HexColor" />
+    </UserControl.Resources>
+
+    <Grid ColumnDefinitions="370,*">
+
+        <!-- ===== LEFT: provider, key, prompt ===== -->
+        <Border Grid.Column="0" Classes="card" Margin="12,12,6,12">
+            <ScrollViewer>
+                <StackPanel Margin="16" Spacing="2">
+
+                    <TextBlock Text="Generate" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <Border Classes="divider" />
+                    <TextBlock Text="Generate a layered knob SVG with your own AI key — a static body plus a rotating pointer."
+                               Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <!-- Provider & key -->
+                    <controls:SectionHeader Text="PROVIDER &amp; API KEY" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="Which AI service to use. You supply your own API key for the one you pick."
+                              ItemsSource="{Binding Providers}" SelectedItem="{Binding SelectedProvider}" />
+
+                    <TextBlock Classes="label" Text="API key" Margin="0,6,0,0" />
+                    <TextBox x:Name="KeyBox" Text="{Binding ApiKey}" PasswordChar="●"
+                             Watermark="paste your key (sk-… / AIza… )"
+                             ToolTip.Tip="Stored encrypted with your Windows account (DPAPI). Sent only to the provider you choose." />
+                    <CheckBox Content="Show key" IsChecked="{Binding #KeyBox.RevealPassword}" Margin="0,4,0,0" />
+                    <Grid ColumnDefinitions="*,6,*" Margin="0,6,0,0">
+                        <Button Grid.Column="0" Content="Save key" HorizontalAlignment="Stretch"
+                                Command="{Binding SaveKeyCommand}" />
+                        <Button Grid.Column="2" Content="Clear key" HorizontalAlignment="Stretch"
+                                Command="{Binding ClearKeyCommand}" />
+                    </Grid>
+                    <TextBlock Classes="label" Text="{Binding KeyStatus}" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                    <TextBlock Classes="label" Text="Model" Margin="0,8,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding SuggestedModels}" SelectedItem="{Binding Model}"
+                              ToolTip.Tip="Pick the model to use. Updating the provider resets this to its default." />
+
+                    <!-- What to make -->
+                    <controls:SectionHeader Text="WHAT TO MAKE" />
+                    <TextBlock Classes="label" TextWrapping="Wrap"
+                               Text="Rotary knob — a static body plus a rotating pointer. (Faders, sliders &amp; meters are coming next.)" />
+
+                    <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding Styles}" SelectedItem="{Binding Style}" />
+
+                    <!-- Colours -->
+                    <controls:SectionHeader Text="COLOURS" />
+                    <Grid ColumnDefinitions="*,8,*">
+                        <StackPanel Grid.Column="0" Spacing="4">
+                            <TextBlock Classes="label" Text="Body colour" />
+                            <Grid ColumnDefinitions="*,6,28">
+                                <TextBox Grid.Column="0" Text="{Binding BodyColorHex}" Watermark="auto" />
+                                <Border Grid.Column="2" CornerRadius="4" ClipToBounds="True"
+                                        Background="{Binding BodyColorHex, Converter={StaticResource HexColor}}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                            </Grid>
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="4">
+                            <TextBlock Classes="label" Text="Accent colour" />
+                            <Grid ColumnDefinitions="*,6,28">
+                                <TextBox Grid.Column="0" Text="{Binding AccentColorHex}" Watermark="#E8440A" />
+                                <Border Grid.Column="2" CornerRadius="4" ClipToBounds="True"
+                                        Background="{Binding AccentColorHex, Converter={StaticResource HexColor}}"
+                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                            </Grid>
+                        </StackPanel>
+                    </Grid>
+
+                    <!-- Effects -->
+                    <controls:SectionHeader Text="EFFECTS" />
+                    <WrapPanel Orientation="Horizontal">
+                        <CheckBox Content="Drop shadow" IsChecked="{Binding HasDropShadow}" Margin="0,0,12,0" />
+                        <CheckBox Content="Outer glow" IsChecked="{Binding HasOuterGlow}" Margin="0,0,12,0" />
+                        <CheckBox Content="Bevel / 3D" IsChecked="{Binding HasBevel}" Margin="0,0,12,0" />
+                        <CheckBox Content="Metallic sheen" IsChecked="{Binding HasMetallicSheen}" />
+                    </WrapPanel>
+
+                    <TextBlock Classes="label" Text="Extra direction (optional)" Margin="0,8,0,0" />
+                    <TextBox Text="{Binding StyleNotes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
+                             Watermark="e.g. amber LED ring, knurled edge, brushed aluminium face" />
+
+                    <TextBlock Classes="label" Text="Canvas size (px)" Margin="0,8,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding CanvasSizes}" SelectedItem="{Binding CanvasSize}" />
+
+                    <Grid ColumnDefinitions="*,8,Auto" Margin="0,12,0,0">
+                        <Button Grid.Column="0" Classes="accent" Content="Generate" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Generate a fresh knob. Click again to regenerate a new take."
+                                Command="{Binding GenerateCommand}" />
+                        <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelCommand}" />
+                    </Grid>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsGenerating}" Margin="0,8,0,0" />
+
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,8,0,12"
+                               Text="Each Generate is a new attempt — regenerate until you like it. Your key stays encrypted on this PC." />
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== RIGHT: preview + actions ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+
+            <Border Grid.Row="0" Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
+                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                <Panel>
+                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    <TextBlock Text="Your generated knob preview appears here"
+                               IsVisible="{Binding !HasPreview}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}" />
+                </Panel>
+            </Border>
+
+            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="Auto,8,Auto,8,Auto">
+                        <Button Grid.Column="0" Classes="accent" Content="Use in Create" MinWidth="140"
+                                ToolTip.Tip="Send this knob to the Create tab as a layered import, ready to make the filmstrip."
+                                Command="{Binding UseInCreateCommand}" />
+                        <Button Grid.Column="2" Content="Save SVG…" Command="{Binding SaveSvgCommand}" />
+                        <Button Grid.Column="4" Content="Copy SVG" Click="OnCopySvg" IsEnabled="{Binding HasResult}" />
+                    </Grid>
+
+                    <Expander Header="Model response (raw)"
+                              IsVisible="{Binding LastRawResponse, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
+                        <Border Classes="tile" Padding="2">
+                            <ScrollViewer MaxHeight="160" HorizontalScrollBarVisibility="Auto">
+                                <TextBox Text="{Binding LastRawResponse}" IsReadOnly="True" AcceptsReturn="True"
+                                         TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                            </ScrollViewer>
+                        </Border>
+                    </Expander>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

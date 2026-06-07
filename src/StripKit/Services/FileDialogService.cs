@@ -68,6 +68,22 @@ public sealed class FileDialogService : IFileDialogService
         return file?.TryGetLocalPath();
     }
 
+    public async Task<string?> SaveSvgAsync(string suggestedName)
+    {
+        if (Owner?.StorageProvider is not { } storage)
+            return null;
+
+        var file = await storage.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Save generated SVG",
+            SuggestedFileName = suggestedName,
+            DefaultExtension = "svg",
+            FileTypeChoices = [new FilePickerFileType("SVG image") { Patterns = ["*.svg"] }],
+        });
+
+        return file?.TryGetLocalPath();
+    }
+
     public async Task<string?> OpenFolderAsync(string title)
     {
         if (Owner?.StorageProvider is not { } storage)

@@ -1,0 +1,147 @@
+using System.Globalization;
+using System.Text;
+using StripKit.Models;
+
+namespace StripKit.Services;
+
+/// <inheritdoc />
+public sealed class AssetGenerationService : IAssetGenerationService
+{
+    // Display / picker order — independent of DI registration order.
+    private static readonly AiProvider[] Order = [AiProvider.Claude, AiProvider.OpenAI, AiProvider.Gemini];
+
+    private readonly Dictionary<AiProvider, IAssetGenerationProvider> _providers;
+
+    public AssetGenerationService(IEnumerable<IAssetGenerationProvider> providers)
+    {
+        _providers = providers.ToDictionary(p => p.Provider);
+        AvailableProviders = Order.Where(_providers.ContainsKey).ToList();
+    }
+
+    public IReadOnlyList<AiProvider> AvailableProviders { get; }
+
+    public string DefaultModelFor(AiProvider provider) =>
+        _providers.TryGetValue(provider, out var p) ? p.DefaultModel : "";
+
+    public IReadOnlyList<string> ModelsFor(AiProvider provider) =>
+        _providers.TryGetValue(provider, out var p) ? p.SuggestedModels : Array.Empty<string>();
+
+    public async Task<GenerationResult> GenerateAsync(GenerationRequest request, AiProvider provider, string apiKey, string model, CancellationToken ct)
+    {
+        if (!_providers.TryGetValue(provider, out var impl))
+            return GenerationResult.Fail($"{provider} is not available.");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return GenerationResult.Fail($"Enter your {provider} API key first.");
+
+        var useModel = string.IsNullOrWhiteSpace(model) ? impl.DefaultModel : model.Trim();
+
+        string raw;
+        try
+        {
+            raw = await impl.CompleteAsync(BuildSystemPrompt(request), BuildUserPrompt(request), apiKey, useModel, ct);
+        }
+        catch (GenerationException ge)
+        {
+            return GenerationResult.Fail(ge.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;   // user cancelled — let the VM treat it as a non-error
+        }
+        catch (Exception ex)
+        {
+            return GenerationResult.Fail($"Unexpected error talking to {provider}: {ex.Message}");
+        }
+
+        if (!SvgSanitizer.TryClean(raw, out var svg, out var error))
+            return GenerationResult.Fail(
+                $"{error} The model may have added commentary or returned non-SVG — try Regenerate or a stronger model.",
+                raw);
+
+        return GenerationResult.Ok(svg, raw);
+    }
+
+    // ---- prompt building (encodes StripKit's filmstrip conventions) ----
+
+    private static string BuildSystemPrompt(GenerationRequest r)
+    {
+        int size = Math.Clamp(r.CanvasSize, 64, 2048);
+        var half = (size / 2.0).ToString("0.#", CultureInfo.InvariantCulture);
+
+        var sb = new StringBuilder();
+        sb.AppendLine("You are an expert SVG illustrator producing production-ready vector art for audio-plugin GUI controls.");
+        sb.AppendLine("Output ONLY one self-contained SVG document — no markdown, no code fences, no commentary before or after it.");
+        sb.AppendLine();
+        sb.AppendLine("Hard requirements:");
+        sb.AppendLine($"- Root element: <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {size} {size}\" width=\"{size}\" height=\"{size}\">.");
+        sb.AppendLine("- Fully transparent background — do NOT draw a full-canvas opaque rectangle.");
+        sb.AppendLine("- Keep ALL artwork within the central 80% of the canvas (~10% transparent margin on every side) so nothing clips when the control is rotated.");
+        sb.AppendLine($"- Centre the control exactly at ({half}, {half}).");
+        sb.AppendLine("- Pure vector only: path, circle, ellipse, rect, line, polygon, polyline, linearGradient, radialGradient, filter.");
+        sb.AppendLine("- Do NOT use <image>, <script>, <foreignObject>, external file/URL references, href to anything but a local #id, or event handlers.");
+
+        if (r.Layered && r.ComponentType == ComponentType.RotaryKnob)
+        {
+            sb.AppendLine("- Structure the drawing as EXACTLY two top-level groups, in this order:");
+            sb.AppendLine("    <g id=\"body\"> the entire STATIC knob — outer ring, face, indented well, tick marks, highlights and shadows </g>");
+            sb.AppendLine("    <g id=\"pointer\"> ONLY the moving indicator (a line, notch, triangle or dot) drawn pointing straight UP toward 12 o'clock from the centre </g>");
+            sb.AppendLine("  The body never moves. The pointer is rotated programmatically about the centre to show the value, so draw it AT REST (12 o'clock) and bake NO rotation into it.");
+        }
+        else
+        {
+            sb.AppendLine("- Put the whole drawing in a single <g id=\"body\"> group.");
+        }
+
+        return sb.ToString();
+    }
+
+    private static string BuildUserPrompt(GenerationRequest r)
+    {
+        int size = Math.Clamp(r.CanvasSize, 64, 2048);
+        var accent = string.IsNullOrWhiteSpace(r.AccentColor) ? "#E8440A" : r.AccentColor.Trim();
+
+        var sb = new StringBuilder();
+        sb.AppendLine($"Draw a {StyleWord(r.Style)} {ControlNoun(r.ComponentType)} for an audio plugin.");
+        sb.AppendLine($"- Accent / indicator colour: {accent}.");
+        if (!string.IsNullOrWhiteSpace(r.BodyColor))
+            sb.AppendLine($"- Body / face colour: {r.BodyColor.Trim()}.");
+        sb.AppendLine($"- Canvas: {size}x{size}px, control centred with about a 10% transparent margin.");
+
+        var effects = new List<string>();
+        if (r.HasDropShadow)     effects.Add("drop shadow");
+        if (r.HasOuterGlow)      effects.Add("outer glow");
+        if (r.HasBevel)          effects.Add("bevel with 3D depth");
+        if (r.HasMetallicSheen)  effects.Add("metallic sheen on the face");
+        if (effects.Count > 0)
+            sb.AppendLine($"- Add these visual effects: {string.Join(", ", effects)}.");
+
+        if (!string.IsNullOrWhiteSpace(r.StyleNotes))
+            sb.AppendLine($"- Extra direction: {r.StyleNotes.Trim()}.");
+
+        if (r.Layered && r.ComponentType == ComponentType.RotaryKnob)
+            sb.AppendLine("Return the SVG with a static <g id=\"body\"> and a separate <g id=\"pointer\"> pointing straight up.");
+        else
+            sb.AppendLine("Return the SVG with the drawing inside a single <g id=\"body\"> group.");
+
+        return sb.ToString();
+    }
+
+    private static string StyleWord(GenerationStyle style) => style switch
+    {
+        GenerationStyle.Modern => "clean, modern (Serum/Vital-style)",
+        GenerationStyle.Minimal => "minimal, flat-outline",
+        GenerationStyle.Skeuomorphic => "skeuomorphic, three-dimensional moulded",
+        GenerationStyle.Vintage => "vintage hardware, knurled brushed-metal",
+        GenerationStyle.Flat => "flat material-design",
+        _ => "clean, modern",
+    };
+
+    private static string ControlNoun(ComponentType type) => type switch
+    {
+        ComponentType.RotaryKnob => "rotary knob",
+        ComponentType.VerticalFader => "vertical fader cap",
+        ComponentType.HorizontalSlider => "horizontal slider handle",
+        ComponentType.Meter => "level meter",
+        _ => "rotary knob",
+    };
+}

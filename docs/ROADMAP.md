@@ -113,6 +113,13 @@ highest-leverage bets across all groups; pursue them first.
 
 ### Close the loop (asset → working control)
 
+- ✅ **AI asset generation — the Generate tab** (Unreleased) — closes the loop at the *input* end:
+  no starting art needed. The user's own OpenAI / Gemini / Claude key generates a **layered knob
+  SVG** (static `body` + rotating `pointer`) that drops into the §6.8 layered-import pipeline, so
+  only the pointer rotates. `IAssetGenerationService` (StripKit-aware prompt) + three
+  `IAssetGenerationProvider`s over a shared `HttpClient` + `SvgSanitizer` + DPAPI-encrypted keys
+  (`ISecretStore`); preview-by-importing + "Use in Create" handoff. App-only; +27 tests.
+  **Remaining (P2):** fader / slider / meter generation (the layered path is knob-only today).
 - 🔄 **Code / component export** — every export can also emit ready-to-paste loader
   code for the target framework. **Shipped 2026-06-04: JUCE** (`LookAndFeel` filmstrip
   `Slider` / meter `Component`), **CSS/HTML** (`background-position` sprite + value setter),
