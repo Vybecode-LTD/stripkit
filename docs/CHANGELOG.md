@@ -5,6 +5,47 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [1.1.0] — 2026-06-07
+
+### Added
+- **Generate tab — AI-generated SVG control art (your own API key).** A new **fifth tab** uses your
+  own **OpenAI**, **Google Gemini**, or **Anthropic Claude** key to generate a **layered knob SVG** —
+  a static `<g id="body">` plus a separate `<g id="pointer">` — which drops straight into the existing
+  layered-import pipeline so only the pointer rotates (crisp at any resolution). One
+  `IAssetGenerationService` builds a StripKit-aware prompt (square canvas, ~10% rotation margin,
+  body+pointer groups, pointer drawn at 12 o'clock) and dispatches to one of three
+  `IAssetGenerationProvider`s (Claude Messages / OpenAI Chat Completions / Gemini generateContent),
+  all behind a shared `HttpClient`. The reply is carved down to a clean SVG by `SvgSanitizer` (strips
+  scripts, event handlers, embedded raster, and off-document references) and **validated by importing
+  it** — the preview is the real imported result, so what you see will import. **"Use in Create"**
+  hands it to the Create tab (switches tabs + runs the layered import); **Save SVG** / **Copy SVG**
+  reuse it anywhere. API keys are stored **encrypted per-user via Windows DPAPI** (`ISecretStore` /
+  `DpapiSecretStore` → `%APPDATA%/StripKit/secrets.dat`, ciphertext only — never plaintext).
+  Knob-first (the layered path is knob-only today; faders/sliders/meters follow). **App-only** — no
+  renderer change, and **not** mirrored into `FilmstripEngine.cs`. New dependency:
+  `System.Security.Cryptography.ProtectedData` 9.0.0. **+27 tests, suite 125→152.**
+- **Generate tab: verified model dropdown.** Each provider now exposes a `SuggestedModels` list of
+  current, validated model IDs; the model TextBox is replaced by a `ComboBox` that resets to the new
+  provider's defaults when the user switches providers. Verified IDs: Claude (`claude-sonnet-4-6`,
+  `claude-opus-4-8`, `claude-haiku-4-5-20251001`), OpenAI (`gpt-4o`, `gpt-4.1`, `gpt-4.1-mini`),
+  Gemini (`gemini-2.5-flash`, `gemini-2.5-pro`, `gemini-2.5-flash-lite`). **Also fixes the Gemini
+  crash**: `gemini-2.0-flash` was shut down 2026-06-01 — replaced with `gemini-2.5-flash`.
+- **Generate tab: body colour + accent colour inputs with live swatches.** Two hex TextBoxes (body and
+  accent) in a side-by-side layout, each with a `HexToColorBrushConverter`-backed swatch `Border` that
+  updates as you type. Body colour folds into the generation prompt; an empty body field lets the model
+  choose. `AccentColorHex` was already sent; now displayed next to the swatch too.
+- **Generate tab: style effects checkboxes.** Four checkboxes — **Drop shadow**, **Outer glow**,
+  **Bevel / 3D**, **Metallic sheen** — fold into the generation prompt as effect directives.
+
+### Fixed
+- **Off-centre knob wobble (content-centred placement).** The renderer now places the knob so its
+  *content centre* lands at the frame centre, not the image-rectangle centre. An off-centre PNG (e.g.
+  the bundled sample knob where the disc is off to one side) is now centred in the frame rather than
+  left at its raw pixel position; the knob spins in place instead of orbiting. `ComputeTransform` uses
+  `drawX = fw/2 − SourceCenterX·drawW` (identical to the old formula when `SourceCenterX = 0.5`, so
+  all prior golden baselines are byte-identical). Mirrored in `FilmstripEngine.cs`. **+1 test**
+  (`Centering_on_content_places_an_offcenter_knob_at_the_frame_centre`, suite →157).
+
 ## [1.0.0] — 2026-06-06
 
 ### Added

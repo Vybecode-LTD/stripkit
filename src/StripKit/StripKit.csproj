@@ -14,7 +14,7 @@
     <ApplicationIcon>Assets\stripkit.ico</ApplicationIcon>
     <!-- Version is the single source of truth; scripts/Invoke-Release.ps1 bumps it in
          lockstep with the Inno .iss and the CHANGELOG on "release it". -->
-    <Version>1.0.0</Version>
+    <Version>1.1.0</Version>
     <Authors>VybeCode Software</Authors>
     <Company>VybeCode Software</Company>
     <Product>StripKit</Product>
@@ -44,6 +44,11 @@
 
     <!-- DI container used by the composition root in App.axaml.cs. -->
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.0" />
+
+    <!-- Generate tab (app-only): per-user DPAPI encryption for the user's AI API keys, so the
+         secrets file holds ciphertext, not the raw key. Windows-only (matches the win-x64 ship);
+         DpapiSecretStore falls back to base64 obfuscation off-Windows for dev/test only. -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="9.0.0" />
 
     <!-- Avalonia 11.3 renders through SkiaSharp 3.x already; this pins the
          managed binding we draw with. If NuGet warns about a version conflict,
