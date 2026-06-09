@@ -1,7 +1,7 @@
 ﻿#requires -Version 5.1
 <#
 .SYNOPSIS
-    StripKit local release driver (Stage 1 of SOFTWARE_RELEASE.md).
+    StripKit local release driver (Stages 1 + 3 of the release pipeline).
 
 .DESCRIPTION
     Run on the developer machine when the owner says "release it". It:
@@ -9,8 +9,12 @@
       2. Bumps the version in lockstep across StripKit.csproj, the Inno .iss,
          and docs/CHANGELOG.md ([Unreleased] -> [X.Y.Z] - today).
       3. Publishes a self-contained win-x64 build.
-      4. Packages it with Inno Setup into releases/latest/StripKit-Setup-X.Y.Z-x64.exe.
-      5. Commits, tags (vX.Y.Z), and pushes.
+      4. Signs StripKit.exe, packages with Inno Setup, signs the installer.
+      5. Stages under releases/latest/ and commits + tags (vX.Y.Z) + pushes.
+      6. (Stage 3) Auto-discovers the sibling ..\StripKit-Website repo and
+         commits + pushes a plain-language website changelog entry (triggers
+         Railway auto-deploy).  Pass -DraftWebsiteOnly to write the entry
+         locally without pushing, for manual review first.
 
     It does NOT create the GitHub Release. Pushing the installer under
     releases/latest/ triggers .github/workflows/auto-release.yml, which is the
@@ -19,21 +23,26 @@
 .PARAMETER Bump
     none  -> release the current version as-is (use for the first release).
     patch -> +0.0.1  (default; the meaning of a plain "release it")
-    minor -> +0.1.0  ("major release")
+    minor -> +0.1.0
     major -> +1.0.0
 
 .EXAMPLE
-    pwsh scripts/Invoke-Release.ps1 -Bump none      # first release, ships 0.6.0
-    pwsh scripts/Invoke-Release.ps1                 # patch bump
+    powershell -File scripts/Invoke-Release.ps1 -Bump minor                # release + push website automatically
+    powershell -File scripts/Invoke-Release.ps1 -Bump minor -DraftWebsiteOnly  # release + draft website, push manually
+    powershell -File scripts/Invoke-Release.ps1 -Bump patch -SkipWebsite   # skip Stage 3 entirely
 #>
 [CmdletBinding()]
 param(
     [ValidateSet('none', 'patch', 'minor', 'major')]
     [string]$Bump = 'patch',
     [switch]$SkipTests,
-    # Optional Stage 3: after the release, auto-draft this version's website changelog entry
-    # into <WebsiteRepo>\updates.json (hybrid - refine the copy, then push to auto-deploy).
-    [string]$WebsiteRepo
+    # Stage 3 — website changelog. Auto-discovered from the sibling ..\StripKit-Website repo
+    # if it exists. Override the path with -WebsiteRepo. Suppress entirely with -SkipWebsite.
+    [string]$WebsiteRepo = '',
+    # Skip the auto-push and only write a draft entry into updates.json for manual review.
+    # By default, the sibling website repo is found and the entry is committed + pushed automatically.
+    [switch]$DraftWebsiteOnly,
+    [switch]$SkipWebsite
 )
 
 $ErrorActionPreference = 'Stop'
@@ -220,23 +229,32 @@ Write-Host "Pushed v$new. GitHub Actions (auto-release.yml) will now VirusTotal-
 Write-Host "installer and create the GitHub Release. Watch it with:  gh run watch"
 Write-Host ""
 
-# --- Stage 3: website changelog (optional, hybrid auto-draft) ---------------
-if ($WebsiteRepo) {
-    Step "Stage 3 - drafting the website changelog entry for v$new"
-    & (Join-Path $PSScriptRoot 'Publish-WebsiteChangelog.ps1') -WebsiteRepo $WebsiteRepo -AppChangelog $changelog -Version $new
-    Write-Host ""
-    Write-Host "Website entry DRAFTED (not pushed). Refine the wording, then publish with:" -ForegroundColor Yellow
-    Write-Host "  scripts\Publish-WebsiteChangelog.ps1 -WebsiteRepo `"$WebsiteRepo`" -Version $new -Push" -ForegroundColor Yellow
+# --- Stage 3: website changelog (auto-discovered or explicit) ----------------
+if (-not $SkipWebsite -and -not $WebsiteRepo) {
+    $sibling = Join-Path (Split-Path $root -Parent) 'StripKit-Website'
+    if (Test-Path $sibling) { $WebsiteRepo = $sibling }
 }
 
-Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
-Write-Host " REMINDER: add a plain-language entry to the WEBSITE changelog!"   -ForegroundColor Yellow
-Write-Host ""                                                                   -ForegroundColor Yellow
-Write-Host "  File : StripKit-Website/updates.json  (sibling repo)"            -ForegroundColor Yellow
-Write-Host "  Add  : a new entry for v$new at the TOP of the array."           -ForegroundColor Yellow
-Write-Host "  Shape: { version, date, summary, changes:[{type,text}] }"        -ForegroundColor Yellow
-Write-Host "  Types: new | improved | fix"                                      -ForegroundColor Yellow
-Write-Host ""                                                                   -ForegroundColor Yellow
-Write-Host "  The download button updates automatically from GitHub Releases;"  -ForegroundColor Yellow
-Write-Host "  the changelog section ONLY updates when you edit updates.json."  -ForegroundColor Yellow
-Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
+if ($WebsiteRepo -and -not $SkipWebsite) {
+    Step "Stage 3 - website changelog entry for v$new"
+    $pubArgs = @('-WebsiteRepo', $WebsiteRepo, '-AppChangelog', $changelog, '-Version', $new)
+    if (-not $DraftWebsiteOnly) { $pubArgs += '-Push' }
+    & (Join-Path $PSScriptRoot 'Publish-WebsiteChangelog.ps1') @pubArgs
+    if ($DraftWebsiteOnly) {
+        Write-Host ""
+        Write-Host "Entry DRAFTED (not pushed). Review $WebsiteRepo\updates.json, then publish:" -ForegroundColor Yellow
+        Write-Host "  scripts\Publish-WebsiteChangelog.ps1 -WebsiteRepo `"$WebsiteRepo`" -Version $new -Push" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
+    Write-Host " REMINDER: add a plain-language entry to the WEBSITE changelog!"   -ForegroundColor Yellow
+    Write-Host ""                                                                   -ForegroundColor Yellow
+    Write-Host "  File : StripKit-Website/updates.json  (sibling repo)"            -ForegroundColor Yellow
+    Write-Host "  Add  : a new entry for v$new at the TOP of the array."           -ForegroundColor Yellow
+    Write-Host "  Shape: { version, date, summary, changes:[{type,text}] }"        -ForegroundColor Yellow
+    Write-Host "  Types: new | improved | fix"                                      -ForegroundColor Yellow
+    Write-Host ""                                                                   -ForegroundColor Yellow
+    Write-Host "  The download button updates automatically from GitHub Releases;"  -ForegroundColor Yellow
+    Write-Host "  the changelog section ONLY updates when you edit updates.json."  -ForegroundColor Yellow
+    Write-Host "──────────────────────────────────────────────────────────────────" -ForegroundColor Yellow
+}

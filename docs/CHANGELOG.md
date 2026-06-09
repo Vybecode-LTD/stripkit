@@ -7,6 +7,11 @@
 
 ## [1.2.0] — 2026-06-09
 
+### Website
+- **Button filmstrips.** Create multi-state button art — off, on, hover, and pressed — the same way you make knobs and faders. Import a layered file with groups named `off` and `on` and StripKit assigns the states automatically.
+- **AI generates every control type.** The Generate tab now works for faders, sliders, and buttons as well as knobs — pick the type, describe your style, and get ready-to-use layered art.
+- **Fixed: colour pickers.** The body and accent colour swatches in the Generate tab now open a real colour picker. Before this release they were display-only and clicking them did nothing.
+
 ### Added
 - **Button component type.** A new `ComponentType.Button` renders discrete-state filmstrips: frame 0 = off,
   frame 1 = on, and any additional frames for hover, pressed, or disabled states. The Create tab shows a
@@ -32,6 +37,13 @@
   Added `Avalonia.Controls.ColorPicker` 11.3.0 as a direct project reference.
 
 ## [1.1.0] — 2026-06-07
+
+### Website
+- **AI-generated control art (use your own API key).** Paste in an OpenAI, Google Gemini, or Anthropic Claude key and StripKit generates a layered knob SVG for you — a static body plus a rotating pointer — ready to drop straight into your filmstrip. Your key is stored encrypted on your own machine, never sent anywhere else.
+- **One-click handoff.** Preview the generated art inside the app, then click "Use in Create" to jump straight to the filmstrip builder with the generated layers already loaded.
+- **Updated model list.** The Generate tab now shows a curated list of current, working model IDs for each provider. Also fixes a crash caused by a retired Gemini model.
+- **Body & accent colour controls.** Set the knob's base colour and the accent highlight before generating, using the new colour swatches in the Generate tab.
+- **Style effects.** Tick drop shadow, outer glow, bevel, or metallic sheen to include those effects in the generation prompt.
 
 ### Added
 - **Generate tab — AI-generated SVG control art (your own API key).** A new **fifth tab** uses your

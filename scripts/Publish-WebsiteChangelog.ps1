@@ -107,19 +107,53 @@ if ($AppChangelog -and (Test-Path $AppChangelog)) {
             $hdr = [regex]::Match($cl, '(?m)^##\s*\[' + [regex]::Escape($Version) + '\][^\r\n]*')
             $md = [regex]::Match($hdr.Value, '(\d{4}-\d{2}-\d{2})')
             if ($md.Success) { $blockDate = $md.Groups[1].Value }
-            $type = 'improved'; $cur = $null
+            # Prefer a "### Website" section (plain-language, user-facing) if present.
+            # Fall back to the technical Added/Changed/Fixed sections if not.
+            $websiteChanges = @(); $inWebsite = $false; $wCur = $null
             foreach ($line in ($mb.Groups['body'].Value -split "\r?\n")) {
-                if ($line -match '^\s*###\s+(.+?)\s*$') {
-                    if ($cur) { $changes += @{ type = $type; text = (Format-ChangeText $cur) }; $cur = $null }
-                    $type = Get-ChangeType $matches[1]; continue
+                if ($line -match '^\s*###\s+Website\s*$') { $inWebsite = $true; $wCur = $null; continue }
+                if ($inWebsite) {
+                    if ($line -match '^\s*###') {
+                        if ($wCur) {
+                            $wType = if ($wCur -match '\bfix(ed|es)?\b') { 'fix' } else { 'new' }
+                            $websiteChanges += @{ type = $wType; text = (Format-ChangeText $wCur) }
+                            $wCur = $null
+                        }
+                        $inWebsite = $false; continue
+                    }
+                    if ($line -match '^\s*[-*]\s+(.*)$') {
+                        $bulletText = $matches[1]  # capture before inner regex overwrites $matches
+                        if ($wCur) {
+                            $wType = if ($wCur -match '\bfix(ed|es)?\b') { 'fix' } else { 'new' }
+                            $websiteChanges += @{ type = $wType; text = (Format-ChangeText $wCur) }
+                        }
+                        $wCur = $bulletText; continue
+                    }
+                    if ($wCur -and $line.Trim() -ne '' -and $line -notmatch '^\s*##') { $wCur += ' ' + $line.Trim() }
                 }
-                if ($line -match '^\s*[-*]\s+(.*)$') {
-                    if ($cur) { $changes += @{ type = $type; text = (Format-ChangeText $cur) } }
-                    $cur = $matches[1]; continue
-                }
-                if ($cur -and $line.Trim() -ne '' -and $line -notmatch '^\s*##') { $cur += ' ' + $line.Trim() }
             }
-            if ($cur) { $changes += @{ type = $type; text = (Format-ChangeText $cur) } }
+            if ($wCur) {
+                $wType = if ($wCur -match '\bfix(ed|es)?\b') { 'fix' } else { 'new' }
+                $websiteChanges += @{ type = $wType; text = (Format-ChangeText $wCur) }
+            }
+
+            if ($websiteChanges.Count -gt 0) {
+                $changes = $websiteChanges
+            } else {
+                $type = 'improved'; $cur = $null
+                foreach ($line in ($mb.Groups['body'].Value -split "\r?\n")) {
+                    if ($line -match '^\s*###\s+(.+?)\s*$') {
+                        if ($cur) { $changes += @{ type = $type; text = (Format-ChangeText $cur) }; $cur = $null }
+                        $type = Get-ChangeType $matches[1]; continue
+                    }
+                    if ($line -match '^\s*[-*]\s+(.*)$') {
+                        if ($cur) { $changes += @{ type = $type; text = (Format-ChangeText $cur) } }
+                        $cur = $matches[1]; continue
+                    }
+                    if ($cur -and $line.Trim() -ne '' -and $line -notmatch '^\s*##') { $cur += ' ' + $line.Trim() }
+                }
+                if ($cur) { $changes += @{ type = $type; text = (Format-ChangeText $cur) } }
+            }
         }
     }
 }
