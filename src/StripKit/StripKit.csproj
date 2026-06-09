@@ -14,7 +14,7 @@
     <ApplicationIcon>Assets\stripkit.ico</ApplicationIcon>
     <!-- Version is the single source of truth; scripts/Invoke-Release.ps1 bumps it in
          lockstep with the Inno .iss and the CHANGELOG on "release it". -->
-    <Version>1.1.0</Version>
+    <Version>1.2.0</Version>
     <Authors>VybeCode Software</Authors>
     <Company>VybeCode Software</Company>
     <Product>StripKit</Product>
@@ -34,6 +34,9 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.3.0" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.0" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.0" />
+    <!-- Color picker flyout in the Generate tab (colour swatches). In the transitive graph already
+         via Avalonia.Desktop, listed explicitly so ColorView and friends are first-class in code. -->
+    <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.0" />
     <!-- Avalonia diagnostics (F12 dev tools) only in Debug. -->
     <PackageReference Include="Avalonia.Diagnostics" Version="11.3.0">
       <IncludeAssets Condition="'$(Configuration)' != 'Debug'">None</IncludeAssets>

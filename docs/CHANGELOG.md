@@ -5,6 +5,32 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [1.2.0] — 2026-06-09
+
+### Added
+- **Button component type.** A new `ComponentType.Button` renders discrete-state filmstrips: frame 0 = off,
+  frame 1 = on, and any additional frames for hover, pressed, or disabled states. The Create tab shows a
+  **BUTTON STATES** section when this type is active, explaining the frame-state mapping and providing the
+  layered SVG/PSD import. Import a file with groups named `off` and `on` — the importer auto-assigns
+  `LayerBehavior.Frame` to those layers (shown only on their matching frame index). A `Static` layer on a
+  button renders on every frame (useful for shared borders or shadows). The layer dropdown now offers
+  **Static / Rotate / Frame**. Mirrored in `FilmstripEngine.cs`.
+- **Generate tab: all control types.** The "WHAT TO MAKE" section is now a `ComboBox` (Rotary Knob /
+  Vertical Fader / Horizontal Slider / Button). Knobs produce a layered `<g id="body">` + `<g id="pointer">`
+  SVG; buttons produce `<g id="off">` + `<g id="on">`; faders and sliders produce a single `<g id="body">`
+  cap/handle shape. The generation prompt is type-aware for each case.
+- **`LayerBehavior.Frame`.** A layer tagged `Frame` is rendered only when its list index equals the current
+  frame index — the mechanism behind button state layers. Pairs with the existing `Static` (all frames) and
+  `Rotate` (knob pointer) behaviors. `LayeredImportService.Guess` now auto-assigns `Frame` to layers whose
+  exact name is `"off"` or `"on"`.
+
+### Fixed
+- **Generate tab colour pickers now open a live colour picker on click.** The body and accent colour swatches
+  were passive display-only `Border` elements — clicking them did nothing. They are now `Button` controls that
+  open a `ColorView` flyout (Avalonia's built-in colour picker) pre-initialised from the current hex value;
+  the VM property updates live as you drag the picker. The hex `TextBox` still works for manual entry.
+  Added `Avalonia.Controls.ColorPicker` 11.3.0 as a direct project reference.
+
 ## [1.1.0] — 2026-06-07
 
 ### Added
