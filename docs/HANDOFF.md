@@ -17,14 +17,17 @@ Public, MIT-licensed. Layered-source import adds **Svg.Skia** (MIT) + **Magick.N
 (Apache-2.0); the **Generate** tab adds AI SVG generation over the user's own OpenAI / Gemini /
 Claude key with **DPAPI-encrypted** keys (`System.Security.Cryptography.ProtectedData`).
 
-**Phase:** **v1.2.1 shipped** (tag `v1.2.1`, commit `dcc8106`, signed; CI VirusTotal-scans + creates
-the GitHub Release; website changelog pushed → Railway auto-deploy). The app is a **five-tab**
-`TabControl` — **Create | Import | Batch | Skin | Generate** — plus a re-openable, per-tab **Getting
-Started** overlay. All three ★ vNext bets remain done (value-arc, code-export, layer-aware animation);
-the newest work is the **Generate** tab (v1.1.0), **buttons + all-control-type generation** (v1.2.0),
-and the **1.2.1 fix wave** (handoff-honours-type, SVG-parse hardening, double-validation fix).
-A release-tooling fix also landed: `Invoke-Release.ps1` Stage 3 used array splatting that mis-bound
-`-Push` (the website changelog had to be pushed manually for 1.2.1); now switched to hashtable splatting.
+**Phase:** **v1.2.2 shipped** (tag `v1.2.2`, commit `ad4e1c2`, signed; CI VirusTotal-scanned + created
+the GitHub Release; website changelog auto-pushed by the release script's Stage 3 → Railway
+auto-deploy). The app is a **five-tab** `TabControl` — **Create | Import | Batch | Skin | Generate** —
+plus a re-openable, per-tab **Getting Started** overlay. All three ★ vNext bets remain done (value-arc,
+code-export, layer-aware animation); recent work is the **Generate** tab (v1.1.0), **buttons +
+all-control-type generation** (v1.2.0), the **1.2.1 fix wave** (handoff-honours-type, SVG-parse
+hardening, double-validation fix), and the **1.2.2 polish wave** (editable model input, off-thread
+preview, temp cleanup, the **release-integrity guard** in `Invoke-Release.ps1`, CI actions → v5, and
+the Stage-3 website-changelog splat fix — both the guard and the Stage-3 fix were validated by the
+1.2.2 release itself). **172 tests green.** Note: the other managed-doc headers/counts are one patch
+behind (1.2.1 / 172) — fold a full reconcile into the next formal handoff.
 
 ---
 
