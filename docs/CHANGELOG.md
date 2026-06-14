@@ -7,6 +7,15 @@
 
 ## [Unreleased]
 
+### Website
+- **Generated faders, sliders & buttons now work end-to-end.** Picking a non-knob type in the Generate
+  tab and clicking "Use in Create" now builds the right control — sliders slide, buttons toggle between
+  states — instead of being treated as a knob.
+- **Safer SVG handling.** Imported and AI-generated SVGs are now parsed defensively, so a malformed or
+  hostile file can't hang the app.
+- **Generation warnings.** The Generate tab tells you when a knob came back without a moving pointer (or a
+  button without both on/off states) so you can regenerate before building the filmstrip.
+
 ### Fixed
 - **Generate → Create handoff now honours the generated control type.** Previously the handoff
   always forced `RotaryKnob`, so a generated **fader/slider/button** produced broken output —
