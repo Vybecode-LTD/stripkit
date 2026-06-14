@@ -191,24 +191,22 @@ public partial class GenerateViewModel : ViewModelBase
                 return;
             }
 
-            // Validate + preview by running the SVG through the SAME layered-import pipeline the
-            // Create tab uses — a successful preview here guarantees Create can import it.
-            var path = WriteTempSvg(result.Svg!);
-            var import = await Task.Run(() => _layeredImport.Import(path), ct);
-            if (import is null || import.Layers.Count == 0)
+            // Validate + preview OFF the UI thread: write the temp SVG, import it through the SAME
+            // pipeline the Create tab uses (so a preview here guarantees Create can import it), and
+            // composite the at-rest bitmap — all CPU-bound, so the UI thread only assigns the result.
+            var preview = await Task.Run(() => BuildPreview(result.Svg!), ct);
+            if (preview is null)
             {
                 StatusMessage = "The model returned an SVG, but its layers couldn't be read. Try Regenerate.";
                 return;
             }
 
-            int rotate = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
-            int frames = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Frame);
             GeneratedSvg = result.Svg;
-            _lastSvgPath = path;
+            _lastSvgPath = preview.Path;
             _lastControlType = GenerateControlType;
-            PreviewImage = TryCompositePreview(import);   // best-effort — a result stands even if preview can't render
+            PreviewImage = preview.Image;   // best-effort — a result stands even if preview can't render
             HasResult = true;
-            StatusMessage = DescribeResult(import.Layers.Count, rotate, frames);
+            StatusMessage = DescribeResult(preview.LayerCount, preview.RotateCount, preview.FrameCount);
         }
         catch (OperationCanceledException)
         {
@@ -305,14 +303,41 @@ public partial class GenerateViewModel : ViewModelBase
 
     // ---- helpers ----
 
-    /// <summary>Writes the SVG to a per-session temp file the Create-tab handoff can re-import by path.</summary>
+    private sealed record GeneratedPreview(string Path, int LayerCount, int RotateCount, int FrameCount, AvBitmap? Image);
+
+    /// <summary>Off-thread worker: writes the SVG to a temp file, imports it through the layered
+    /// pipeline (which validates the structure), and composites the at-rest preview bitmap. Returns
+    /// null when the SVG yields no readable layers. Runs entirely off the UI thread — the caller just
+    /// assigns the result — so a large canvas doesn't hitch the dispatcher.</summary>
+    private GeneratedPreview? BuildPreview(string svg)
+    {
+        var path = WriteTempSvg(svg);
+        var import = _layeredImport.Import(path);
+        if (import is null || import.Layers.Count == 0) return null;
+        int rotate = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
+        int frames = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Frame);
+        int count = import.Layers.Count;
+        var image = TryCompositePreview(import);   // composites, then disposes the layer art
+        return new GeneratedPreview(path, count, rotate, frames, image);
+    }
+
+    /// <summary>Writes the SVG to a per-session temp file the Create-tab handoff can re-import by path,
+    /// first dropping the previous temp so they don't accumulate (by the time a new generation runs,
+    /// the Create tab has already imported the prior one into memory).</summary>
     private string WriteTempSvg(string svg)
     {
         var dir = Path.Combine(Path.GetTempPath(), "StripKit");
         Directory.CreateDirectory(dir);
+        TryDelete(_lastSvgPath);
         var path = Path.Combine(dir, $"generated-{++_genCount}.svg");
         File.WriteAllText(path, svg);
         return path;
+    }
+
+    private static void TryDelete(string? path)
+    {
+        try { if (path is not null && File.Exists(path)) File.Delete(path); }
+        catch { /* best-effort — a leftover temp SVG is harmless */ }
     }
 
     /// <summary>Flattens the imported layers into one at-rest preview bitmap, then disposes them

@@ -140,6 +140,28 @@ public class GenerateViewModelTests
     }
 
     [Fact]
+    public async Task A_custom_model_id_not_in_the_suggestions_is_honored()
+    {
+        // The model input is free-text (editable), so a model the user types — or a pinned one that
+        // the provider later delists — must still be sent, not silently dropped to a suggestion.
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            string? sentModel = null;
+            gen.GenerateAsync(Arg.Any<GenerationRequest>(), Arg.Any<AiProvider>(), Arg.Any<string>(),
+                              Arg.Do<string>(m => sentModel = m), Arg.Any<CancellationToken>())
+               .Returns(GenerationResult.Fail("stop here"));
+            vm.ApiKey = "sk-test";
+            vm.Model = "my-private-model-9000";   // not in SuggestedModels
+
+            await vm.GenerateCommand.ExecuteAsync(null);
+
+            sentModel.Should().Be("my-private-model-9000", "a typed/delisted model id is sent verbatim");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
     public async Task Generate_passes_the_type_body_accent_and_effects_into_the_request()
     {
         // VM-layer lock: the new colour + effect + control-type fields must reach the GenerationRequest

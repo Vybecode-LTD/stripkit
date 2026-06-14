@@ -42,9 +42,11 @@
                     <TextBlock Classes="label" Text="{Binding KeyStatus}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                     <TextBlock Classes="label" Text="Model" Margin="0,8,0,0" />
-                    <ComboBox HorizontalAlignment="Stretch"
-                              ItemsSource="{Binding SuggestedModels}" SelectedItem="{Binding Model}"
-                              ToolTip.Tip="Pick the model to use. Updating the provider resets this to its default." />
+                    <AutoCompleteBox HorizontalAlignment="Stretch"
+                                     ItemsSource="{Binding SuggestedModels}" Text="{Binding Model}"
+                                     FilterMode="Contains" MinimumPrefixLength="0"
+                                     Watermark="model id (type, or pick a suggestion)"
+                                     ToolTip.Tip="Type any model id, or pick a suggestion. Switching provider resets this to its default — handy if your preferred model isn't listed or one is retired." />
 
                     <!-- What to make -->
                     <controls:SectionHeader Text="WHAT TO MAKE" />
