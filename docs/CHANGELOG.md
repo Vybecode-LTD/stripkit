@@ -1,9 +1,29 @@
 # CHANGELOG — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
+
+## [Unreleased]
+
+### Fixed
+- **Generate → Create handoff now honours the generated control type.** Previously the handoff
+  always forced `RotaryKnob`, so a generated **fader/slider/button** produced broken output —
+  faders and sliders *rotated* instead of sliding, and buttons stacked both states on top of each
+  other. The handoff now branches on the generated type: a **knob** maps to the body + pointer
+  layer stack; a **button** maps its `off`/`on` groups to `LayerBehavior.Frame` state layers; a
+  **fader/slider** is flattened to the single source the linear renderer expects.
+- **Security: hardened untrusted-SVG XML parsing.** Both the AI-reply sanitizer (`SvgSanitizer`)
+  and the layered-file import picker now parse SVG through a new `SafeXml.Parse`
+  (`DtdProcessing.Prohibit`, no `XmlResolver`, `MaxCharactersFromEntities = 0`), closing an
+  entity-expansion denial-of-service ("billion laughs") and external-entity / SSRF probes on
+  attacker-influenced input. Legitimate generated control art has no DTD, so the happy path is
+  unaffected (a DTD now throws, which both callers already treat as "malformed SVG").
+- **Removed the CommunityToolkit + Avalonia double-validation.** Added the missing
+  `BindingPlugins.DataValidators.RemoveAt(0)` in `App.axaml.cs` so validation errors are not
+  reported twice. The Generate tab now also **warns** when a generated knob has no rotating
+  pointer, or a button is missing one of its on/off states.
 
 ## [1.2.0] — 2026-06-09
 
@@ -321,7 +341,7 @@
 
 ### Tests
 - Importer engine tests (detection/classification/ambiguity, extraction, lossless
-  re-stack), importer VM tests, manifest mapping + JSON-Schema-conformance tests.
+  re-stack), importer VM tests, manifest mapping + JSON-Schema conformance tests.
   Suite: **25 passing**.
 
 ### Docs

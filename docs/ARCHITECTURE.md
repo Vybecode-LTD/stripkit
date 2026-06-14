@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > The deep, file-and-flow reference for how the **StripKit desktop app** is built.
 > `docs/SOURCE_MAP.md` says *where* things live; this says *how and why* they work.
@@ -53,8 +53,13 @@ source of truth the release script bumps), `PackageLicenseExpression=MIT`.
 **Packages:** Avalonia 11.3.0 (+ `Avalonia.Desktop`, `Avalonia.Themes.Fluent`,
 `Avalonia.Fonts.Inter`, and `Avalonia.Diagnostics` — F12 dev tools, **Debug-only** via
 `IncludeAssets=None` outside Debug), CommunityToolkit.Mvvm 8.4.0 (source generators),
-Microsoft.Extensions.DependencyInjection 9.0.0, SkiaSharp 3.119.0 (pinned to align
-with Avalonia 11.3's transitive Skia — see `CLAUDE.md` if NuGet warns of a conflict).
+Microsoft.Extensions.DependencyInjection 9.0.0, SkiaSharp 3.119.2 (the floor Svg.Skia
+5.0.0 requires, a patch above Avalonia 11.3's transitive Skia — see `CLAUDE.md` if NuGet
+warns of a conflict), and `Avalonia.Controls.ColorPicker` 11.3.0 (the Generate colour swatches).
+
+**Layered-import / Generate packages (app-only, not in `FilmstripEngine.cs`):** `Svg.Skia` 5.0.0
+(MIT, SVG layers), `Magick.NET-Q8-x64` 14.13.1 (Apache-2.0, PSD/PSB layers), and
+`System.Security.Cryptography.ProtectedData` 9.0.0 (Windows DPAPI for the encrypted AI keys).
 
 ---
 
@@ -79,7 +84,7 @@ owns a `Window` for the storage pickers).
 
 | File | Purpose |
 |------|---------|
-| `ComponentType.cs` | enum `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`. |
+| `ComponentType.cs` | enum `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`, `Button` (discrete on/off state frames). |
 | `StackDirection.cs` | enum `Vertical`, `Horizontal`. |
 | `MeterFillDirection.cs` | enum `Up`, `Down`, `LeftToRight`, `RightToLeft` (meter fill axis). |
 | `FrameTransform.cs` | `readonly record struct`: per-frame placement in **1× frame units** — `TranslateX/Y`, `DrawWidth/Height`, `RotateDegrees`, `PivotX/Y`. The renderer multiplies these by the working pixel scale. |
@@ -88,7 +93,7 @@ owns a `Window` for the storage pickers).
 | `SkinManifest.cs` | `SkinManifest` / `ManifestControl` / `ManifestBounds` records — the `skin.json` schema (see §9). |
 | `BatchModels.cs` | `BatchOptions`, `BatchProgress`, `BatchItemResult`, `BatchResult` — batch run inputs / progress / outcome (see §8). |
 | `CodeModels.cs` | `CodeTarget` enum + `CodeSnippetRequest` record — inputs for the code-export service (§9.1). |
-| `RenderLayer.cs` | `LayerBehavior` enum (`Static`, `Rotate`) + `RenderLayer` (behaviour + a normalized per-layer pivot) — the layered-knob model (§5.6). Skia-free; the layer's bitmap is passed alongside to the renderer. |
+| `RenderLayer.cs` | `LayerBehavior` enum (`Static`, `Rotate`, `Frame`) + `RenderLayer` (behaviour + a normalized per-layer pivot) — the layered-knob / button model (§5.6, §5.7). `Frame` = shown only on the frame whose index matches the layer's index (button off/on state art). Skia-free; the layer's bitmap is passed alongside to the renderer. |
 
 #### 3.1.1 `FilmstripSettings` fields (the render contract)
 
@@ -120,7 +125,8 @@ owns a `Window` for the storage pickers).
 | `IAssetService` / `AssetService` | extract a bundled avares asset (the tutorial's sample knob) to a temp file path. | **Yes** |
 | `IAssetGenerationService` / `AssetGenerationService` | the **Generate** tab orchestrator (§11): build the prompt → dispatch → sanitize → `GenerationResult`. Networked. | No |
 | `IAssetGenerationProvider` + `ClaudeProvider` / `OpenAiProvider` / `GeminiProvider` | one AI service each (URL + auth + body + parse), over a shared `HttpClient`; non-2xx → `GenerationException` (§11). | No |
-| `SvgSanitizer` (static) | carve the `<svg>` out of a chatty reply + strip script / `<image>` / `<foreignObject>` / `on*` / off-document `href` (§11). | No |
+| `SvgSanitizer` (static) | carve the `<svg>` out of a chatty reply + strip script / `<image>` / `<foreignObject>` / `on*` / off-document `href` (§11). Parses via `SafeXml`. | No |
+| `SafeXml` (static) | hardened `XDocument` parse for **untrusted** SVG (`DtdProcessing.Prohibit`, no resolver, `MaxCharactersFromEntities = 0`) — closes entity-expansion DoS / external-entity. Used by `SvgSanitizer` + `LayeredImportService`. | No |
 | `ISecretStore` / `DpapiSecretStore` | per-provider API keys encrypted at rest via Windows DPAPI → `%APPDATA%/StripKit/secrets.dat` (§11). | No |
 
 ### 3.3 `Helpers/`
@@ -810,8 +816,16 @@ the host VM switches to the Create tab and calls the shared `ImportLayeredFromPa
 Windows DPAPI (`ProtectedData`, CurrentUser) in `%APPDATA%/StripKit/secrets.dat` — ciphertext only
 (a base64 passthrough off-Windows keeps dev/test round-tripping). The last-used provider + a
 per-provider model override persist in `AppSettings` (never the key). DI: the providers, the service,
-and the secret store are singletons (with the `HttpClient`); `GenerateViewModel` is transient. **v1
-is knob-only** (the layered path is knob-only); faders/sliders/meters are future work.
+and the secret store are singletons (with the `HttpClient`); `GenerateViewModel` is transient.
+
+**All four control types (v1.2.0+).** The `GenerationRequest` carries the component type, and the prompt is
+**type-aware**: a **knob** asks for `<g id="body">` + `<g id="pointer">`; a **button** asks for `<g id="off">` +
+`<g id="on">`; a **fader/slider** asks for a single `<g id="body">` cap/handle shape. The importer's name hints
+map each on import (`pointer`->Rotate, `off`/`on`->Frame, else Static), and the **Use-in-Create handoff honours
+the generated type** (v1.2.1): knob -> the body+pointer `Layers` stack; button -> `off`/`on` as `LayerBehavior.Frame`
+state layers; fader/slider -> flattened to the single source the linear renderer expects. (Before v1.2.1 the handoff
+hard-forced `RotaryKnob`, so generated faders/sliders rotated and buttons stacked both states.) Meters are not yet a
+Generate target, and the fader/slider/meter output paths still want a live eyeball — knob is the proven path.
 
 ---
 
@@ -867,13 +881,13 @@ not part of the build** (it lives outside `src/` and no project compiles it) —
 so the engine can be dropped into a CLI, a build step, a web backend, or another app
 unchanged.
 
-It contains exactly the **render math**: the `ComponentType`, `MeterFillDirection`,
-`StackDirection`, and `LayerBehavior` enums; the `FrameTransform` struct and the `RenderLayer`
+It contains exactly the **render math**: the `ComponentType` (incl. `Button`), `MeterFillDirection`,
+`StackDirection`, and `LayerBehavior` (incl. `Frame`) enums; the `FrameTransform` struct and the `RenderLayer`
 class; `FilmstripSettings` (including the `SourceCenterX/Y` alignment fields, the meter fields,
 the value-arc fields, and the `Layers` list with its deep `Clone`); and `IFilmstripRenderer` +
 `SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`, `RenderStrip`, the full
-`RenderMeterFrame` procedural/layered path, `RenderValueArc`, and the `RenderLayers`
-base+pointer path). It does **not** include the
+`RenderMeterFrame` procedural/layered path, `RenderValueArc`, the `RenderLayers`
+base+pointer path, and the `RenderButtonLayers` button state-frame path). It does **not** include the
 app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 `BatchProcessor`, the I/O services, or any view-model/view — by design.
 
@@ -882,8 +896,9 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 > MeterFillDirection, RenderLayer}`. If the in-app renderer's math changes (transform,
 > supersampling, meter fill, alignment, layers), update this file to match (or it silently
 > drifts). As of this audit the two are in sync — the alignment `SourceCenterX/Y` pivot, the
-> meter path, the `RenderValueArc` value-arc path (with its arc fields), and the `RenderLayers`
-> base+pointer path (with the `RenderLayer`/`LayerBehavior` types and the `Layers` field) are
+> meter path, the `RenderValueArc` value-arc path (with its arc fields), the `RenderLayers`
+> base+pointer path, and the `RenderButtonLayers` button state-frame path (with the `RenderLayer` /
+> `LayerBehavior` Static/Rotate/Frame types and the `Layers` field) are
 > all present here.
 
 ---

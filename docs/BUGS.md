@@ -1,8 +1,8 @@
 # BUGS — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 
-**Open bugs: 0.** **Resolved: 7.**
+**Open bugs: 0.** **Resolved: 9.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -10,7 +10,9 @@ Phase 0 — neither was caused by the FilmstripForge → StripKit rename. BUG-00
 were **release-tooling defects** caught during the first v0.6.0 release and fixed
 forward (they corrupted published docs / blocked the release pipeline, not the app
 binary). BUG-005/006/007 were **code-quality defects** found by audit and fixed in
-commit `0aaa257` (resource leaks and a silent product gap).
+commit `0aaa257` (resource leaks and a silent product gap). BUG-008/009 were
+**Generate-tab defects** found in the 2026-06-14 audit of the shipped v1.2.0 and fixed
+forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
 
 ---
 
@@ -118,8 +120,46 @@ commit `0aaa257` (resource leaks and a silent product gap).
   array in `BatchViewModel`. Added a comment in `BuildSettings()` noting that
   meter-specific fields (`SegmentCount`, `FillDirection`, etc.) are not yet exposed in
   the batch template UI and will render using `FilmstripSettings` defaults until a
-  dedicated batch-meter UI is added.
+  dedicated batch-meter UI is added. *(Fully resolved in v0.8.0 — the Batch tab now
+  exposes the meter settings + a layered/backdrop toggle.)*
 - **Regression guard:** 49/49 green.
+
+### BUG-008 — Generate → Create handoff hard-coded RotaryKnob (broken non-knob output) ✅
+- **Severity:** High (broken output — a generated fader/slider/button produced an unusable strip).
+- **Component:** `src/StripKit/ViewModels/MainWindowViewModel.cs` (the Generate → Create handoff)
+  + `src/StripKit/ViewModels/GenerateViewModel.cs`.
+- **Reported / Fixed:** 2026-06-14 (audit of the shipped v1.2.0).
+- **Symptom:** after v1.2.0 let the Generate tab produce **all four control types**, the
+  **"Use in Create"** handoff still forced `RotaryKnob`. A generated **fader/slider** was treated
+  as a layered knob and **rotated** instead of sliding; a generated **button** stacked both `off`
+  and `on` states on top of each other (the `Frame` indexing was lost).
+- **Root cause:** `ImportLayeredFromPathAsync` (and the import that backs it) always set the knob
+  type / appended Rotate layers, written before the button + linear control types existed in
+  Generate.
+- **Fix (commit `80dc1b5`):** the handoff now branches on the **generated control type** — a
+  **knob** maps to the body + pointer layer stack; a **button** maps its `off`/`on` groups to
+  `LayerBehavior.Frame` state layers; a **fader/slider** is flattened to the single source the
+  linear renderer expects.
+- **Regression guard:** `GenerateIntegrationTests` exercises the per-type handoff (knob →
+  body/pointer layers; button → off/on Frame layers; the handoff carries the generated type).
+
+### BUG-009 — Untrusted SVG parsed without DTD/entity hardening (DoS / XXE exposure) ✅
+- **Severity:** High (security — entity-expansion denial-of-service and external-entity / SSRF on
+  attacker-influenced input).
+- **Component:** `src/StripKit/Services/SvgSanitizer.cs` (AI replies) +
+  `src/StripKit/Services/LayeredImportService.cs` (imported `.svg` files).
+- **Reported / Fixed:** 2026-06-14 (audit).
+- **Symptom:** both the AI-reply sanitizer and the layered-file import picker parsed SVG with a bare
+  `XDocument.Parse`, which honours DTDs — leaving "billion laughs" entity-expansion DoS and
+  external-entity / SSRF (`<!ENTITY x SYSTEM "file://…">`) open on attacker-supplied content.
+- **Root cause:** `XDocument.Parse(string)` uses default reader settings (`DtdProcessing.Parse`,
+  a default resolver), unsafe for untrusted XML.
+- **Fix (commit `80dc1b5`):** new `Services/SafeXml.cs` — `XDocument.Load` with
+  `DtdProcessing.Prohibit`, `XmlResolver = null`, `MaxCharactersFromEntities = 0`. Applied in
+  **both** callers. A DTD now throws `XmlException`, which both callers already treat as "malformed
+  SVG"; legitimate generated control art carries no DTD, so the happy path is unaffected.
+- **Regression guard:** `SvgSanitizerTests` / `LayeredImportServiceTests` reject a DTD-bearing
+  document as malformed (so the prohibition is asserted, not just present).
 
 ---
 
@@ -128,17 +168,21 @@ commit `0aaa257` (resource leaks and a silent product gap).
 - No runtime bugs are currently known. The renderer output is locked by golden-image
   tests; a future intentional render change must update baselines (see
   `docs/TESTING.md`).
-- **Informational (not a bug):** the app **and** installer are now **code-signed** via Azure
+- **Informational (not a bug):** the app **and** installer are **code-signed** via Azure
   Trusted Signing (the `VybeCode` certificate profile), wired into the release pipeline since
-  v0.8.0's signed re-release and used for v1.0.0. The earlier "~4/71 VirusTotal FPs on the
-  *unsigned* installer / SmartScreen prompt" caveat is now **historical**. (Signing uses
+  v0.8.0's signed re-release and used for every release since. The earlier "~4/71 VirusTotal FPs
+  on the *unsigned* installer / SmartScreen prompt" caveat is now **historical**. (Signing uses
   `signtool.exe` + the `Microsoft.Trusted.Signing.Client` dlib — not AzureSignTool, which 403s
   against Trusted Signing endpoints; see `docs/PACKAGING.md`.)
+- **Informational (not a bug) — release integrity:** the v1.2.0 **feature source** was accidentally
+  omitted from the "Release v1.2.0" commit (which staged only version files + the installer), so the
+  `v1.2.0` tag could not rebuild its own installer. The source was committed retroactively
+  (`b55380f`, 2026-06-14), matching the shipped binary, before the v1.2.1 fixes. Process guard: commit
+  feature work **before** running the release script (which stages only version files by design).
 - Known *limitations* (not bugs) live in `docs/ROADMAP.md` / `docs/ARCHITECTURE.md`:
-  importer detection is a dimension-based guess (editable + verified). **Resolved in
-  v0.8.0** (the BUG-007 follow-up + two carryovers): the Batch tab now exposes the meter
-  settings (+ a layered/backdrop toggle); the **Skin tab** does multi-control `skin.json`
-  (the Create-tab export still emits a single control); and the importer can now **resample**
-  the frame count (nearest-frame), not just re-stack orientation. Auto-pointer extraction
-  (★ #3 step 2) leaves a small central residual dot when the needle passes through the pivot
-  (a verify-and-tweak starting point, knob-only) — not a defect.
+  importer detection is a dimension-based guess (editable + verified). The **Skin tab** does
+  multi-control `skin.json` (the Create-tab export still emits a single control). Auto-pointer
+  extraction (★ #3 step 2) leaves a small central residual dot when the needle passes through the
+  pivot (a verify-and-tweak starting point, knob-only) — not a defect. Generate is type-aware
+  across knob/fader/slider/button, but the fader/slider/meter output paths still want a live eyeball
+  (knob is the proven path).

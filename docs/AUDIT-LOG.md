@@ -1,8 +1,85 @@
 # AUDIT-LOG — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-14 — 5-dimension audit + orphaned-v1.2.0-source recovery + the 1.2.1 fix wave + full reconcile
+
+**Type:** Codebase audit + release-integrity recovery + correctness/security fixes + documentation reconciliation.
+
+**Scope:** Audited the codebase across five dimensions (release integrity, correctness, security, MVVM/convention
+adherence, doc↔code drift), recovered an orphaned release's source, fixed three findings forward, and reconciled
+every managed doc from 1.0.0 → **1.2.1 / 2026-06-14**.
+
+### Ground truth verified
+- `src/StripKit/StripKit.csproj` `<Version>` = **1.2.0** (the release script will bump to 1.2.1 — left untouched).
+- `MainWindow.axaml` has **five** `TabItem`s: Create | Import | Batch | Skin | Generate.
+- `ComponentType` enum = **5** values: `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`, **`Button`**.
+- `LayerBehavior` enum = **3** values: `Static`, `Rotate`, **`Frame`** (off=index 0 / on=index 1 state frames).
+- New source present: `Services/SafeXml.cs`, `Helpers/HexToColorBrushConverter.cs`, `Controls/SectionHeader.cs`,
+  `tests/StripKit.Tests/GenerateIntegrationTests.cs`. Deps present: SkiaSharp **3.119.2**, Svg.Skia 5.0.0,
+  Magick.NET-Q8-x64 14.13.1, `System.Security.Cryptography.ProtectedData` 9.0.0, `Avalonia.Controls.ColorPicker` 11.3.0.
+- Test suite **171/171 green** (was 157; +14 this session). Build 0/0. Working tree's only untracked strays:
+  `docs/PRESS-RELEASE.md`, `press/`, `.claude/launch.json` (not ours).
+
+### Finding 1 — release integrity: v1.2.0 feature source was orphaned (recovered)
+**Severity: HIGH.** The "Release v1.2.0" commit (`70cf259`) staged **only** the version files + the installer; the
+actual v1.2.0 **feature source was never committed**. The released binary + the `v1.2.0` tag were live, but the tag
+**could not rebuild its own installer** — its source was absent from history. **Recovery:** committed that source
+as-is (matching the shipped binary) in **`b55380f`** *before* fixing forward to 1.2.1, restoring "every released
+tag is rebuildable from its own tree." (Process guard now in HANDOFF/KICKOFF: commit features *before* running the
+release script, which stages only version files by design.)
+
+### Findings 2–4 — the 1.2.1 fix wave (committed `80dc1b5`, staged for release)
+- **Generate → Create handoff hard-coded `RotaryKnob`** (HIGH — broken output): a generated fader/slider/button
+  broke on handoff (faders/sliders rotated instead of sliding; buttons stacked both states). **Fixed:** the handoff
+  now branches on the generated type — knob → body+pointer stack; button → `off`/`on` as `LayerBehavior.Frame`
+  layers; fader/slider → flattened to the single source the linear renderer expects.
+- **Untrusted-SVG XML parsing unhardened** (HIGH — security): bare `XDocument.Parse` on AI replies + imported SVG
+  left entity-expansion DoS ("billion laughs") and external-entity / SSRF open. **Fixed:** new `Services/SafeXml.cs`
+  (`DtdProcessing.Prohibit`, `XmlResolver = null`, `MaxCharactersFromEntities = 0`), applied in **both**
+  `SvgSanitizer` and the layered-file import picker. A DTD now throws (both callers already treat that as "malformed
+  SVG"); legitimate generated art has no DTD, so the happy path is unchanged.
+- **CommunityToolkit + Avalonia double-validation** (MEDIUM): added the missing
+  `BindingPlugins.DataValidators.RemoveAt(0)` in `App.axaml.cs`; the Generate tab now also **warns** when a knob has
+  no rotating pointer / a button lacks an on or off state.
+
+### Mini-audit of the code
+- New services Avalonia-free where required (`SafeXml`: BCL `System.Xml` only). `HexToColorBrushConverter` is a view-layer
+  `IValueConverter` (correct). `SectionHeader` is a `TemplatedControl` (view layer). VMs hold no Avalonia UI types
+  (the preview `Bitmap` alias excepted). Source-gen VMs `partial`. The button state-frame path **is** mirrored in
+  `FilmstripEngine.cs` (it's render math: `RenderButtonLayers` + `LayerBehavior.Frame`); the Generate providers /
+  sanitizer / secret store are correctly **not** mirrored (app-only). DI complete. No `async void` outside handlers;
+  no `.Result`/`.Wait()`/`System.Drawing`. Renderer gated by defaults → all prior goldens byte-identical.
+
+### Doc reconciliation
+- All managed docs → **1.2.1 / 2026-06-14** (CHANGELOG, SOURCE_MAP, TESTING, ARCHITECTURE, ROADMAP, AUDIT-LOG, BUGS,
+  KICKOFF, PACKAGING, CLAUDE, HANDOFF frontmatter).
+- **CHANGELOG:** fixed the stale "Version 1.0.0" header → 1.2.1; added a `## [Unreleased]` section (the three v1.2.1
+  fixes, ### Fixed) above the existing `[1.2.0]` (left `[1.2.0]`/`[1.1.0]` intact; the release script renames
+  `[Unreleased]` → `[1.2.1]`).
+- **HANDOFF:** rewritten for the current session — five tabs, 171 tests, the v1.1.0/1.2.0/1.2.1 work, the
+  orphaned-source recovery, the strays, and "ship 1.2.1" as the next step.
+- **Test count → 171** everywhere it was stale (SOURCE_MAP 152, TESTING ~5 places at 152, README 98 ×2, HANDOFF 125).
+- **Tab count → five + a Generate mention** in README (was "four-tab", no Generate), HANDOFF, KICKOFF.
+- **New code documented** in SOURCE_MAP / ARCHITECTURE / CLAUDE: `ComponentType.Button`, `LayerBehavior.Frame`,
+  `SafeXml.cs`, `HexToColorBrushConverter.cs`, `Controls/SectionHeader.cs`, `GenerateIntegrationTests.cs`.
+- **ARCHITECTURE:** the §11 "v1 is knob-only / faders-sliders-meters are future" line corrected (Generate is now
+  type-aware across all four control types); documented the Button state-frame render path (`RenderButtonLayers`) +
+  the `SafeXml` hardening; SkiaSharp 3.119.0→3.119.2 + the newer packages noted.
+- **ROADMAP:** added v1.1.0 / v1.2.0 / v1.2.1 release entries; flipped Generate "fader/slider/meter (knob-only today)"
+  and "Boolean trigger components (buttons/toggles)" to ✅ where v1.2.0 delivered them.
+- **BUGS:** header bump; retro-logged BUG-008 (handoff control-type) and BUG-009 (untrusted-SVG parse hardening) as
+  resolved for traceability.
+
+### Verdict
+**Green.** Build 0/0, **171/171** tests, app boots clean (five tabs + first-run tutorial), `main` == origin, 0 open
+bugs, **v1.2.0 live + signed, v1.2.1 staged**. The orphaned-v1.2.0-source integrity gap is closed (`b55380f`). Next:
+ship 1.2.1; then website P2 getting-started guide. Recommended doc-version increment: **PATCH** (1.2.0 → 1.2.1,
+stamp + the staged fixes).
 
 ---
 

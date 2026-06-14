@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (152 tests)
+dotnet test                                      # whole suite (171 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **152 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **171 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
@@ -38,18 +38,18 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 | FluentAssertions | 6.12.0 | readable assertions (6.x — MIT/free) |
 | Avalonia.Headless.XUnit | 11.3.0 | headless UI tests (`[AvaloniaFact]`) |
 | coverlet.collector | 6.0.2 | code coverage |
-| SkiaSharp | 3.119 (transitive) | pixel comparison in golden tests |
+| SkiaSharp | 3.119.2 (transitive) | pixel comparison in golden tests |
 
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (152)
+## Test inventory (171)
 
-### Generate tab (AI SVG generation) — 27
+### Generate tab (AI SVG generation) — 27 + integration
 The networked, non-deterministic feature is covered without ever hitting a network:
 - `SvgSanitizerTests.cs` — 6: carve the SVG out of a fenced/chatty reply; strip
   script/`<image>`/`<foreignObject>`/event-handlers/off-document `href`; keep local `#id`
-  refs; reject non-SVG and malformed XML.
+  refs; reject non-SVG and malformed XML (incl. a DTD — `SafeXml` prohibits it).
 - `SecretStoreTests.cs` — 4: per-provider set/get round-trip, persistence across instances,
   blank-clears / clear-removes, and that the on-disk file never contains the plaintext key.
 - `AssetGenerationProviderTests.cs` — 5: each provider against a fake `HttpMessageHandler` —
@@ -61,7 +61,12 @@ The networked, non-deterministic feature is covered without ever hitting a netwo
 - `GenerateViewModelTests.cs` — 5: key gating, per-provider key save/reload, the success path
   (import-validated + Create handoff fires with a real temp SVG), and the two failure paths.
 - `GenerateViewTests.cs` — 1: headless realization of `GenerateView` (compiled bindings,
-  design tokens, the reveal binding, and the `StringConverters` usage all load at runtime).
+  design tokens, the reveal binding, the colour-swatch buttons, and the `StringConverters` usage
+  all load at runtime).
+- `GenerateIntegrationTests.cs` — the end-to-end Generate→import path per control type: a
+  generated knob round-trips as body/pointer layers, a generated **button** maps its `off`/`on`
+  groups to `LayerBehavior.Frame` state layers, and the Generate→Create handoff carries the
+  generated control type (no longer hard-forced to `RotaryKnob`).
 
 ### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
@@ -95,6 +100,14 @@ Layered knob = a static base body + a separate rotating pointer (the ★ #3 step
   `Layers.Count > 0`); the pointer pivot changes the render; and layers are ignored for
   non-knob components (also exercises `FilmstripSettings.Clone`'s deep-copy of `Layers`).
 
+### Button state-frame renderer — discrete on/off frames
+`ComponentType.Button` composites layer art per frame via `RenderButtonLayers`: a `Static`
+layer draws on every frame; a `LayerBehavior.Frame` layer draws only when its list index equals
+the frame index (index 0 = off, index 1 = on). Covered by pixel-logic over the button path (the
+off-only frame shows the off layer, the on frame shows the on layer, a shared Static layer shows
+on both) and end-to-end via `GenerateIntegrationTests` (a generated button's `off`/`on` groups
+become Frame layers). The path is also mirrored in `FilmstripEngine.cs`.
+
 ### `PointerExtractorTests.cs` — 3 (auto-pointer extraction, pure SkiaSharp)
 Splitting a flat knob into a symmetric base + the indicator via the radial-symmetry residual.
 - `Extract_splits_a_flat_knob_into_a_symmetric_body_and_the_indicator` (the white indicator
@@ -107,10 +120,13 @@ Splitting a flat knob into a symmetric base + the indicator via the radial-symme
 Parsing a real layered source into the renderer's layer stack. Fixtures are synthesized in memory
 (an SVG string; a PSD written by Magick.NET) so no binary assets live in the repo.
 - SVG: groups → named, behaviour-guessed layers; layers isolated + registered on the canvas; a
-  group-less SVG is one static layer; a non-indicator group name stays Static.
+  group-less SVG is one static layer; a non-indicator group name stays Static; an `off`/`on` group
+  becomes a `Frame` layer.
 - PSD: the merged composite is dropped and the named layers kept with their guessed behaviours;
   layers isolated + registered on the canvas (proves the [composite, layer, layer…] read model).
 - `Import` returns null for a missing/garbage file; `CanImport` recognizes `.svg`/`.psd`/`.psb` only.
+- SVG parsing goes through `SafeXml` — a DTD-bearing document is rejected as malformed (no entity
+  expansion).
 
 ### `LayeredImportViewModelTests.cs` — 4 (the Create-tab import command)
 - Importing an SVG populates tagged rows (body=Static, pointer=Rotate), forces the knob type,
@@ -259,8 +275,8 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 - **The release pipeline is validated by execution, not by automated tests.** The
   release script (`scripts/Invoke-Release.ps1`) and the GitHub Actions workflow
   (CI YAML) are PowerShell / pipeline glue, not application code; they are verified
-  by running them (the latest two release-tooling fixes were confirmed by re-running
-  the pipeline end-to-end) rather than by unit tests. The packaging switch to Inno
+  by running them (the release-tooling fixes were confirmed by re-running the pipeline
+  end-to-end) rather than by unit tests. The packaging switch to Inno
   Setup likewise removed `UpdateService` (Velopack), which carried no tests, so the
   suite count was unchanged by that work.
 - **The literal OS drag gesture is not auto-tested.** Avalonia.Headless cannot
@@ -275,12 +291,15 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
   needs a UI platform; tests force the render/extract to throw so the swallowed
   preview path is skipped and load *state* is asserted). The importer's extraction is
   pixel-tested directly.
+- **Live AI generation is never hit.** The providers are tested against a fake
+  `HttpMessageHandler`; a real key + a real model call is a manual smoke test (and the
+  Generate fader/slider/meter output paths want a live eyeball — knob is the proven path).
 - **No coverage threshold is enforced** yet (coverlet is wired; a gate can be added
   with a CI step).
 - **`FilmstripEngine.cs`** (the standalone portable renderer) is not under test — it
   is a hand-maintained mirror of `SkiaFilmstripRenderer` (now including the `RenderLayers`
-  layered-knob path + the `RenderLayer`/`LayerBehavior` types and `Layers` field); the
-  in-app renderer is the tested one.
+  layered-knob path, the `RenderButtonLayers` button state-frame path, the `RenderLayer`/
+  `LayerBehavior` types and `Layers` field); the in-app renderer is the tested one.
 - **The Batch tab's meter on-screen output is not golden-tested.** The meter template now
   flows through to `BatchProcessor` (covered by `BatchViewModelTests` +
   `BatchProcessorTests`), and the meter renderer itself is locked by `MeterRenderTests`; the

@@ -1,9 +1,9 @@
 # ROADMAP — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
-ship — Inno installer, release pipeline, and website) are **complete**, and three
+ship — Inno installer, release pipeline, and website) are **complete**, and several
 further releases have shipped since (see **Releases** below). The **vNext — Future
 features** section captures the product-brainstorm backlog, grouped by theme and
 priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
@@ -27,6 +27,26 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   fix. First **code-signed** release (Azure Trusted Signing — exe + installer). Suite **125**. The
   release pipeline gained an optional **Stage 3** that auto-drafts the website changelog
   (`Publish-WebsiteChangelog.ps1`). All three ★ bets are now done.
+- **v1.1.0** (2026-06-07) — **the Generate tab.** A fifth tab that generates a **layered knob SVG**
+  from the user's own **OpenAI / Gemini / Claude** key (`IAssetGenerationService` + three providers
+  over a shared `HttpClient`; `SvgSanitizer`; **DPAPI-encrypted** keys via `ISecretStore`),
+  validated by importing it (preview = the real import) with a **"Use in Create"** handoff. Plus the
+  **verified-model dropdown** (fixes a retired-Gemini crash), **body + accent colour** inputs with
+  live swatches, **style-effect** checkboxes, and the renderer **content-centering** fix. New dep:
+  `System.Security.Cryptography.ProtectedData` 9.0.0. Suite **125→157**.
+- **v1.2.0** (2026-06-09) — **buttons + all-control-type generation.** New `ComponentType.Button` +
+  `LayerBehavior.Frame` (discrete off/on state frames; mirrored in `FilmstripEngine.cs`); the
+  Generate tab supports **all four control types** (knob / fader / slider / button); **colour-picker
+  flyouts** (`Avalonia.Controls.ColorPicker` 11.3.0). *(Release-integrity note: the v1.2.0 feature
+  **source** was accidentally omitted from the release commit — only version files + the installer
+  were staged — and was committed retroactively `2026-06-14` (`b55380f`) so the tag can rebuild its
+  own installer.)*
+- **v1.2.1** (about to ship — `## [Unreleased]`) — **fix wave.** The Generate→Create handoff now
+  **honours the generated control type** (was hard-forced to `RotaryKnob`, so generated
+  faders/sliders/buttons broke); **hardened untrusted-SVG XML parsing** against entity-expansion DoS
+  / external-entity via new `SafeXml` (applied to both the AI-reply sanitizer and the layered-file
+  import picker); added the missing `BindingPlugins.DataValidators.RemoveAt(0)` and a Generate
+  structure warning (knob with no pointer / button missing a state). Suite **157→171**.
 
 ---
 
@@ -113,13 +133,17 @@ highest-leverage bets across all groups; pursue them first.
 
 ### Close the loop (asset → working control)
 
-- ✅ **AI asset generation — the Generate tab** (Unreleased) — closes the loop at the *input* end:
+- ✅ **AI asset generation — the Generate tab** (v1.1.0) — closes the loop at the *input* end:
   no starting art needed. The user's own OpenAI / Gemini / Claude key generates a **layered knob
   SVG** (static `body` + rotating `pointer`) that drops into the §6.8 layered-import pipeline, so
   only the pointer rotates. `IAssetGenerationService` (StripKit-aware prompt) + three
   `IAssetGenerationProvider`s over a shared `HttpClient` + `SvgSanitizer` + DPAPI-encrypted keys
   (`ISecretStore`); preview-by-importing + "Use in Create" handoff. App-only; +27 tests.
-  **Remaining (P2):** fader / slider / meter generation (the layered path is knob-only today).
+- ✅ **Generate: all control types** (v1.2.0) — the Generate tab now produces **knob / fader /
+  slider / button** art (was knob-only): the "WHAT TO MAKE" combo drives a type-aware prompt
+  (knob → `body`+`pointer`, button → `off`+`on`, fader/slider → a single `body` cap), and the
+  handoff (v1.2.1) maps each to the right renderer path. *(Meters remain a future Generate target;
+  fader/slider/meter output paths still want a live eyeball.)*
 - 🔄 **Code / component export** — every export can also emit ready-to-paste loader
   code for the target framework. **Shipped 2026-06-04: JUCE** (`LookAndFeel` filmstrip
   `Slider` / meter `Component`), **CSS/HTML** (`background-position` sprite + value setter),
@@ -128,7 +152,7 @@ highest-leverage bets across all groups; pursue them first.
   live preview/copy, +15 tests. **Remaining (P2):** a **React / Web Component** and
   **Unity / Godot** targets. *(was P1, ★ — the second of the three ★ bets; the first two
   targets were the recommended first wave, all four shipped.)*
-- ✅ **Multi-control manifests** (Unreleased) — the **Skin tab** surfaces the model's
+- ✅ **Multi-control manifests** (v0.8.0) — the **Skin tab** surfaces the model's
   multi-control capability: bind several strips to several parameters in one `skin.json`, with
   per-control bounds + value range and a skin-level window background. `SkinViewModel` +
   `SkinControlEntry` + `SkinView`; `IManifestService.BuildManifest`; +6 tests. Pairs directly
@@ -144,9 +168,9 @@ highest-leverage bets across all groups; pursue them first.
   **Step 1 (v0.8.0): base + pointer PNGs** — a general `RenderLayer`/`LayerBehavior` model +
   `FilmstripSettings.Layers`; `RenderLayers` composites a static body + a rotating pointer (its
   own pivot) in `RenderFrame`/`RenderStrip`; explicit Base/Pointer slots; gated so empty layers
-  reproduce prior output; mirrored in `FilmstripEngine.cs`. **Step 2 (Unreleased): auto-pointer
+  reproduce prior output; mirrored in `FilmstripEngine.cs`. **Step 2 (v1.0.0): auto-pointer
   extraction from flat art** — `PointerExtractor` (radial-symmetry residual) splits a flat knob
-  into base + pointer and auto-fills the slots, with a confidence score. **Step 3 (Unreleased):
+  into base + pointer and auto-fills the slots, with a confidence score. **Step 3 (v1.0.0):
   layered PSD/SVG import** — `LayeredImportService` (app-only) reads SVG groups (Svg.Skia / MIT)
   and PSD layers (Magick.NET / Apache-2.0) into the renderer's existing layer stack, with
   name-guessed Static/Rotate behaviours the user overrides per layer; no renderer change, gated
@@ -182,7 +206,7 @@ highest-leverage bets across all groups; pursue them first.
 
 *(See also the linter + frame-diff above, which doubles as a QA tool.)*
 
-- ✅ **Importer frame-count resampling** (Unreleased) — the Import tab re-times a strip to a
+- ✅ **Importer frame-count resampling** (v0.8.0) — the Import tab re-times a strip to a
   new frame count (`FilmstripImporter.Resample`, nearest-frame so a moving pointer never
   ghosts), not just re-stack orientation. **(was P3)** *(Interpolated/blended resampling
   remains intentionally unbuilt — nearest is correct for filmstrips.)*
@@ -200,22 +224,26 @@ highest-leverage bets across all groups; pursue them first.
 
 ### New control types
 
-- ⏳ **Boolean trigger components** — buttons and toggles with an on/off state:
-  momentary vs latching, two-state and multi-state selectors, rendered as
-  discrete-state filmstrips from layered art or N source PNGs. **(P2)** *(new —
-  explicitly requested.)*
+- ✅ **Boolean trigger components** (v1.2.0) — buttons / toggles with discrete on/off (and
+  hover / pressed / disabled) states, rendered as discrete-state filmstrips from layered art.
+  New `ComponentType.Button` + `LayerBehavior.Frame` (a `Frame` layer shows only on its matching
+  frame index; index 0 = off, 1 = on); a **BUTTON STATES** Create-tab section; the importer
+  auto-tags `off`/`on` groups as `Frame`; the renderer's `RenderButtonLayers` path (mirrored in
+  `FilmstripEngine.cs`); and Generate can produce the off/on SVG. *(Future: momentary vs latching
+  semantics + multi-state selectors are a loader/manifest concern, not a render one.)*
 - ⏳ **Meter peak-hold / stereo** — peak-hold indicators, dual / stereo meters, dB
   segment spacing, and per-segment colour ramps. **(P3)** *(carryover — deferred
   from Phase 6.)*
 
 ### Onboarding & documentation
 
-- ✅ **Interactive in-app help / tutorial system** (Unreleased) — a re-openable **"Getting
+- ✅ **Interactive in-app help / tutorial system** (v1.0.0) — a re-openable **"Getting
   Started"** guided overlay (`TutorialViewModel` + `TutorialOverlay`) walks a new user through the
   core loop (load art → choose a type → align → export → loader code → layered import). **Auto-opens
   on first launch** (a new minimal `ISettingsService` persists "seen"), re-openable from the header
   **"Getting started"** button, with a **bundled sample knob** (`IAssetService`) and **contextual
-  tooltips** on the key controls. +11 tests (suite 112→123). **(was P1)** *(owner-requested.)*
+  tooltips** on the key controls. +11 tests (suite 112→123). A **Generate** walkthrough was added
+  with the Generate tab (v1.1.0). **(was P1)** *(owner-requested.)*
 - ⏳ **Website "Getting started" how-to guide** — a `stripkit.pro/getting-started/` page on the
   `Vybecode-LTD/StripKit-Website` repo: a step-by-step illustrated how-to (install → load a knob →
   align → export → drop in the JUCE/CSS/iPlug2/HISE loader), mirroring the in-app tutorial.

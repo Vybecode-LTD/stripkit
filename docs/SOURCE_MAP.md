@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 1.0.0 · last-updated 2026-06-06 · last-audit 2026-06-06
+> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -17,7 +17,9 @@ does each thing live" companion.
 - `FilmstripEngine.cs` — standalone, copy-paste-portable renderer (namespace
   `StripKit.Engine`, SkiaSharp-only). **Not compiled by the app** — a hand-maintained
   mirror of `Services/SkiaFilmstripRenderer.cs` + the `Models`, for reuse in a CLI /
-  build step / another app. Keep in sync if the renderer math changes.
+  build step / another app. Includes the meter, value-arc, `RenderLayers` (base+pointer),
+  and **button state-frame** (`RenderButtonLayers` / `LayerBehavior.Frame`) paths. Keep in
+  sync if the renderer math changes.
 - `.gitignore` — .NET/Avalonia/test-output + packaging ignores (bin, obj, IDE,
   tests/**/output, publish/, installer/Output/; tracks only `releases/latest/*.exe`).
 - `docs/` — `ARCHITECTURE.md` (deep dive), this map, `ROADMAP.md`, `TESTING.md`,
@@ -39,11 +41,11 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (152): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (171): renderer golden-image (with committed
   `baselines/`), the Generate-tab pipeline (`SvgSanitizerTests`, `SecretStoreTests`,
   `AssetGenerationProviderTests` via a fake HTTP handler, `AssetGenerationServiceTests`,
-  `GenerateViewModelTests`, `GenerateViewTests`), `ContentAnalysis` + alignment render, pointer extraction
-  (`PointerExtractorTests`), layered-import service + VM + render
+  `GenerateViewModelTests`, `GenerateViewTests`, `GenerateIntegrationTests`), `ContentAnalysis` +
+  alignment render, pointer extraction (`PointerExtractorTests`), layered-import service + VM + render
   (`LayeredImportServiceTests` / `LayeredImportViewModelTests` / `LayeredImportRenderTests`),
   onboarding (`TutorialViewModelTests` / `SettingsServiceTests`), view-model load-path, importer
   engine + VM, manifest (incl. multi-control), batch processor + VM (incl. meter), Skin tab VM
@@ -59,18 +61,21 @@ does each thing live" companion.
   base, `#e8440a` accent, acrylic/glass brushes, Verdana sans-serif) and the
   **composition root**: all DI registrations live here, and the
   `MainWindow` is created with its view model and given to the dialog service.
+  `App.axaml.cs` also strips the framework's default data-validator
+  (`BindingPlugins.DataValidators.RemoveAt(0)`) so CommunityToolkit + Avalonia don't double-report.
 - `app.manifest` — Windows per-monitor-v2 DPI awareness.
 
 ### `Models/` — pure data, no UI or Skia dependencies
 
-- `ComponentType.cs` — enum: `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`.
+- `ComponentType.cs` — enum: `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`,
+  `Button` (a discrete-state button / toggle: frame 0 = off, frame 1 = on, +hover/pressed/disabled).
 - `StackDirection.cs` — enum: `Vertical`, `Horizontal`.
 - `MeterFillDirection.cs` — enum: `Up`, `Down`, `LeftToRight`, `RightToLeft` (meters).
 - `FrameTransform.cs` — a readonly record struct describing where the source
   layer is drawn in one frame (translate, draw size, rotation, pivot).
 - `FilmstripSettings.cs` — the full render contract (frame count/size, angles,
   pivot, content-centre alignment, margins, supersample, stack direction, meter
-  fields, and the value-arc fields). Passed to the renderer.
+  fields, the value-arc fields, and the `Layers` stack). Passed to the renderer.
 - `StripDetection.cs` — the inferred layout of an *existing* strip (count, frame
   size, orientation, classified kind, low-confidence flag). Output of the importer.
 - `SkinManifest.cs` — `SkinManifest` / `ManifestControl` / `ManifestBounds` records:
@@ -79,9 +84,11 @@ does each thing live" companion.
   `BatchItemResult`, `BatchResult` for the Batch tab.
 - `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise`) +
   `CodeSnippetRequest` record: the inputs for the code-export service.
-- `RenderLayer.cs` — `LayerBehavior` enum (`Static` / `Rotate`) + `RenderLayer` (behaviour +
-  a normalized per-layer pivot): the ordered layer stack for a layered knob (`FilmstripSettings.Layers`).
-  Skia-free; the layer's bitmap is passed alongside to the renderer.
+- `RenderLayer.cs` — `LayerBehavior` enum (`Static` / `Rotate` / `Frame`) + `RenderLayer`
+  (behaviour + a normalized per-layer pivot): the ordered layer stack for a layered knob /
+  button (`FilmstripSettings.Layers`). `Static` = every frame, `Rotate` = knob pointer,
+  `Frame` = shown only on the frame whose index matches the layer's index (button off/on
+  state art). Skia-free; the layer's bitmap is passed alongside to the renderer.
 - `AppSettings.cs` — the persisted preferences (`HasSeenTutorial`; plus the Generate tab's
   last-used `GenerateProvider` + per-provider model overrides), serialized by `SettingsService`.
   API keys are **not** here — they live encrypted in the secret store.
@@ -96,7 +103,9 @@ does each thing live" companion.
   frame with supersampling + Mitchell cubic resampling (meters fill segments via
   `RenderMeterFrame` — procedural bars or a layered on/off-art reveal; knobs may get a
   value-tracking fill arc via `RenderValueArc`, or be composited from a base+pointer layer
-  stack via `RenderLayers` when `settings.Layers` + the `layerArt` are supplied); `RenderStrip`
+  stack via `RenderLayers` when `settings.Layers` + the `layerArt` are supplied; **buttons**
+  composite discrete state art per frame via `RenderButtonLayers` — `Static` layers on every
+  frame, `Frame` layers only on their matching index); `RenderStrip`
   stacks frames into the output PNG. No Avalonia dependency. Do not rewrite this.
 - `PointerExtractor.cs` — static: `Extract` splits a flat knob into a static base + a rotating
   pointer via the radial-symmetry residual (★ #3 step 2; auto-fills the layered-knob slots).
@@ -105,15 +114,22 @@ does each thing live" companion.
 - `ILayeredImportService.cs` / `LayeredImportService.cs` — `Import` parses a layered `.svg`
   (Svg.Skia / MIT) or `.psd`/`.psb` (Magick.NET / Apache-2.0) into named, behaviour-tagged,
   canvas-registered layers (★ #3 step 3) → a `LayeredImportResult` (`ImportedLayer[]` + canvas
-  size). Feeds the renderer's existing layer stack; no Avalonia dependency; app-only (NOT in
-  `FilmstripEngine.cs`). The interface file holds the `ImportedLayer` / `LayeredImportResult` DTOs.
+  size). `Guess` auto-tags by name (pointer/needle/… → Rotate; exact `off`/`on` → Frame; else
+  Static). Parses SVG through `SafeXml`. Feeds the renderer's existing layer stack; no Avalonia
+  dependency; app-only (NOT in `FilmstripEngine.cs`). The interface file holds the `ImportedLayer`
+  / `LayeredImportResult` DTOs.
+- `SafeXml.cs` — static: hardened `XDocument` parse for **untrusted** SVG (AI replies + imported
+  files): `DtdProcessing.Prohibit`, no `XmlResolver`, `MaxCharactersFromEntities = 0` — closes
+  entity-expansion DoS ("billion laughs") + external-entity / SSRF. Used by `SvgSanitizer` and
+  `LayeredImportService`. BCL only (`System.Xml`); app-only.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / open-layered (SVG/PSD) /
   save-PNG / **save-SVG** / open-folder pickers via Avalonia `StorageProvider`. The concrete class
   holds the `Owner` window, set in `App.axaml.cs` after the window is created.
 - `ISettingsService.cs` / `SettingsService.cs` — load/save the small `AppSettings` JSON
-  (`%APPDATA%/StripKit/settings.json`); the app's only persisted state (the first-run "seen
-  tutorial" flag). Best-effort; constructor-injectable path for tests. No Avalonia dependency.
+  (`%APPDATA%/StripKit/settings.json`); the app's persisted state (the first-run "seen
+  tutorial" flag + the Generate tab's last provider/model). Best-effort; constructor-injectable path
+  for tests. No Avalonia dependency.
 - `IAssetService.cs` / `AssetService.cs` — extract a bundled avares asset (the tutorial's sample
   knob) to a temp file path. App layer (uses Avalonia's asset loader).
 - `IExportService.cs` / `ExportService.cs` — encode an `SKBitmap` to a PNG file.
@@ -131,8 +147,9 @@ does each thing live" companion.
   strips off the UI thread (`Task.Run`), with per-item progress and between-item
   cancellation; isolates per-file failures. No Avalonia dependency.
 - `IAssetGenerationService.cs` / `AssetGenerationService.cs` — the **Generate tab** orchestrator:
-  builds the StripKit-aware SVG prompt (square canvas, ~10% margin, `body`+`pointer` groups,
-  pointer at 12 o'clock), dispatches to the chosen provider, then extracts + sanitizes the SVG and
+  builds the StripKit-aware SVG prompt (type-aware — knob = `body`+`pointer`, button = `off`+`on`,
+  fader/slider = a single `body` cap; square canvas, ~10% margin, pointer at 12 o'clock), dispatches
+  to the chosen provider, then extracts + sanitizes the SVG and
   returns a `GenerationResult`. Networked + non-deterministic (unlike the rest); app-only, not in
   `FilmstripEngine.cs`.
 - `IAssetGenerationProvider.cs` (+ `GenerationException` + `HttpAssetGenerationProvider` base) and
@@ -142,7 +159,7 @@ does each thing live" companion.
   Share one DI-singleton `HttpClient`.
 - `SvgSanitizer.cs` — static: carves the `<svg>…</svg>` out of a chatty/fenced model reply and strips
   anything active or external (script / event handlers / `<image>` / `<foreignObject>` / off-document
-  `href`) before it reaches the renderer. Pure (`System.Xml.Linq`), no Skia.
+  `href`) before it reaches the renderer. Parses through `SafeXml` (`System.Xml.Linq`), no Skia.
 - `ISecretStore.cs` / `DpapiSecretStore.cs` — per-provider API-key storage encrypted at rest via
   Windows **DPAPI** (`ProtectedData`, CurrentUser) → `%APPDATA%/StripKit/secrets.dat` (ciphertext;
   base64 fallback off-Windows for dev/test). Constructor-injectable path for tests.
@@ -152,6 +169,14 @@ does each thing live" companion.
 - `SkiaImageInterop.cs` — converts an `SKBitmap` to an Avalonia `Bitmap` for the
   preview (PNG round-trip). See the `avalonia-skia-interop` skill for the faster
   `WriteableBitmap` path if preview performance ever matters.
+- `HexToColorBrushConverter.cs` — an `IValueConverter` that turns a `#RRGGBB` hex string into an
+  Avalonia `IBrush`, backing the Generate tab's body/accent colour swatches (live as you type).
+
+### `Controls/`
+
+- `SectionHeader.cs` — a `TemplatedControl` with one `Text` styled property: a short dark label
+  with a 3px accent divider beneath it overhanging ~25% past the text (styled by a `ControlTheme`
+  in `App.axaml`). Used throughout the sidebars.
 
 ### `ViewModels/`
 
@@ -164,7 +189,8 @@ does each thing live" companion.
   `live-preview-render-loop` skill — this view model is a worked example of that pattern.
   Exposes `Importer`, `Batch`, `Skin`, and `Generate` (the other tabs' view models); wires the
   Generate tab's `UseInCreateRequested` event to jump to Create and import the generated SVG
-  (`ImportLayeredFromPathAsync`, shared with the file picker).
+  (`ImportLayeredFromPathAsync`, shared with the file picker) — **honouring the generated control
+  type** (knob → body+pointer layers; button → off/on Frame layers; fader/slider → flattened source).
 - `ImporterViewModel.cs` — backs the **Import** tab: load an existing strip, run
   detection, scrub the detected frames, and extract / re-stack. Same preview-funnel
   pattern; holds no Avalonia UI types beyond the preview bitmap.
@@ -177,10 +203,11 @@ does each thing live" companion.
 - `SkinControlEntry.cs` — the mutable, observable per-control row the Skin list + detail editor
   bind to; mapped to the immutable `ManifestControl` record on export.
 - `ImportedLayerRow.cs` — the observable per-layer row for an imported SVG/PSD (name + editable
-  Static/Rotate `Behavior` + the canvas-sized art); drives the Create-tab import list (§6.8).
-- `GenerateViewModel.cs` — backs the **Generate** tab: provider/model/key/style state, the async
-  cancellable Generate command, preview via `ILayeredImportService.Import` (which also validates the
-  layered structure), Save/Copy SVG, and the `UseInCreateRequested` handoff event. Persists the
+  `Behavior` (Static / Rotate / Frame) + the canvas-sized art); drives the Create-tab import list (§6.8).
+- `GenerateViewModel.cs` — backs the **Generate** tab: provider/model/key/style + the generated
+  **control type**, the async cancellable Generate command, preview via `ILayeredImportService.Import`
+  (which also validates the layered structure), Save/Copy SVG, a structure warning (knob with no
+  pointer / button missing a state), and the `UseInCreateRequested` handoff event. Persists the
   provider/model prefs (`ISettingsService`) and the key (`ISecretStore`). No Avalonia UI types beyond
   the preview bitmap.
 - `TutorialViewModel.cs` — backs the Getting Started overlay: the step list, navigation
@@ -207,9 +234,10 @@ does each thing live" companion.
   metadata + controls list (left), a per-control detail editor + Export skin.json (right).
   Markup-only code-behind.
 - `GenerateView.axaml(.cs)` — the Generate tab's `UserControl` (`x:DataType` = `GenerateViewModel`):
-  provider/key/model + style/accent/size + Generate/Cancel (left), the SVG preview + status +
-  Use-in-Create / Save / Copy + a raw-response expander (right). Code-behind holds only the
-  clipboard copy (a top-level concern), like the Create tab's snippet copy.
+  provider/key/model + control type + style/accent/size + Generate/Cancel (left), the SVG preview +
+  status + Use-in-Create / Save / Copy + a raw-response expander (right). Code-behind holds the
+  clipboard copy + the colour-picker flyout handlers (the swatch buttons), like the Create tab's
+  snippet copy.
 - `TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (`x:DataType` =
   `TutorialViewModel`): a non-blocking bottom-centre glass card over a click-through scrim,
   hosted as the top layer of `MainWindow`'s root `Panel`. Markup-only code-behind.
@@ -232,3 +260,4 @@ These are scoped to the repo so Claude Code uses them automatically:
 - `image-regression-testing` — golden-image tests to lock the renderer's output.
 - `filmstrip-importer-engine` — detect and re-slice existing filmstrips (Phase 2).
 - `plugin-asset-manifest` — the JSON manifest that binds strips to parameters.
+- `layer-aware-filmstrip-compositing` — the layered-knob (base + pointer) compositing model.
