@@ -182,6 +182,7 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
 - `filmstrip-importer-engine` — detect/re-slice existing strips (Phase 2).
 - `plugin-asset-manifest` — JSON manifest binding strips to parameters (Phase 3).
 - `layer-aware-filmstrip-compositing` — the layered-knob (base + pointer) compositing model.
+- `release-source-integrity-guard` — ensure a release tag can rebuild its own artifact (commit feature source before the release script runs; portable).
 
 ## Globally-installed skills to lean on
 

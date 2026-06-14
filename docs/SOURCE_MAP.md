@@ -261,3 +261,4 @@ These are scoped to the repo so Claude Code uses them automatically:
 - `filmstrip-importer-engine` — detect and re-slice existing filmstrips (Phase 2).
 - `plugin-asset-manifest` — the JSON manifest that binds strips to parameters.
 - `layer-aware-filmstrip-compositing` — the layered-knob (base + pointer) compositing model.
+- `release-source-integrity-guard` — ensure a release tag can rebuild its own artifact (commit feature source before the release script runs; portable).
