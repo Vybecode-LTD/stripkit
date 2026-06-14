@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.2.2] — 2026-06-14
 
 ### Website
 - **Type any model ID in the Generate tab.** The model field now accepts free text *and* the
