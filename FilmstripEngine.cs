@@ -56,6 +56,8 @@ public enum ComponentType
     VerticalFader,
     HorizontalSlider,
     Meter,
+    /// <summary>Discrete-state toggle button: each frame = one state (off / on / …).</summary>
+    Button,
 }
 
 /// <summary>The direction a meter fills as its value rises from 0 to 1.</summary>
@@ -87,13 +89,15 @@ public readonly record struct FrameTransform(
     float PivotX,
     float PivotY);
 
-/// <summary>How a render layer animates across the strip's frames (layered knob: base + pointer).</summary>
+/// <summary>How a render layer animates across the strip's frames.</summary>
 public enum LayerBehavior
 {
     /// <summary>Drawn fixed in every frame (a knob body / well). Never transformed.</summary>
     Static,
     /// <summary>Rotated per-frame about its pivot, following the knob's angle sweep (the pointer).</summary>
     Rotate,
+    /// <summary>Shown only on the frame whose index matches this layer's index. Used for button states.</summary>
+    Frame,
 }
 
 /// <summary>One layer of a layered control render: its behaviour and (for a rotating layer) the
@@ -290,6 +294,15 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                 // Meters are composed in RenderFrame's segment-fill path; identity here.
                 return new FrameTransform(0f, 0f, fw, fh, 0f, fw / 2f, fh / 2f);
 
+            case ComponentType.Button:
+            {
+                // Buttons render discrete state art per frame (no movement). Center-fit the source.
+                var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
+                float drawX = (fw - drawW) / 2f;
+                float drawY = (fh - drawH) / 2f;
+                return new FrameTransform(drawX, drawY, drawW, drawH, 0f, fw / 2f, fh / 2f);
+            }
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(settings), settings.ComponentType, "Unknown component type.");
         }
@@ -335,6 +348,11 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             var arcTf = RenderLayers(canvas, settings, layerArt, frameIndex, px);
             if (settings.ShowValueArc)
                 RenderValueArc(canvas, settings, arcTf, frameIndex, px, workW, workH);
+        }
+        else if (settings.ComponentType == ComponentType.Button
+                 && settings.Layers.Count > 0 && layerArt is { Count: > 0 })
+        {
+            RenderButtonLayers(canvas, settings, layerArt, frameIndex, px);
         }
         else
         {
@@ -471,6 +489,38 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         }
 
         return new FrameTransform(0f, 0f, fw, fh, angle, knobCx, knobCy);
+    }
+
+    // ---- button (discrete states) ----
+
+    private static void RenderButtonLayers(SKCanvas canvas, FilmstripSettings settings,
+                                           IReadOnlyList<SKBitmap> layerArt, int frameIndex, double px)
+    {
+        float fw = settings.FrameWidth;
+        float fh = settings.FrameHeight;
+        int count = Math.Min(settings.Layers.Count, layerArt.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            var layer = settings.Layers[i];
+            var art = layerArt[i];
+            if (art is null || art.Width <= 0 || art.Height <= 0) continue;
+
+            bool show = layer.Behavior == LayerBehavior.Static
+                     || (layer.Behavior == LayerBehavior.Frame && i == frameIndex);
+            if (!show) continue;
+
+            var (drawW, drawH) = Contain(art.Width, art.Height, fw, fh);
+            float drawX = (fw - drawW) / 2f;
+            float drawY = (fh - drawH) / 2f;
+
+            using var img = SKImage.FromBitmap(art);
+            canvas.DrawImage(img,
+                new SKRect(0, 0, art.Width, art.Height),
+                new SKRect(drawX * (float)px, drawY * (float)px,
+                           (drawX + drawW) * (float)px, (drawY + drawH) * (float)px),
+                Cubic);
+        }
     }
 
     // ---- meter ----

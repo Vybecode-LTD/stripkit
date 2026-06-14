@@ -12,6 +12,10 @@ public enum LayerBehavior
 
     /// <summary>Rotated per-frame about its pivot, following the knob's angle sweep (the pointer).</summary>
     Rotate,
+
+    /// <summary>Shown only on the frame whose index matches this layer's index in the layer list.
+    /// Used for button / toggle state art: layer 0 = off, layer 1 = on, etc.</summary>
+    Frame,
 }
 
 /// <summary>

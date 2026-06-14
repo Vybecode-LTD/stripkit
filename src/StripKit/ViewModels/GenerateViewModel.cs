@@ -61,6 +61,10 @@ public partial class GenerateViewModel : ViewModelBase
         [GenerationStyle.Modern, GenerationStyle.Minimal, GenerationStyle.Skeuomorphic, GenerationStyle.Vintage, GenerationStyle.Flat];
     public int[] CanvasSizes { get; } = [256, 512, 768, 1024];
 
+    /// <summary>The control types the AI can generate art for (meter excluded — procedural).</summary>
+    public ComponentType[] GenerateComponentTypes { get; } =
+        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Button];
+
     private IReadOnlyList<string> _suggestedModels = Array.Empty<string>();
     public IReadOnlyList<string> SuggestedModels
     {
@@ -81,6 +85,7 @@ public partial class GenerateViewModel : ViewModelBase
     [ObservableProperty] private string _keyStatus;
 
     // ---- prompt shaping ----
+    [ObservableProperty] private ComponentType _generateControlType = ComponentType.RotaryKnob;
     [ObservableProperty] private GenerationStyle _style = GenerationStyle.Modern;
     [ObservableProperty] private string _styleNotes = "";
     [ObservableProperty] private string _accentColorHex = "#E8440A";
@@ -162,13 +167,13 @@ public partial class GenerateViewModel : ViewModelBase
 
             var request = new GenerationRequest
             {
-                ComponentType = ComponentType.RotaryKnob,
+                ComponentType = GenerateControlType,
+                Layered = GenerateControlType == ComponentType.RotaryKnob || GenerateControlType == ComponentType.Button,
                 Style = Style,
                 StyleNotes = StyleNotes,
                 AccentColor = AccentColorHex,
                 BodyColor = BodyColorHex,
                 CanvasSize = CanvasSize,
-                Layered = true,
                 HasDropShadow = HasDropShadow,
                 HasOuterGlow = HasOuterGlow,
                 HasBevel = HasBevel,
@@ -199,7 +204,8 @@ public partial class GenerateViewModel : ViewModelBase
             _lastSvgPath = path;
             PreviewImage = TryCompositePreview(import);   // best-effort — a result stands even if preview can't render
             HasResult = true;
-            StatusMessage = $"Generated a {import.Layers.Count}-layer knob ({rotate} set to rotate). "
+            var noun = GenerateControlType == ComponentType.Button ? "button" : "control";
+            StatusMessage = $"Generated a {import.Layers.Count}-layer {noun}. "
                           + "Use in Create to build the filmstrip, or Save the SVG.";
         }
         catch (OperationCanceledException)

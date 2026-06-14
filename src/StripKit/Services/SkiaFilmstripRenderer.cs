@@ -92,6 +92,16 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                 // a per-frame transform; return an identity full-frame transform.
                 return new FrameTransform(0f, 0f, fw, fh, 0f, fw / 2f, fh / 2f);
 
+            case ComponentType.Button:
+            {
+                // Buttons render discrete state art per frame (no movement).
+                // Center-fit the source in the frame cell — same as a static knob body.
+                var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
+                float drawX = (fw - drawW) / 2f;
+                float drawY = (fh - drawH) / 2f;
+                return new FrameTransform(drawX, drawY, drawW, drawH, 0f, fw / 2f, fh / 2f);
+            }
+
             default:
                 throw new ArgumentOutOfRangeException(nameof(settings), settings.ComponentType, "Unknown component type.");
         }
@@ -139,6 +149,12 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             var arcTf = RenderLayers(canvas, settings, layerArt, frameIndex, px);
             if (settings.ShowValueArc)
                 RenderValueArc(canvas, settings, arcTf, frameIndex, px, workW, workH);
+        }
+        else if (settings.ComponentType == ComponentType.Button
+                 && settings.Layers.Count > 0 && layerArt is { Count: > 0 })
+        {
+            // Button: each layer is either Static (all frames) or Frame-indexed (off / on / etc.).
+            RenderButtonLayers(canvas, settings, layerArt, frameIndex, px);
         }
         else
         {
@@ -286,6 +302,44 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         }
 
         return new FrameTransform(0f, 0f, fw, fh, angle, knobCx, knobCy);
+    }
+
+    // ---- button (discrete states) ----
+
+    /// <summary>
+    /// Composites a button's layer stack for a single frame. A <see cref="LayerBehavior.Static"/>
+    /// layer appears on every frame (useful for a shared border/shadow); a
+    /// <see cref="LayerBehavior.Frame"/> layer appears only when its list index matches
+    /// <paramref name="frameIndex"/> — index 0 = off, index 1 = on, etc.
+    /// </summary>
+    private static void RenderButtonLayers(SKCanvas canvas, FilmstripSettings settings,
+                                           IReadOnlyList<SKBitmap> layerArt, int frameIndex, double px)
+    {
+        float fw = settings.FrameWidth;
+        float fh = settings.FrameHeight;
+        int count = Math.Min(settings.Layers.Count, layerArt.Count);
+
+        for (int i = 0; i < count; i++)
+        {
+            var layer = settings.Layers[i];
+            var art = layerArt[i];
+            if (art is null || art.Width <= 0 || art.Height <= 0) continue;
+
+            bool show = layer.Behavior == LayerBehavior.Static
+                     || (layer.Behavior == LayerBehavior.Frame && i == frameIndex);
+            if (!show) continue;
+
+            var (drawW, drawH) = Contain(art.Width, art.Height, fw, fh);
+            float drawX = (fw - drawW) / 2f;
+            float drawY = (fh - drawH) / 2f;
+
+            using var img = SKImage.FromBitmap(art);
+            canvas.DrawImage(img,
+                new SKRect(0, 0, art.Width, art.Height),
+                new SKRect(drawX * (float)px, drawY * (float)px,
+                           (drawX + drawW) * (float)px, (drawY + drawH) * (float)px),
+                Cubic);
+        }
     }
 
     // ---- meter ----

@@ -128,7 +128,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ---- combo box choices ----
     public ComponentType[] ComponentTypes { get; } =
-        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter];
+        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter, ComponentType.Button];
 
     public StackDirection[] StackDirections { get; } =
         [StackDirection.Vertical, StackDirection.Horizontal];
@@ -154,7 +154,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ---- component / frames ----
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsLinear), nameof(IsMeter), nameof(ShowLoadHint))]
+    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsLinear), nameof(IsMeter), nameof(IsButton), nameof(ShowLoadHint))]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private ComponentType _componentType = ComponentType.RotaryKnob;
 
@@ -252,10 +252,11 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsRotary => ComponentType == ComponentType.RotaryKnob;
     public bool IsLinear => ComponentType is ComponentType.VerticalFader or ComponentType.HorizontalSlider;
     public bool IsMeter => ComponentType == ComponentType.Meter;
+    public bool IsButton => ComponentType == ComponentType.Button;
 
     /// <summary>The "load a source" overlay shows only when there is nothing to preview;
-    /// a procedural meter renders without a source, and a layered knob previews from its
-    /// base layer or an imported layer stack.</summary>
+    /// a procedural meter renders without a source, and a layered knob or button previews
+    /// from its base layer or an imported layer stack.</summary>
     public bool ShowLoadHint => !HasSource && !IsMeter && !HasBaseLayer && !HasImportedLayers;
 
     /// <summary>True when a layered knob — either the base/pointer slots or an imported SVG/PSD
@@ -297,6 +298,7 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(IsRotary):
             case nameof(IsLinear):
             case nameof(IsMeter):
+            case nameof(IsButton):
             case nameof(ShowLoadHint):
             case nameof(IsPlaying):
             case nameof(SelectedTabIndex):
@@ -383,6 +385,15 @@ public partial class MainWindowViewModel : ViewModelBase
                 FrameWidth = 48;
                 FrameHeight = 160;
                 break;
+
+            case ComponentType.Button:
+                // Square by default; 2 frames covers off/on. The user can add more frames for
+                // hover, pressed, or disabled states.
+                FrameWidth = 80;
+                FrameHeight = 80;
+                _suspendRefresh = false;
+                FrameCount = 2;
+                return;
         }
         _suspendRefresh = false;
     }
@@ -437,6 +448,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     PivotY = SourceCenterY,
                 });
         }
+        else if (IsButton && HasImportedLayers)
+        {
+            // Button state layers: each layer maps to one frame index (off=0, on=1, …).
+            // Pivot is irrelevant here (no rotation) but we set it defensively.
+            foreach (var row in ImportedLayers)
+                settings.Layers.Add(new RenderLayer { Behavior = row.Behavior, PivotX = 0.5, PivotY = 0.5 });
+        }
         else if (IsLayeredKnob)
         {
             settings.Layers.Add(new RenderLayer { Behavior = LayerBehavior.Static });
@@ -456,7 +474,8 @@ public partial class MainWindowViewModel : ViewModelBase
     /// stack in order, or the base body + pointer, or null when not layered.</summary>
     private IReadOnlyList<SKBitmap>? BuildLayerArt()
     {
-        if (IsImportedKnob) return ImportedLayers.Select(r => r.Art).ToList();
+        if (IsImportedKnob || (IsButton && HasImportedLayers))
+            return ImportedLayers.Select(r => r.Art).ToList();
         if (!IsLayeredKnob) return null;
         var art = new List<SKBitmap> { _baseLayer! };
         if (_pointer is not null) art.Add(_pointer);
@@ -965,7 +984,8 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
-    // A procedural meter and a layered knob (base body or an imported stack) render without a source.
+    // A procedural meter, a layered knob (base body or an imported stack), and a button with
+    // imported state layers all render without a flat source image.
     private bool CanExport() => HasSource || IsMeter || HasBaseLayer || HasImportedLayers;
 
     [RelayCommand(CanExecute = nameof(CanExport))]

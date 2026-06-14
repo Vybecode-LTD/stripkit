@@ -6,9 +6,10 @@ namespace StripKit.ViewModels;
 
 /// <summary>
 /// One row in the Create-tab "import layered file" list: a parsed layer's name, the behaviour the
-/// user can override via a dropdown (<see cref="LayerBehavior.Static"/> / <see
-/// cref="LayerBehavior.Rotate"/>), and the canvas-sized art passed to the renderer (not bound).
-/// The owning view model subscribes to <see cref="Behavior"/> changes to re-render live.
+/// user can override via a dropdown (<see cref="LayerBehavior.Static"/> /
+/// <see cref="LayerBehavior.Rotate"/> / <see cref="LayerBehavior.Frame"/>), and the canvas-sized
+/// art passed to the renderer (not bound). The owning view model subscribes to
+/// <see cref="Behavior"/> changes to re-render live.
 /// </summary>
 public partial class ImportedLayerRow : ObservableObject
 {
@@ -29,8 +30,8 @@ public partial class ImportedLayerRow : ObservableObject
     /// importer's name-based guess).</summary>
     [ObservableProperty] private LayerBehavior _behavior;
 
-    /// <summary>The dropdown choices (every row offers the same two).</summary>
-    public LayerBehavior[] Behaviors { get; } = [LayerBehavior.Static, LayerBehavior.Rotate];
+    /// <summary>The dropdown choices — all three behaviors apply depending on the control type.</summary>
+    public LayerBehavior[] Behaviors { get; } = [LayerBehavior.Static, LayerBehavior.Rotate, LayerBehavior.Frame];
 
     public void DisposeArt() => Art.Dispose();
 }

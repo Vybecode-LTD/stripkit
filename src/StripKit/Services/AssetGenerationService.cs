@@ -87,6 +87,13 @@ public sealed class AssetGenerationService : IAssetGenerationService
             sb.AppendLine("    <g id=\"pointer\"> ONLY the moving indicator (a line, notch, triangle or dot) drawn pointing straight UP toward 12 o'clock from the centre </g>");
             sb.AppendLine("  The body never moves. The pointer is rotated programmatically about the centre to show the value, so draw it AT REST (12 o'clock) and bake NO rotation into it.");
         }
+        else if (r.ComponentType == ComponentType.Button)
+        {
+            sb.AppendLine("- Structure the drawing as EXACTLY two top-level groups, in this order:");
+            sb.AppendLine("    <g id=\"off\"> the button in its OFF / inactive state — dim, unlit, or depressed </g>");
+            sb.AppendLine("    <g id=\"on\"> the button in its ON / active state — glowing, lit, or raised </g>");
+            sb.AppendLine("  Draw the complete button artwork in both groups; only one group is shown at a time depending on the parameter value.");
+        }
         else
         {
             sb.AppendLine("- Put the whole drawing in a single <g id=\"body\"> group.");
@@ -102,7 +109,7 @@ public sealed class AssetGenerationService : IAssetGenerationService
 
         var sb = new StringBuilder();
         sb.AppendLine($"Draw a {StyleWord(r.Style)} {ControlNoun(r.ComponentType)} for an audio plugin.");
-        sb.AppendLine($"- Accent / indicator colour: {accent}.");
+        sb.AppendLine($"- Accent / highlight colour: {accent}.");
         if (!string.IsNullOrWhiteSpace(r.BodyColor))
             sb.AppendLine($"- Body / face colour: {r.BodyColor.Trim()}.");
         sb.AppendLine($"- Canvas: {size}x{size}px, control centred with about a 10% transparent margin.");
@@ -120,6 +127,8 @@ public sealed class AssetGenerationService : IAssetGenerationService
 
         if (r.Layered && r.ComponentType == ComponentType.RotaryKnob)
             sb.AppendLine("Return the SVG with a static <g id=\"body\"> and a separate <g id=\"pointer\"> pointing straight up.");
+        else if (r.ComponentType == ComponentType.Button)
+            sb.AppendLine("Return the SVG with an <g id=\"off\"> group for the inactive state and a <g id=\"on\"> group for the active/lit state.");
         else
             sb.AppendLine("Return the SVG with the drawing inside a single <g id=\"body\"> group.");
 
@@ -139,9 +148,10 @@ public sealed class AssetGenerationService : IAssetGenerationService
     private static string ControlNoun(ComponentType type) => type switch
     {
         ComponentType.RotaryKnob => "rotary knob",
-        ComponentType.VerticalFader => "vertical fader cap",
-        ComponentType.HorizontalSlider => "horizontal slider handle",
-        ComponentType.Meter => "level meter",
+        ComponentType.VerticalFader => "vertical fader thumb (the cap that slides up and down — just the cap, not the track)",
+        ComponentType.HorizontalSlider => "horizontal slider thumb (the handle that slides left to right — just the handle, not the track)",
+        ComponentType.Meter => "level meter bar",
+        ComponentType.Button => "push-button toggle",
         _ => "rotary knob",
     };
 }

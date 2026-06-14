@@ -19,6 +19,12 @@ public sealed class LayeredImportService : ILayeredImportService
     private static readonly string[] RotateNameHints =
         ["pointer", "needle", "indicator", "tick", "marker", "hand", "arrow", "notch", "pip", "dial"];
 
+    // Exact-match (trimmed, case-insensitive) layer names that indicate discrete button states →
+    // Frame behavior. Substring matching is intentionally avoided because "on" appears inside many
+    // unrelated words (indicator, knob, mono, …).
+    private static readonly HashSet<string> FrameExactHints =
+        new(StringComparer.OrdinalIgnoreCase) { "off", "on" };
+
     public bool CanImport(string path)
     {
         var ext = Path.GetExtension(path);
@@ -45,12 +51,13 @@ public sealed class LayeredImportService : ILayeredImportService
         return null;
     }
 
-    /// <summary>Guesses a layer's behaviour from its name (case-insensitive substring match).</summary>
+    /// <summary>Guesses a layer's behaviour from its name.</summary>
     internal static LayerBehavior Guess(string name)
     {
         var n = name.ToLowerInvariant();
         foreach (var hint in RotateNameHints)
             if (n.Contains(hint, StringComparison.Ordinal)) return LayerBehavior.Rotate;
+        if (FrameExactHints.Contains(name.Trim())) return LayerBehavior.Frame;
         return LayerBehavior.Static;
     }
 

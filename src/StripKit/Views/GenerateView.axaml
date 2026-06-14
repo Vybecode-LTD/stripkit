@@ -48,8 +48,10 @@
 
                     <!-- What to make -->
                     <controls:SectionHeader Text="WHAT TO MAKE" />
-                    <TextBlock Classes="label" TextWrapping="Wrap"
-                               Text="Rotary knob — a static body plus a rotating pointer. (Faders, sliders &amp; meters are coming next.)" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding GenerateComponentTypes}"
+                              SelectedItem="{Binding GenerateControlType}"
+                              ToolTip.Tip="What kind of control to generate. Knobs and buttons produce layered SVGs; faders and sliders produce a single cap/handle shape." />
 
                     <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"
@@ -57,23 +59,34 @@
 
                     <!-- Colours -->
                     <controls:SectionHeader Text="COLOURS" />
+                    <TextBlock Classes="label" Text="Click the swatch to open a colour picker, or type a hex value." Margin="0,0,0,4" />
                     <Grid ColumnDefinitions="*,8,*">
                         <StackPanel Grid.Column="0" Spacing="4">
                             <TextBlock Classes="label" Text="Body colour" />
                             <Grid ColumnDefinitions="*,6,28">
-                                <TextBox Grid.Column="0" Text="{Binding BodyColorHex}" Watermark="auto" />
-                                <Border Grid.Column="2" CornerRadius="4" ClipToBounds="True"
-                                        Background="{Binding BodyColorHex, Converter={StaticResource HexColor}}"
-                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                <TextBox Grid.Column="0" Text="{Binding BodyColorHex}" Watermark="auto (model chooses)" />
+                                <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                        Width="28" Height="24"
+                                        ToolTip.Tip="Click to pick a body colour"
+                                        Click="OnBodyColorClick">
+                                    <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                            Background="{Binding BodyColorHex, Converter={StaticResource HexColor}}"
+                                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                </Button>
                             </Grid>
                         </StackPanel>
                         <StackPanel Grid.Column="2" Spacing="4">
                             <TextBlock Classes="label" Text="Accent colour" />
                             <Grid ColumnDefinitions="*,6,28">
                                 <TextBox Grid.Column="0" Text="{Binding AccentColorHex}" Watermark="#E8440A" />
-                                <Border Grid.Column="2" CornerRadius="4" ClipToBounds="True"
-                                        Background="{Binding AccentColorHex, Converter={StaticResource HexColor}}"
-                                        BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                        Width="28" Height="24"
+                                        ToolTip.Tip="Click to pick an accent colour"
+                                        Click="OnAccentColorClick">
+                                    <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                            Background="{Binding AccentColorHex, Converter={StaticResource HexColor}}"
+                                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                </Button>
                             </Grid>
                         </StackPanel>
                     </Grid>
@@ -118,7 +131,7 @@
                 <Panel>
                     <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
                            RenderOptions.BitmapInterpolationMode="HighQuality" />
-                    <TextBlock Text="Your generated knob preview appears here"
+                    <TextBlock Text="Your generated control preview appears here"
                                IsVisible="{Binding !HasPreview}"
                                HorizontalAlignment="Center" VerticalAlignment="Center"
                                Foreground="{DynamicResource Text3Brush}" />
@@ -132,7 +145,7 @@
 
                     <Grid ColumnDefinitions="Auto,8,Auto,8,Auto">
                         <Button Grid.Column="0" Classes="accent" Content="Use in Create" MinWidth="140"
-                                ToolTip.Tip="Send this knob to the Create tab as a layered import, ready to make the filmstrip."
+                                ToolTip.Tip="Send this to the Create tab as a layered import, ready to make the filmstrip."
                                 Command="{Binding UseInCreateCommand}" />
                         <Button Grid.Column="2" Content="Save SVG…" Command="{Binding SaveSvgCommand}" />
                         <Button Grid.Column="4" Content="Copy SVG" Click="OnCopySvg" IsEnabled="{Binding HasResult}" />

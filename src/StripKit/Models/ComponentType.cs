@@ -12,4 +12,9 @@ public enum ComponentType
     VerticalFader,
     HorizontalSlider,
     Meter,
+
+    /// <summary>A discrete-state button / toggle: typically 2 frames (off / on), or more for
+    /// hover, pressed, and disabled states. Each frame renders the art for that state; no
+    /// position transform is applied.</summary>
+    Button,
 }

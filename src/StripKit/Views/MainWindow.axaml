@@ -40,7 +40,7 @@
 
                     <TextBlock Text="StripKit" FontSize="20" FontWeight="Bold" Foreground="White" />
                     <Border Classes="divider" />
-                    <TextBlock Text="Single image → animated knob / fader / slider / meter filmstrip"
+                    <TextBlock Text="Single image → animated knob / fader / slider / meter / button filmstrip"
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
                     <!-- Source -->
@@ -250,6 +250,34 @@
                         <CheckBox Content="Enable crosshair" IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="The loaded image is the moving cap. Frame size above is the full track area." />
+                    </StackPanel>
+
+                    <!-- Button -->
+                    <StackPanel IsVisible="{Binding IsButton}" Spacing="2">
+                        <controls:SectionHeader Text="BUTTON STATES" />
+                        <TextBlock Classes="label" TextWrapping="Wrap"
+                                   Text="A button filmstrip has one frame per UI state: frame 0 = off, frame 1 = on, frame 2 = pressed (optional), frame 3 = disabled (optional). Set Frames above to the number of states you need." />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,6,0,0"
+                                   Text="Import a layered SVG / PSD with groups named 'off' and 'on' (or 'state0', 'state1'…) — each group renders only on its matching frame. Use the Generate tab to create button art with your own AI key." />
+                        <Button Content="Import layered file (SVG / PSD)…" HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                Command="{Binding ImportLayeredFileCommand}" />
+                        <StackPanel IsVisible="{Binding HasImportedLayers}" Spacing="2" Margin="0,6,0,0">
+                            <TextBlock Classes="label" Text="{Binding ImportInfo}" TextWrapping="Wrap" />
+                            <ItemsControl ItemsSource="{Binding ImportedLayers}" Margin="0,4,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ImportedLayerRow">
+                                        <Grid ColumnDefinitions="*,8,Auto" Margin="0,0,0,4">
+                                            <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center"
+                                                       Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                            <ComboBox Grid.Column="2" MinWidth="98"
+                                                      ItemsSource="{Binding Behaviors}" SelectedItem="{Binding Behavior}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                            <Button Content="Clear import" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                    Command="{Binding ClearImportedLayersCommand}" />
+                        </StackPanel>
                     </StackPanel>
 
                     <!-- Meter -->
