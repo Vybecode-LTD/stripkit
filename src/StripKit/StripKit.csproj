@@ -14,7 +14,7 @@
     <ApplicationIcon>Assets\stripkit.ico</ApplicationIcon>
     <!-- Version is the single source of truth; scripts/Invoke-Release.ps1 bumps it in
          lockstep with the Inno .iss and the CHANGELOG on "release it". -->
-    <Version>1.2.0</Version>
+    <Version>1.2.1</Version>
     <Authors>VybeCode Software</Authors>
     <Company>VybeCode Software</Company>
     <Product>StripKit</Product>

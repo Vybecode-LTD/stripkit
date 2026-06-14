@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.2.1] — 2026-06-14
 
 ### Website
 - **Generated faders, sliders & buttons now work end-to-end.** Picking a non-knob type in the Generate
