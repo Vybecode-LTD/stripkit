@@ -36,6 +36,8 @@ param(
     [ValidateSet('none', 'patch', 'minor', 'major')]
     [string]$Bump = 'patch',
     [switch]$SkipTests,
+    # Bypass the release-integrity guard (allow uncommitted tracked source). Rarely needed.
+    [switch]$AllowDirty,
     # Stage 3 — website changelog. Auto-discovered from the sibling ..\StripKit-Website repo
     # if it exists. Override the path with -WebsiteRepo. Suppress entirely with -SkipWebsite.
     [string]$WebsiteRepo = '',
@@ -153,6 +155,20 @@ switch ($Bump) {
 $new = "$maj.$min.$pat"
 $date = (Get-Date).ToString('yyyy-MM-dd')
 Step "Releasing v$new  (was v$cur, bump=$Bump)  $date"
+
+# --- Release-integrity guard ------------------------------------------------
+# The release commit below stages ONLY the version files + the installer. Any OTHER uncommitted
+# tracked change would be orphaned from the v$new tag (the tag could not rebuild its own build) —
+# exactly how v1.2.0 shipped without its feature source. So refuse to start unless the tracked
+# tree is clean. Untracked strays (??) are fine; commit real source first, or pass -AllowDirty.
+if (-not $AllowDirty) {
+    $dirty = @(git -C $root status --porcelain | Where-Object { $_ -and ($_ -notmatch '^\?\?') })
+    if ($dirty.Count -gt 0) {
+        Write-Host "Uncommitted tracked changes block the release:" -ForegroundColor Red
+        $dirty | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        throw "Release aborted: commit your source first (the release commit stages only version files + installer, so these would be orphaned from the v$new tag). Override with -AllowDirty."
+    }
+}
 
 # --- Test gate --------------------------------------------------------------
 if (-not $SkipTests) {
