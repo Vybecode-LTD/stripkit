@@ -237,8 +237,10 @@ if (-not $SkipWebsite -and -not $WebsiteRepo) {
 
 if ($WebsiteRepo -and -not $SkipWebsite) {
     Step "Stage 3 - website changelog entry for v$new"
-    $pubArgs = @('-WebsiteRepo', $WebsiteRepo, '-AppChangelog', $changelog, '-Version', $new)
-    if (-not $DraftWebsiteOnly) { $pubArgs += '-Push' }
+    # Hashtable splat (not array): a trailing switch like -Push mis-binds under array splatting,
+    # which made Stage 3 fail with "a positional parameter cannot be found that accepts '-Push'".
+    $pubArgs = @{ WebsiteRepo = $WebsiteRepo; AppChangelog = $changelog; Version = $new }
+    if (-not $DraftWebsiteOnly) { $pubArgs.Push = $true }
     & (Join-Path $PSScriptRoot 'Publish-WebsiteChangelog.ps1') @pubArgs
     if ($DraftWebsiteOnly) {
         Write-Host ""
