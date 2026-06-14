@@ -1,9 +1,36 @@
 # CHANGELOG — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
+
+## [Unreleased]
+
+### Website
+- **Type any model ID in the Generate tab.** The model field now accepts free text *and* the
+  suggested list, so you can use a brand-new or private model the moment your provider ships it —
+  and if a listed model is ever retired, just type the replacement instead of being stuck.
+- **Snappier generation.** Building the preview no longer briefly freezes the window on large
+  canvases — the work now happens in the background.
+
+### Added
+- **Editable model input.** The Generate tab's model picker is now an `AutoCompleteBox` (free text +
+  suggestions) instead of a fixed dropdown, so a custom/just-released model id can be typed and a
+  pinned-but-delisted model displays as text rather than a blank box.
+
+### Changed
+- **Preview build moved off the UI thread.** The temp-write + layered import + composite + PNG-encode
+  now run in one `Task.Run`; the UI thread only assigns the finished bitmap, so a large canvas no
+  longer hitches the dispatcher. Generated temp SVGs no longer accumulate (the prior one is dropped
+  each generation).
+
+### Fixed
+- **Release tooling.** The release script now aborts if tracked source is uncommitted (`-AllowDirty`
+  to override) so feature source can't be orphaned from its tag; Stage 3's website-changelog push
+  used array splatting that mis-bound `-Push` — switched to hashtable splatting.
+- **CI future-proofing.** `actions/checkout` and `actions/setup-dotnet` bumped to `v5` (Node 24,
+  ahead of the June 16 2026 forcing); `coverlet.collector` `6.0.2 → 6.0.4`.
 
 ## [1.2.1] — 2026-06-14
 
