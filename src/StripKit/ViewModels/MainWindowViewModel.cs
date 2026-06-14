@@ -104,11 +104,19 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>The Generate tab's "Use in Create" handoff: jump to the Create tab and import the
-    /// generated layered SVG through the normal layered-import path.</summary>
-    private async void OnGenerateUseInCreate(string svgPath)
+    /// generated SVG as the control type it was generated for (knob / fader / slider / button).</summary>
+    private async void OnGenerateUseInCreate(string svgPath, ComponentType type)
     {
-        SelectedTabIndex = 0;
-        await ImportLayeredFromPathAsync(svgPath);
+        try
+        {
+            SelectedTabIndex = 0;
+            await ImportLayeredFromPathAsync(svgPath, type);
+        }
+        catch (Exception ex)
+        {
+            // async void must never let an exception escape to the synchronization context.
+            StatusMessage = $"Could not use the generated art: {ex.Message}";
+        }
     }
 
     [RelayCommand] private void ShowAbout() => IsAboutOpen = true;
@@ -805,17 +813,28 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     /// <summary>
-    /// Imports a layered SVG/PSD from a path into the Create tab's layer list — shared by the file
-    /// picker and the Generate tab's "Use in Create" handoff. Off-thread parse; replaces the manual
+    /// Imports a layered SVG/PSD from a path into the Create tab — shared by the file picker and the
+    /// Generate tab's "Use in Create" handoff. Off-thread parse. <paramref name="asType"/> picks the
+    /// target: null/knob builds the layer stack (body + pointer); <see cref="ComponentType.Button"/>
+    /// builds discrete state frames (off/on); a fader/slider flattens the cap to the single source so
+    /// the linear renderer translates it (the layer stack is knob/button-only). Replaces the manual
     /// base/pointer slots and any previous import.
     /// </summary>
-    public async Task ImportLayeredFromPathAsync(string path)
+    public async Task ImportLayeredFromPathAsync(string path, ComponentType? asType = null)
     {
         // Parsing (SVG rasterize / PSD decode) is CPU-bound, so keep it off the UI thread.
         var result = await Task.Run(() => _layeredImport.Import(path));
         if (result is null || result.Layers.Count == 0)
         {
             StatusMessage = "Could not read any layers from that file (expected SVG groups or PSD layers).";
+            return;
+        }
+
+        // Fader/slider caps are a single static image, not a layer stack: load the flattened art as the
+        // normal single source so the linear renderer translates it (BuildLayerArt is knob/button-only).
+        if (asType is ComponentType.VerticalFader or ComponentType.HorizontalSlider)
+        {
+            AdoptFlattenedSource(result, asType.Value, path);
             return;
         }
 
@@ -835,18 +854,73 @@ public partial class MainWindowViewModel : ViewModelBase
         int rotateCount = result.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
 
         _suspendRefresh = true;
-        if (ComponentType != ComponentType.RotaryKnob)
-            ComponentType = ComponentType.RotaryKnob;   // layered import is knob-only
-        // Square the frame to the document canvas; seed the rotation axis from the whole knob's centre.
-        FrameWidth = Math.Max(result.CanvasWidth, result.CanvasHeight);
-        FrameHeight = FrameWidth;
-        var (cx, cy) = DetectImportedCenter(result.CanvasWidth, result.CanvasHeight);
-        SourceCenterX = cx;
-        SourceCenterY = cy;
+        if (asType == ComponentType.Button)
+        {
+            // Discrete state frames (off/on, …): one frame per layer, no rotation axis, keep the canvas size.
+            ComponentType = ComponentType.Button;
+            FrameWidth = result.CanvasWidth;
+            FrameHeight = result.CanvasHeight;
+            FrameCount = Math.Max(2, ImportedLayers.Count);
+        }
+        else
+        {
+            // Knob (body + pointer) — the default, also used by the file picker.
+            if (ComponentType != ComponentType.RotaryKnob)
+                ComponentType = ComponentType.RotaryKnob;
+            // Square the frame to the document canvas; seed the rotation axis from the whole knob's centre.
+            FrameWidth = Math.Max(result.CanvasWidth, result.CanvasHeight);
+            FrameHeight = FrameWidth;
+            var (cx, cy) = DetectImportedCenter(result.CanvasWidth, result.CanvasHeight);
+            SourceCenterX = cx;
+            SourceCenterY = cy;
+        }
         _suspendRefresh = false;
 
-        StatusMessage = $"Imported {result.Layers.Count} layers from {Path.GetFileName(path)} "
-                      + $"({rotateCount} set to rotate). Verify each layer's behaviour and scrub to check the sweep.";
+        StatusMessage = asType == ComponentType.Button
+            ? $"Imported {ImportedLayers.Count} button state layer(s) from {Path.GetFileName(path)} "
+              + "(frame 0 = off, frame 1 = on). Scrub to check each state."
+            : $"Imported {result.Layers.Count} layers from {Path.GetFileName(path)} "
+              + $"({rotateCount} set to rotate). Verify each layer's behaviour and scrub to check the sweep.";
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
+    /// <summary>Flattens an imported layer stack into one bitmap and adopts it as the single source for
+    /// a linear control (a generated fader/slider cap). The linear renderer translates a source image —
+    /// it does not consume the layer stack — so this routes a generated cap through the same path a
+    /// loaded PNG would take.</summary>
+    private void AdoptFlattenedSource(LayeredImportResult result, ComponentType type, string path)
+    {
+        int w = result.CanvasWidth, h = result.CanvasHeight;
+        var flat = new SKBitmap(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using (var c = new SKCanvas(flat))
+        {
+            c.Clear(SKColors.Transparent);
+            foreach (var layer in result.Layers)
+                c.DrawBitmap(layer.Art, 0, 0);
+        }
+        foreach (var layer in result.Layers)
+            layer.Art.Dispose();   // the flattened copy is all we keep
+
+        DiscardBasePointer();
+        DiscardImportedLayers();
+        _source?.Dispose();
+        _source = flat;
+        _sourcePath = path;
+        HasSource = true;
+        SourceInfo = $"{Path.GetFileName(path)} — {w}×{h}px (generated cap)";
+
+        _suspendRefresh = true;
+        ComponentType = type;
+        // Linear frame defaults (mirrors ApplyTypeDefaults; set directly to stay inside the suspend block).
+        if (type == ComponentType.VerticalFader) { FrameWidth = 40; FrameHeight = 128; }
+        else { FrameWidth = 128; FrameHeight = 32; }
+        SourceCenterX = 0.5;
+        SourceCenterY = 0.5;
+        _suspendRefresh = false;
+
+        StatusMessage = $"Imported a generated {(type == ComponentType.VerticalFader ? "fader" : "slider")} cap "
+                      + $"from {Path.GetFileName(path)}. Scrub to see it travel, then Export.";
         UpdateReadouts();
         RefreshPreview();
     }

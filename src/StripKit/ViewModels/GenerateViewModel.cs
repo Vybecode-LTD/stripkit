@@ -25,7 +25,8 @@ public partial class GenerateViewModel : ViewModelBase
     private readonly IFileDialogService _dialogs;
 
     private CancellationTokenSource? _cts;
-    private string? _lastSvgPath;   // the temp SVG of the current result (handed to Create)
+    private string? _lastSvgPath;          // the temp SVG of the current result (handed to Create)
+    private ComponentType _lastControlType; // the control type that produced the current result
     private int _genCount;
 
     public GenerateViewModel(IAssetGenerationService generation, ISecretStore secrets,
@@ -52,8 +53,9 @@ public partial class GenerateViewModel : ViewModelBase
         _keyStatus = _hasKey ? "Key saved (loaded)." : "No key stored for this provider.";
     }
 
-    /// <summary>Raised by "Use in Create" with the temp SVG path; the host VM imports it on the Create tab.</summary>
-    public event Action<string>? UseInCreateRequested;
+    /// <summary>Raised by "Use in Create" with the temp SVG path + the control type that generated it;
+    /// the host VM imports it on the Create tab as that type (knob / fader / slider / button).</summary>
+    public event Action<string, ComponentType>? UseInCreateRequested;
 
     // ---- choices ----
     public AiProvider[] Providers { get; }
@@ -200,13 +202,13 @@ public partial class GenerateViewModel : ViewModelBase
             }
 
             int rotate = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
+            int frames = import.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Frame);
             GeneratedSvg = result.Svg;
             _lastSvgPath = path;
+            _lastControlType = GenerateControlType;
             PreviewImage = TryCompositePreview(import);   // best-effort — a result stands even if preview can't render
             HasResult = true;
-            var noun = GenerateControlType == ComponentType.Button ? "button" : "control";
-            StatusMessage = $"Generated a {import.Layers.Count}-layer {noun}. "
-                          + "Use in Create to build the filmstrip, or Save the SVG.";
+            StatusMessage = DescribeResult(import.Layers.Count, rotate, frames);
         }
         catch (OperationCanceledException)
         {
@@ -251,13 +253,34 @@ public partial class GenerateViewModel : ViewModelBase
         StatusMessage = $"Cleared the stored {SelectedProvider} key.";
     }
 
+    /// <summary>Builds the success status, warning when the layer structure won't actually animate —
+    /// a knob with no rotating pointer, or a button without both on/off state layers (a common weak-model
+    /// failure the preview alone wouldn't flag).</summary>
+    private string DescribeResult(int layerCount, int rotate, int frames) => GenerateControlType switch
+    {
+        ComponentType.RotaryKnob when rotate == 0 =>
+            $"Generated a {layerCount}-layer knob, but no rotating pointer was detected — it won't animate. Try Regenerate.",
+        ComponentType.RotaryKnob =>
+            $"Generated a {layerCount}-layer knob ({rotate} set to rotate). Use in Create to build the filmstrip, or Save the SVG.",
+        ComponentType.Button when frames < 2 =>
+            $"Generated button art, but only {frames} on/off state layer(s) were found (expected off + on). Try Regenerate.",
+        ComponentType.Button =>
+            $"Generated a button with {frames} state layers (off / on). Use in Create to build the filmstrip, or Save the SVG.",
+        ComponentType.VerticalFader =>
+            "Generated a vertical fader cap. Use in Create to build the filmstrip, or Save the SVG.",
+        ComponentType.HorizontalSlider =>
+            "Generated a horizontal slider cap. Use in Create to build the filmstrip, or Save the SVG.",
+        _ =>
+            $"Generated a {layerCount}-layer control. Use in Create to build the filmstrip, or Save the SVG.",
+    };
+
     private bool CanUseInCreate() => HasResult && _lastSvgPath is not null;
 
     [RelayCommand(CanExecute = nameof(CanUseInCreate))]
     private void UseInCreate()
     {
         if (_lastSvgPath is null) return;
-        UseInCreateRequested?.Invoke(_lastSvgPath);
+        UseInCreateRequested?.Invoke(_lastSvgPath, _lastControlType);
         StatusMessage = "Sent to the Create tab — set the frame count, then Export the filmstrip PNG.";
     }
 

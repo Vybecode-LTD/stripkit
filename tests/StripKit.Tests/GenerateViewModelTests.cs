@@ -96,7 +96,8 @@ public class GenerateViewModelTests
             vm.ApiKey = "sk-test";
 
             string? handedOff = null;
-            vm.UseInCreateRequested += p => handedOff = p;
+            ComponentType handedType = default;
+            vm.UseInCreateRequested += (p, t) => { handedOff = p; handedType = t; };
 
             await vm.GenerateCommand.ExecuteAsync(null);
 
@@ -107,9 +108,70 @@ public class GenerateViewModelTests
 
             vm.UseInCreateCommand.Execute(null);
             handedOff.Should().NotBeNull("the handoff fires with a path");
+            handedType.Should().Be(ComponentType.RotaryKnob, "the knob default carries its type to Create");
             File.Exists(handedOff!).Should().BeTrue("the path is a real temp SVG the Create tab can import");
             File.ReadAllText(handedOff!).Should().Contain("<svg");
             File.Delete(handedOff!);
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task A_thrown_service_error_is_caught_and_surfaced_not_propagated()
+    {
+        // The broad catch in GenerateAsync exists so a generation can NEVER take the app down.
+        // Make the service throw a raw exception and assert the command swallows it gracefully.
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            gen.GenerateAsync(Arg.Any<GenerationRequest>(), Arg.Any<AiProvider>(), Arg.Any<string>(),
+                              Arg.Any<string>(), Arg.Any<CancellationToken>())
+               .Returns<Task<GenerationResult>>(_ => throw new InvalidOperationException("boom"));
+            vm.ApiKey = "sk-test";
+
+            var act = async () => await vm.GenerateCommand.ExecuteAsync(null);
+
+            await act.Should().NotThrowAsync("a generation failure must never crash the app");
+            vm.HasResult.Should().BeFalse();
+            vm.StatusMessage.Should().Contain("Generation failed");
+            vm.LastRawResponse.Should().Contain("boom", "the detail is kept for diagnosis");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task Generate_passes_the_type_body_accent_and_effects_into_the_request()
+    {
+        // VM-layer lock: the new colour + effect + control-type fields must reach the GenerationRequest
+        // (the service test proves they reach the prompt; this proves the VM populates them at all).
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            GenerationRequest? captured = null;
+            gen.GenerateAsync(Arg.Do<GenerationRequest>(r => captured = r), Arg.Any<AiProvider>(),
+                              Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+               .Returns(GenerationResult.Fail("stop here"));   // fail early — we only assert the request
+            vm.ApiKey = "sk-test";
+            vm.GenerateControlType = ComponentType.Button;
+            vm.BodyColorHex = "#102030";
+            vm.AccentColorHex = "#A0B0C0";
+            vm.HasDropShadow = true;
+            vm.HasMetallicSheen = true;
+            vm.CanvasSize = 768;
+            vm.Style = GenerationStyle.Vintage;
+
+            await vm.GenerateCommand.ExecuteAsync(null);
+
+            captured.Should().NotBeNull();
+            captured!.ComponentType.Should().Be(ComponentType.Button);
+            captured.BodyColor.Should().Be("#102030");
+            captured.AccentColor.Should().Be("#A0B0C0");
+            captured.HasDropShadow.Should().BeTrue();
+            captured.HasMetallicSheen.Should().BeTrue();
+            captured.HasOuterGlow.Should().BeFalse();
+            captured.CanvasSize.Should().Be(768);
+            captured.Style.Should().Be(GenerationStyle.Vintage);
+            captured.Layered.Should().BeTrue("a button is layered (off/on state groups)");
         }
         finally { Cleanup(temps); }
     }

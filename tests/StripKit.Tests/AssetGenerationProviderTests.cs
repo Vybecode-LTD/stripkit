@@ -94,6 +94,43 @@ public class AssetGenerationProviderTests
             .Which.Message.Should().Contain("authentication failed").And.Contain("invalid x-api-key");
     }
 
+    [Theory]
+    [InlineData(403, "access denied")]
+    [InlineData(404, "not found")]
+    [InlineData(429, "rate limited")]
+    [InlineData(503, "server error (503)")]
+    [InlineData(418, "request failed (418)")]
+    public async Task Maps_each_http_error_code_to_a_friendly_sentence(int status, string expected)
+    {
+        var (provider, _) = Make<ClaudeProvider>("{}", (HttpStatusCode)status);
+
+        var act = async () => await provider.CompleteAsync("s", "u", "key", "m", default);
+
+        (await act.Should().ThrowAsync<GenerationException>()).Which.Message.Should().Contain(expected);
+    }
+
+    [Fact]
+    public async Task A_200_with_a_non_json_body_becomes_an_unreadable_response_error()
+    {
+        // Real proxies/gateways sometimes return an HTML 200; the JSON parse must fail friendly.
+        var (provider, _) = Make<OpenAiProvider>("<html>maintenance</html>");
+
+        var act = async () => await provider.CompleteAsync("s", "u", "key", "m", default);
+
+        (await act.Should().ThrowAsync<GenerationException>()).Which.Message.Should().Contain("unreadable");
+    }
+
+    [Fact]
+    public async Task A_well_formed_response_missing_content_throws_no_content()
+    {
+        // Gemini blocked-prompt shape: valid JSON, but no candidates → a clear "no content" failure.
+        var (provider, _) = Make<GeminiProvider>("""{"candidates":[]}""");
+
+        var act = async () => await provider.CompleteAsync("s", "u", "key", "m", default);
+
+        await act.Should().ThrowAsync<GenerationException>();
+    }
+
     [Fact]
     public void Each_provider_exposes_its_identity_and_a_default_model()
     {

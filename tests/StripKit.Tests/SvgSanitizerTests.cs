@@ -84,4 +84,38 @@ public class SvgSanitizerTests
         SvgSanitizer.TryClean("<svg><g></svg>", out _, out var error).Should().BeFalse();
         error.Should().NotBeNullOrEmpty();
     }
+
+    [Fact]
+    public void Rejects_a_doctype_entity_payload_instead_of_expanding_it()
+    {
+        // "Billion laughs": a tiny DTD whose nested entities would expand to a huge string under a
+        // naive XDocument.Parse. The hardened parse (DtdProcessing.Prohibit) must reject it outright,
+        // returning a clean failure rather than expanding the entities or hanging.
+        const string bomb =
+            "<?xml version=\"1.0\"?>" +
+            "<!DOCTYPE svg [" +
+            "<!ENTITY a \"AAAAAAAAAA\">" +
+            "<!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;\">" +
+            "<!ENTITY c \"&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;\">" +
+            "]>" +
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>&c;</text></svg>";
+
+        SvgSanitizer.TryClean(bomb, out var svg, out var error).Should().BeFalse("a DTD-bearing document is rejected, not expanded");
+        error.Should().NotBeNullOrEmpty();
+        svg.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Rejects_an_external_entity_probe()
+    {
+        // External-entity disclosure / SSRF: must not resolve, and is rejected at the DTD gate.
+        const string xxe =
+            "<?xml version=\"1.0\"?>" +
+            "<!DOCTYPE svg [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>" +
+            "<svg xmlns=\"http://www.w3.org/2000/svg\"><text>&x;</text></svg>";
+
+        SvgSanitizer.TryClean(xxe, out var svg, out var error).Should().BeFalse();
+        error.Should().NotBeNullOrEmpty();
+        svg.Should().BeEmpty();
+    }
 }

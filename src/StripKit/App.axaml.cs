@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using StripKit.Services;
 using StripKit.ViewModels;
@@ -14,6 +15,11 @@ public partial class App : Application
 
     public override void OnFrameworkInitializationCompleted()
     {
+        // CommunityToolkit.Mvvm surfaces validation via INotifyDataErrorInfo, so Avalonia's default
+        // DataAnnotations validator would double-report. Remove it (the standard toolkit+Avalonia fix).
+        if (BindingPlugins.DataValidators.Count > 0)
+            BindingPlugins.DataValidators.RemoveAt(0);
+
         var services = new ServiceCollection();
 
         services.AddSingleton<IImageLoadService, ImageLoadService>();

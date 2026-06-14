@@ -51,7 +51,9 @@ public static class SvgSanitizer
         XDocument doc;
         try
         {
-            doc = XDocument.Parse(extracted);
+            // Hardened parse: a DTD/entity payload (billion-laughs DoS, external-entity probe) is
+            // rejected here rather than expanded — generated control art never carries a DTD.
+            doc = SafeXml.Parse(extracted);
         }
         catch (Exception ex)
         {

@@ -24,6 +24,21 @@ public class LayeredImportViewModelTests
         </svg>
         """;
 
+    const string ButtonSvg =
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+          <g id="off"><circle cx="50" cy="50" r="40" fill="#333333"/></g>
+          <g id="on"><circle cx="50" cy="50" r="40" fill="#00ff00"/></g>
+        </svg>
+        """;
+
+    const string CapSvg =
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 80 80">
+          <g id="body"><rect x="20" y="20" width="40" height="40" rx="8" fill="#888888"/></g>
+        </svg>
+        """;
+
     static SKBitmap Bmp(int w, int h) => new(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
 
     static string WriteTempSvg(string svg)
@@ -75,6 +90,47 @@ public class LayeredImportViewModelTests
             vm.FrameWidth.Should().Be(vm.FrameHeight, "the frame is squared to the document canvas");
             vm.ShowLoadHint.Should().BeFalse("an imported stack is something to preview");
             vm.ExportCommand.CanExecute(null).Should().BeTrue("a layered knob exports without a single source");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task Importing_as_a_button_honors_the_type_and_builds_state_frames()
+    {
+        // Regression for the Generate→Create handoff bug: a generated button must arrive as a Button
+        // (off/on Frame layers), not be silently forced to RotaryKnob (which stacked both states).
+        var (vm, _, _, _) = Build();
+        var path = WriteTempSvg(ButtonSvg);
+        try
+        {
+            await vm.ImportLayeredFromPathAsync(path, ComponentType.Button);
+
+            vm.ComponentType.Should().Be(ComponentType.Button, "the handoff honors the generated type");
+            vm.HasImportedLayers.Should().BeTrue();
+            vm.ImportedLayers.Should().HaveCount(2);
+            vm.ImportedLayers.Should().OnlyContain(r => r.Behavior == LayerBehavior.Frame, "off/on are discrete state frames");
+            vm.FrameCount.Should().Be(2, "one frame per state layer");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Theory]
+    [InlineData(ComponentType.VerticalFader)]
+    [InlineData(ComponentType.HorizontalSlider)]
+    public async Task Importing_as_a_linear_cap_flattens_to_a_single_source(ComponentType type)
+    {
+        // Regression: a generated fader/slider cap must load as the single source (the linear renderer
+        // translates a source) rather than as a knob/layer stack that would rotate or render blank.
+        var (vm, _, _, _) = Build();
+        var path = WriteTempSvg(CapSvg);
+        try
+        {
+            await vm.ImportLayeredFromPathAsync(path, type);
+
+            vm.ComponentType.Should().Be(type, "the handoff honors the generated type");
+            vm.IsLinear.Should().BeTrue();
+            vm.HasSource.Should().BeTrue("the cap is adopted as the single source");
+            vm.HasImportedLayers.Should().BeFalse("a linear cap is not a layer stack");
         }
         finally { File.Delete(path); }
     }

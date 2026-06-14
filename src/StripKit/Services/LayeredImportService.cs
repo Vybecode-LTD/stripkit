@@ -81,7 +81,9 @@ public sealed class LayeredImportService : ILayeredImportService
         int canvasW = Math.Max(1, (int)Math.Round(cull.Width * scale));
         int canvasH = Math.Max(1, (int)Math.Round(cull.Height * scale));
 
-        var doc = XDocument.Parse(text);
+        // Hardened parse (the file picker accepts arbitrary user SVG with no sanitizer pass): DTDs are
+        // prohibited so a malicious document can't probe the filesystem or expand entities to exhaust memory.
+        var doc = SafeXml.Parse(text);
         var root = doc.Root;
         if (root is null) return null;
 
