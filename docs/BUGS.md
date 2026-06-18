@@ -2,7 +2,7 @@
 
 > Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 
-**Open bugs: 0.** **Resolved: 10.**
+**Open bugs: 0.** **Resolved: 11.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -186,6 +186,25 @@ forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
 - **Regression guard:** `LayeredImportServiceTests.Svg_import_rejects_a_doctype_entity_bomb_without_expanding_it`
   (a 1e9-expansion bomb must return null in < 5 s) +
   `Svg_import_does_not_resolve_an_external_entity`. Suite 172 → **174 green**.
+
+### BUG-011 — release script aborted at `git add` on a benign git stderr warning (PS 5.1) ✅
+- **Severity:** Medium (release-tooling defect — aborted the v1.3.0 release mid-way; the binary was
+  built + signed but the commit/tag/push didn't run, leaving a partial release to finish by hand).
+- **Component:** `scripts/Invoke-Release.ps1` (the commit/tag/push block).
+- **Reported / Fixed:** 2026-06-18 (hit during the v1.3.0 release).
+- **Symptom:** the script threw at `git -C $root add …` with a `NativeCommandError`, the message being
+  git's harmless `warning: in the working copy of 'docs/CHANGELOG.md', LF will be replaced by CRLF`.
+  The `git add` actually succeeded, but the script stopped before commit/tag/push.
+- **Root cause:** the script runs under `$ErrorActionPreference = 'Stop'`; in **Windows PowerShell 5.1**
+  ANY native-command stderr output is wrapped in an ErrorRecord, so git's progress/warning lines on
+  stderr become terminating errors. The working-tree files had LF line endings (written this session),
+  which made git emit the CRLF warning that prior CRLF-clean releases didn't.
+- **Fix (2026-06-18):** wrapped the git commit/tag/push block in `$ErrorActionPreference = 'Continue'`
+  (restored in a `finally`) and gated each git call on `$LASTEXITCODE` instead — so a stderr warning no
+  longer aborts the release, while a real non-zero exit still throws. The v1.3.0 release itself was
+  completed by hand (commit `f38a5f5`, tag `v1.3.0`) after the abort.
+- **Regression guard:** none (release-script issue, not unit-testable) — the next release exercises it;
+  the exit-code gating is the guard.
 
 ---
 

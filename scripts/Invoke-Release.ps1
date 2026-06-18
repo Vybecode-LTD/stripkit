@@ -232,13 +232,29 @@ Write-Host "  -> releases/latest/StripKit-Setup-$new-x64.exe ($sizeMB MB)"
 
 # --- Commit, tag, push ------------------------------------------------------
 Step "Committing, tagging v$new, and pushing"
-git -C $root add src/StripKit/StripKit.csproj installer/StripKit.iss docs/CHANGELOG.md releases/latest
-Write-Host "Staged for the release commit:" -ForegroundColor Yellow
-git -C $root status --short
-git -C $root commit -m "Release v$new"
-git -C $root tag "v$new"
-git -C $root push
-git -C $root push origin "v$new"
+# git writes warnings (e.g. "LF will be replaced by CRLF") and progress to stderr; under
+# $ErrorActionPreference='Stop', PowerShell 5.1 turns ANY native-command stderr into a terminating
+# error — which aborted a release mid-way at `git add` even though the command succeeded. Relax the
+# preference around the git calls and gate on the real exit code instead.
+$prevEAP = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+try {
+    git -C $root add src/StripKit/StripKit.csproj installer/StripKit.iss docs/CHANGELOG.md releases/latest
+    if ($LASTEXITCODE) { throw "git add failed ($LASTEXITCODE)." }
+    Write-Host "Staged for the release commit:" -ForegroundColor Yellow
+    git -C $root status --short
+    git -C $root commit -m "Release v$new"
+    if ($LASTEXITCODE) { throw "git commit failed ($LASTEXITCODE)." }
+    git -C $root tag "v$new"
+    if ($LASTEXITCODE) { throw "git tag failed ($LASTEXITCODE)." }
+    git -C $root push
+    if ($LASTEXITCODE) { throw "git push failed ($LASTEXITCODE)." }
+    git -C $root push origin "v$new"
+    if ($LASTEXITCODE) { throw "git tag push failed ($LASTEXITCODE)." }
+}
+finally {
+    $ErrorActionPreference = $prevEAP
+}
 
 Step "Done"
 Write-Host "Pushed v$new. GitHub Actions (auto-release.yml) will now VirusTotal-scan the"
