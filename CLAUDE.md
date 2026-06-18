@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -36,12 +36,14 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
   9.0.0 (Windows DPAPI). Not in `FilmstripEngine.cs`.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
-  tests, golden-image regression for the renderer (`tests/StripKit.Tests`). **171 green.**
+  tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
+  6.0.4). **172 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
   `.github/workflows/auto-release.yml` — see `docs/PACKAGING.md`.
-- CI: `.github/workflows/ci.yml` runs build + full test suite on every push and PR.
+- CI: `.github/workflows/ci.yml` runs build + full test suite on every push and PR
+  (`actions/checkout@v5` + `actions/setup-dotnet@v5` — Node 24).
 
 ## OSS / Contributing
 
@@ -63,17 +65,20 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 ## Release (Inno Setup + GitHub) — full detail in `docs/PACKAGING.md`
 
 Three stages, **one release creator**. **Stage 1** `scripts/Invoke-Release.ps1`:
-test-gate → bump `Version` in `src/StripKit/StripKit.csproj`, `MyAppVersion` in
-`installer/StripKit.iss`, and `docs/CHANGELOG.md` (promote `## [Unreleased]` → `## [X.Y.Z]`)
+test-gate → **release-integrity guard** (abort if tracked source is uncommitted; untracked strays
+allowed; `-AllowDirty` overrides) → bump `Version` in `src/StripKit/StripKit.csproj`, `MyAppVersion`
+in `installer/StripKit.iss`, and `docs/CHANGELOG.md` (promote `## [Unreleased]` → `## [X.Y.Z]`)
 → `dotnet publish` → **sign the exe + installer** (Azure Trusted Signing via signtool + the
 `Microsoft.Trusted.Signing.Client` dlib — NOT AzureSignTool, which 403s) → `ISCC` builds
 `releases/latest/StripKit-Setup-<ver>-x64.exe` → commit + tag `vX.Y.Z` + push. **Stage
 2** `.github/workflows/auto-release.yml` (triggered by the tracked `releases/latest/*.exe`,
 or `workflow_dispatch`): VirusTotal scan (`VT_API_KEY` secret) → the **sole**
 `gh release create` (notes via `--notes-file`, never inline `--notes`). **Stage 3** the
-website reads the live GitHub Release (refine `updates.json` via `Publish-WebsiteChangelog.ps1`).
+website reads the live GitHub Release (auto-draft + refine `updates.json` via
+`Publish-WebsiteChangelog.ps1` — invoked with **hashtable** splatting so a trailing `-Push` binds).
 **Release integrity:** the "Release" commit stages only version files + the installer by design —
-so **commit the feature work first** (the v1.2.0 source was once orphaned because it wasn't).
+so **commit the feature work first** (the v1.2.0 source was once orphaned because it wasn't; the
+Stage-1 guard now enforces this).
 
 ## Architecture (one idea, five component types) — full detail in `docs/ARCHITECTURE.md`
 
@@ -151,7 +156,12 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
 - `ViewModels/GenerateViewModel.cs` — Generate-tab state + commands: provider/model/key/style + the
   generated control type, the async cancellable generate, preview-by-importing (validates the layered
   SVG), Save/Copy SVG, a structure warning (knob with no pointer / button missing a state), and the
-  `UseInCreateRequested` handoff. Persists provider/model prefs + the encrypted key.
+  `UseInCreateRequested` handoff. The **model field is an editable `AutoCompleteBox`** (free text +
+  per-provider suggestions — a custom/just-released id can be typed and is sent verbatim; a
+  pinned-but-delisted model shows as text, not a blank box). The preview is built **off the UI thread**
+  in one `Task.Run` (`BuildPreview` — temp-write + layered import + composite + PNG-encode; the UI
+  thread only assigns the bitmap), and the prior temp SVG is dropped each generation (no temp
+  accumulation). Persists provider/model prefs + the encrypted key.
 - `ViewModels/TutorialViewModel.cs` — the Getting Started overlay: step list + navigation +
   first-run auto-open (via `ISettingsService`) + the `LoadSampleRequested` event (sample knob).
   Also has a **Generate** walkthrough.
@@ -168,7 +178,8 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
   per-control detail editor + Export skin.json).
 - `Views/GenerateView.axaml(.cs)` — the Generate tab UserControl (provider/key/model + control type +
   style/accent/size + Generate/Cancel on the left; SVG preview + Use-in-Create / Save / Copy +
-  raw-response expander on the right). Code-behind: clipboard copy + colour-picker flyout handlers.
+  raw-response expander on the right). The model picker is an `AutoCompleteBox` (provider + style stay
+  `ComboBox`es). Code-behind: clipboard copy + colour-picker flyout handlers.
 - Repo-root `FilmstripEngine.cs` — standalone portable copy of the renderer (NOT in
   the build); keep in sync with `SkiaFilmstripRenderer` if the math changes (incl. the button
   state-frame path; the Generate providers + sanitizer are app-only and not mirrored).
@@ -226,6 +237,33 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
 
 ## Last completed task
 
+- **2026-06-14 (v1.2.2 polish wave shipped + full doc reconcile)** — A small quality + tooling
+  release, shipped end-to-end. **(1) Generate-tab polish** (`cdc466e`): the model picker is now an
+  **editable `AutoCompleteBox`** (free text + per-provider suggestions) instead of a fixed dropdown —
+  a custom/just-released model id can be typed (and is sent verbatim) and a pinned-but-delisted model
+  shows as text rather than a blank box; the **preview build moved off the UI thread** into one
+  `Task.Run` (`GenerateViewModel.BuildPreview` — temp-write + layered import + composite + PNG-encode;
+  the UI thread only assigns the finished bitmap, so a large canvas no longer hitches the dispatcher),
+  and **generated temp SVGs no longer accumulate** (the prior one is dropped each generation). **(2)
+  Release tooling**: a **release-integrity guard** in `Invoke-Release.ps1` (`e124e47`) now **aborts the
+  release if the tracked working tree has uncommitted source** — untracked strays (`??`) are allowed —
+  with a `-AllowDirty` override, so feature source can't be orphaned from its tag (the v1.2.0 failure
+  mode, now enforced not just documented); and Stage 3's website-changelog push was fixed (a trailing
+  `-Push` mis-bound under **array** splatting → switched to **hashtable** splatting). **(3) CI
+  future-proofing**: `actions/checkout@v4→v5` (`0fc64db`) and `actions/setup-dotnet@v4→v5` (`33fc522`)
+  for the Node 24 runtime (ahead of the June 16 2026 forcing); `coverlet.collector 6.0.2→6.0.4`. **(4)
+  New portable skill** `.claude/skills/release-source-integrity-guard/SKILL.md` (`114f8e5`,
+  linter 0/0) — commit-source-before-release guard, reusable on any release pipeline. **+1 test**
+  (`GenerateViewModelTests.A_custom_model_id_not_in_the_suggestions_is_honored` — a typed/delisted
+  model id is sent verbatim); **suite 171→172 green, build 0/0.** **Shipped:** **v1.2.1 AND v1.2.2 both
+  released 2026-06-14** (tags `v1.2.1`, `v1.2.2` live + signed; CI VirusTotal-scanned the GitHub
+  Releases; website changelog auto-pushed). csproj `<Version>`/`.iss`/CHANGELOG are at 1.2.2 from the
+  release script. **(5) Full doc reconcile** — every managed doc stamped 1.2.2 / 2026-06-14;
+  SOURCE_MAP/TESTING/ARCHITECTURE/ROADMAP/KICKOFF/PACKAGING/BUGS/AUDIT-LOG updated for the editable
+  model + off-thread preview + the release-integrity guard + CI v5 + coverlet 6.0.4 + the new skill +
+  the 172 count. Untracked strays (not ours): `docs/PRESS-RELEASE.md`, `press/`, `.claude/launch.json`.
+  **Next:** website P2 getting-started guide; Generate fader/slider/meter polish; more code-export
+  targets; translate/opacity-ramp layer behaviours.
 - **2026-06-14 (audit + orphaned-v1.2.0-source recovery + the 1.2.1 fix wave + full doc reconcile)** —
   A correctness + release-integrity session, two commits on `main`. **(1) Recovered an orphaned
   release.** The "Release v1.2.0" commit (`70cf259`) staged **only** the version files + the installer
@@ -234,107 +272,60 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
   fixing forward (`ComponentType.Button` + `LayerBehavior.Frame`; Generate's four control types + the
   button off/on prompt + colour-picker flyouts; the renderer + `FilmstripEngine.cs` button state-frame
   path; the importer's `off`/`on`→`Frame` mapping; supporting wiring). **(2) The 1.2.1 fix wave**
-  (`80dc1b5`, staged under CHANGELOG `## [Unreleased]`): the **Generate→Create handoff now honours the
-  generated control type** (was hard-forced to `RotaryKnob`, so generated faders/sliders rotated and
-  buttons stacked both states) — knob → body+pointer, button → off/on `Frame` layers, fader/slider →
-  flattened single source; **hardened untrusted-SVG XML parsing** via new `Services/SafeXml.cs`
-  (`DtdProcessing.Prohibit`, no resolver, `MaxCharactersFromEntities = 0`) applied to **both**
-  `SvgSanitizer` and the layered-file import picker (closes billion-laughs DoS + external-entity); added
-  the missing `BindingPlugins.DataValidators.RemoveAt(0)` + a Generate structure warning (knob with no
-  pointer / button missing a state). New files: `SafeXml.cs`, `Helpers/HexToColorBrushConverter.cs`,
-  `Controls/SectionHeader.cs`, `tests/StripKit.Tests/GenerateIntegrationTests.cs`. **Suite 157→171
-  green; build 0/0.** **(3) Full doc reconcile** — every managed doc stamped 1.2.1 / 2026-06-14;
-  CHANGELOG `[Unreleased]`; HANDOFF rewritten (five tabs, 171, the recovery, ship 1.2.1); AUDIT-LOG
-  entry; BUGS-008/009 retro-logged; SOURCE_MAP/ARCHITECTURE/README/TESTING/ROADMAP/KICKOFF updated for
-  five tabs + Button/Frame + the new files + the test count. **csproj `<Version>` is still 1.2.0 — the
-  release script bumps it to 1.2.1; do not hand-edit.** Working tree's only untracked strays:
-  `docs/PRESS-RELEASE.md`, `press/`, `.claude/launch.json` (not ours). **Next:** ship v1.2.1; then the
-  website P2 getting-started guide; Generate fader/slider/meter polish; `checkout@v4→v5`.
+  (`80dc1b5`): the **Generate→Create handoff now honours the generated control type** (was hard-forced
+  to `RotaryKnob`, so generated faders/sliders rotated and buttons stacked both states) — knob →
+  body+pointer, button → off/on `Frame` layers, fader/slider → flattened single source; **hardened
+  untrusted-SVG XML parsing** via new `Services/SafeXml.cs` (`DtdProcessing.Prohibit`, no resolver,
+  `MaxCharactersFromEntities = 0`) applied to **both** `SvgSanitizer` and the layered-file import
+  picker (closes billion-laughs DoS + external-entity); added the missing
+  `BindingPlugins.DataValidators.RemoveAt(0)` + a Generate structure warning. New files: `SafeXml.cs`,
+  `Helpers/HexToColorBrushConverter.cs`, `Controls/SectionHeader.cs`,
+  `tests/StripKit.Tests/GenerateIntegrationTests.cs`. **Suite 157→171 green; build 0/0.** **(3) Full
+  doc reconcile** — every managed doc stamped 1.2.1 / 2026-06-14; HANDOFF rewritten (five tabs, the
+  recovery); AUDIT-LOG entry; BUGS-008/009 retro-logged.
 - **2026-06-07 (Generate tab — AI-generated SVG control art)** — Built a new **fifth tab** that uses
   the user's **own** OpenAI / Gemini / Claude API key to generate a **layered knob SVG** (a static
-  `<g id="body">` + a separate `<g id="pointer">`) as filmstrip source art — "exactly like the
-  starter knob," but generated. Scoped the forks with the owner first (all four recommended taken):
-  **all three providers** behind one interface, **layered** body+pointer SVG, **DPAPI-encrypted**
-  keys, **knob-first**. The key insight: a generated SVG drops straight into the **existing**
-  `LayeredImportService` → renderer layer stack, so **no renderer change** and **nothing mirrored
-  into `FilmstripEngine.cs`**. New app-only pieces: `IAssetGenerationService`/`AssetGenerationService`
-  (builds the StripKit-aware prompt — square canvas, ~10% rotation margin, body+pointer groups,
-  pointer at 12 o'clock — then dispatches + sanitizes); `IAssetGenerationProvider` + `ClaudeProvider`
-  (Messages) / `OpenAiProvider` (Chat Completions) / `GeminiProvider` (generateContent) over a shared
-  DI `HttpClient`, each with friendly non-2xx errors; `SvgSanitizer` (carves the `<svg>` out of a
-  chatty/fenced reply, strips script/`<image>`/`<foreignObject>`/event-handlers/off-document href —
-  pure `System.Xml.Linq`); `ISecretStore`/`DpapiSecretStore` (per-provider keys encrypted at rest via
-  Windows DPAPI → `%APPDATA%/StripKit/secrets.dat`, ciphertext only). `GenerateViewModel` +
-  `GenerateView` (Obsidian-styled, mirrors Create/Skin) **validate by importing the SVG** — the
-  preview is the real imported result, so what you see imports — then **"Use in Create"** jumps to
-  Create and runs the shared `ImportLayeredFromPathAsync`; **Save SVG** / **Copy SVG** too. New dep:
-  `System.Security.Cryptography.ProtectedData` 9.0.0. DI: providers + service + secret store as
-  singletons (+ the `HttpClient`), `GenerateViewModel` transient; a **Generate** tutorial walkthrough
-  added. **+27 tests, suite 125→152 green; build 0/0; app boots clean.** *(Shipped as v1.1.0; the
-  centering fix took the suite to 157. Faders/sliders/buttons + colour pickers followed in v1.2.0.)*
+  `<g id="body">` + a separate `<g id="pointer">`) as filmstrip source art. **All three providers**
+  behind one interface, **layered** body+pointer SVG, **DPAPI-encrypted** keys, **knob-first**. A
+  generated SVG drops straight into the **existing** `LayeredImportService` → renderer layer stack, so
+  **no renderer change** and **nothing mirrored into `FilmstripEngine.cs`**. New app-only pieces:
+  `IAssetGenerationService`/`AssetGenerationService`, `IAssetGenerationProvider` + `ClaudeProvider` /
+  `OpenAiProvider` / `GeminiProvider` over a shared DI `HttpClient`, `SvgSanitizer`,
+  `ISecretStore`/`DpapiSecretStore` (→ `%APPDATA%/StripKit/secrets.dat`, ciphertext only).
+  `GenerateViewModel` + `GenerateView` **validate by importing the SVG** then **"Use in Create"** jumps
+  to Create; **Save SVG** / **Copy SVG** too. New dep:
+  `System.Security.Cryptography.ProtectedData` 9.0.0. **+27 tests, suite 125→152 green.** *(Shipped as
+  v1.1.0; the centering fix took the suite to 157. Faders/sliders/buttons + colour pickers followed in
+  v1.2.0.)*
 - **2026-06-06 (v1.0.0 shipped + reusable website-changelog automation)** — Cut **v1.0.0** (the
-  major release: layered PSD/SVG import + the in-app tutorial + the About fix). Hit two release-tooling
-  snags first, both fixed: signing needed the **Trusted Signing** path (signtool + `Microsoft.Trusted.
-  Signing.Client` dlib; AzureSignTool 403s against Trusted Signing endpoints), and the `.ps1` lost its
-  UTF-8 BOM (PS 5.1 mojibake → parse fail; re-added). Release pipeline ran clean: 125 tests → bump →
-  publish → **sign exe + installer** → Inno → push → CI VirusTotal + `gh release create`. **Live + signed:**
-  `github.com/Vybecode-LTD/stripkit/releases/tag/v1.0.0` (58.3 MB). Then closed the website gap: the app
-  release doesn't touch the **website** repo, so stripkit.pro's changelog only moves on a `updates.json`
-  commit (Railway auto-deploys the `StripKit-Website` repo on push). Added the v1.0.0 entry (live,
-  verified) AND built a **project-agnostic** `scripts/Publish-WebsiteChangelog.ps1` (ASCII-only, no BOM
-  trap): auto-drafts a version's plain-language entry from `docs/CHANGELOG.md` (Added→new/Fixed→fix/
-  else→improved; strips test/build bookkeeping), prepends to a site's `updates.json`, and with `-Push`
-  publishes (→ auto-deploy). **Hybrid:** auto-draft → refine → push. Wired into `Invoke-Release.ps1` as
-  an optional Stage 3 (`-WebsiteRepo <path>`). Reusable on any desktop app + download site (same Azure
-  Trusted Signing profile signs all). Docs: PACKAGING §8.4 (Stage-3 automation + reuse) + §9A (the
-  script-BOM guard), SOURCE_MAP.
-- **2026-06-06 (onboarding P1 — interactive in-app Getting Started tutorial)** — Built the first
-  onboarding item after scoping the forks with the owner (all four recommended options taken). A
-  re-openable **"Getting Started"** guided overlay (`Views/TutorialOverlay.axaml` + `ViewModels/
-  TutorialViewModel.cs`) walks a new user through the core loop (load → pick a type → align → frames/
-  export → loader code → layered import) as an on-brand bottom-centre glass card over a click-through
-  scrim (non-blocking — the app stays usable while the guide is open). It **auto-opens on first
-  launch** (a new minimal `ISettingsService`/`SettingsService` persists `HasSeenTutorial` to
-  `%APPDATA%/StripKit/settings.json` — the app's only saved state) and is re-openable from a header
-  **"Getting started"** button; finishing/skipping persists "seen". Step 1 offers **"Load sample
-  knob"** — a **bundled `Assets/sample-knob.png`** (extracted to temp by a new `IAssetService`/
-  `AssetService`, then run through the normal `LoadSourceFromPath`) so a brand-new user sees the whole
-  flow with no art. Plus **contextual tooltips** on the key controls (load / type / frames / export).
-  **No renderer/engine changes** (not in `FilmstripEngine.cs`). DI: `ISettingsService`/`IAssetService`
-  singletons + `TutorialViewModel` transient. **+11 tests, suite 112→123 green.**
+  major release: layered PSD/SVG import + the in-app tutorial + the About fix), first **signed** via the
+  **Trusted Signing** path (signtool + `Microsoft.Trusted.Signing.Client` dlib; AzureSignTool 403s
+  against Trusted Signing endpoints). **Live + signed:**
+  `github.com/Vybecode-LTD/stripkit/releases/tag/v1.0.0` (58.3 MB). Then built a **project-agnostic**
+  `scripts/Publish-WebsiteChangelog.ps1` (ASCII-only, no BOM trap): auto-drafts a version's
+  plain-language `updates.json` entry from `docs/CHANGELOG.md`, prepends it, and with `-Push` publishes
+  (→ Railway auto-deploy). Wired into `Invoke-Release.ps1` as an optional Stage 3 (`-WebsiteRepo`).
+  Docs: PACKAGING §8.4 (Stage-3 automation + reuse) + §9A (the script-BOM guard), SOURCE_MAP.
+- **2026-06-06 (onboarding P1 — interactive in-app Getting Started tutorial)** — Built a re-openable
+  **"Getting Started"** guided overlay (`Views/TutorialOverlay.axaml` + `ViewModels/
+  TutorialViewModel.cs`) walking a new user through the core loop as an on-brand bottom-centre glass
+  card over a click-through scrim. It **auto-opens on first launch** (a new minimal
+  `ISettingsService`/`SettingsService` persists `HasSeenTutorial`) and is re-openable from a header
+  button. Step 1 offers **"Load sample knob"** — a **bundled `Assets/sample-knob.png`** (extracted by a
+  new `IAssetService`/`AssetService`). Plus **contextual tooltips**. **No renderer/engine changes.**
+  **+11 tests, suite 112→123 green.**
 - **2026-06-06 (vNext ★ #3, step 3 — layered PSD/SVG import; completes the layer-aware bet)** —
-  The final ★ piece, scoped with the owner before building. A real layered source is now imported
-  and mapped onto the renderer's existing layer stack: **"Import layered file (SVG / PSD)…"** in the
-  Create-tab layered panel. New **app-only** `Services/LayeredImportService.cs` (`ILayeredImportService`)
-  parses **SVG** groups via **Svg.Skia** (MIT) and **PSD/PSB** layers via **Magick.NET-Q8-x64**
-  (Apache-2.0). Each `ImportedLayer` carries a **name-guessed behaviour** (pointer/needle/indicator…
-  → Rotate, else Static) the user overrides per layer. **No renderer change** (it already composites
-  an N-layer stack) → **NOT mirrored in `FilmstripEngine.cs`**; gated behind defaults so every prior
-  golden is byte-identical. Deps added: `Svg.Skia` 5.0.0, `Magick.NET-Q8-x64` 14.13.1 (SkiaSharp
-  3.119.0→**3.119.2** for Svg.Skia's floor); the win-x64 installer grows ~22 MB. **+14 tests, suite
-  98→112 green.**
-- **2026-06-05 (vNext ★ #3, step 2 — auto-pointer extraction; + session handoff)** — Built the
-  second of the three layer-aware steps. An **"Auto-extract from flat knob…"** button (Create-tab
-  layered panel) splits a single FLAT knob image into the base + pointer slots automatically. New
-  `Services/PointerExtractor.cs` uses the **radial-symmetry residual**. Pure SkiaSharp like
-  `ContentAnalysis`; **app-only — NOT mirrored in `FilmstripEngine.cs`**. +4 tests, suite 94→98.
-- **2026-06-05 (v0.8.0 shipped — 3 finish-the-gaps features + layer-aware step 1)** — Cut **v0.8.0**:
-  **(1) Batch-tab meter settings** (`e126daf`) + a **"source is a backdrop"** toggle. **(2) Skin tab**
-  (`4a9e2ac`) — a multi-control `skin.json` builder; new `IManifestService.BuildManifest` +
-  `SkinViewModel`/`SkinControlEntry`/`SkinView`. **(3) Importer resampling** (`322a80d`) — re-time a
-  strip to a new frame count (`FilmstripImporter.Resample`, nearest-frame). Plus ★ layer-aware step 1
-  (base + pointer; `RenderLayer`/`LayerBehavior`/`RenderLayers`, mirrored in `FilmstripEngine.cs`).
-  Suite 72→94; build 0/0.
-- **2026-06-04 (vNext ★ #1 + #2 + v0.7.0)** — ★ **value-arc / fill-ring** (knob `RenderValueArc`, 11
-  Skia-free arc fields gated on `ShowValueArc`, mirrored in `FilmstripEngine.cs`) + ★ **code / component
-  export** (pure `CodeSnippetService` → JUCE / CSS-HTML / iPlug2 / HISE). Shipped as v0.7.0. Suite 49→72.
-- **2026-06-04 (documentation overhaul + audit + OSS hardening)** — Rewrote ARCHITECTURE / PACKAGING /
-  ROADMAP from source-verified content; open-sourced under **MIT** (LICENSE, README badges, CONTRIBUTING,
-  `ci.yml`, issue/PR templates). Audit fixes: `BatchViewModel` CTS disposal + `ComponentType.Meter` in the
-  batch list (BUG-005/007); `MainWindow` `_playTimer` stop on `Closed` (BUG-006). 49/49 green.
-- **2026-06-03 — earlier sessions** — alignment tools (content-centre pivot, crosshair); the Obsidian
-  glassmorphism design; v0.6.0 (Inno pipeline + website, replacing Velopack); Phases 0–6 (verify,
-  drag-drop, importer, manifest, tests, batch, meter); and the FilmstripForge → StripKit rename. See
-  `docs/CHANGELOG.md` and `docs/AUDIT-LOG.md` for the full history.
-- **2026-06-02** — Packaged the v1 scaffold for a Claude Code handoff (`docs/`, six project skills,
-  initial `CLAUDE.md`); not yet compiled at that point.
+  **"Import layered file (SVG / PSD)…"** in the Create-tab layered panel. New **app-only**
+  `Services/LayeredImportService.cs` parses **SVG** groups via **Svg.Skia** (MIT) and **PSD/PSB**
+  layers via **Magick.NET-Q8-x64** (Apache-2.0); each `ImportedLayer` carries a **name-guessed
+  behaviour** the user overrides per layer. **No renderer change** → **NOT mirrored in
+  `FilmstripEngine.cs`**; gated behind defaults so every prior golden is byte-identical. Deps added:
+  `Svg.Skia` 5.0.0, `Magick.NET-Q8-x64` 14.13.1 (SkiaSharp 3.119.0→**3.119.2**); the win-x64 installer
+  grows ~22 MB. **+14 tests, suite 98→112 green.**
+- **2026-06-05 — earlier sessions** — ★ #3 step 2 (auto-pointer extraction, `PointerExtractor`,
+  radial-symmetry residual, +4); v0.8.0 (Batch-tab meter settings + backdrop toggle; the Skin tab
+  multi-control `skin.json` builder; importer resampling; ★ layer-aware step 1 base+pointer); ★ #1
+  value-arc / fill-ring + ★ #2 code/component export (v0.7.0); the documentation overhaul + MIT
+  open-sourcing + audit fixes (BUG-005/006/007); alignment tools + the Obsidian glassmorphism design;
+  v0.6.0 (Inno pipeline + website, replacing Velopack); Phases 0–6; and the FilmstripForge → StripKit
+  rename. See `docs/CHANGELOG.md` and `docs/AUDIT-LOG.md` for the full history.

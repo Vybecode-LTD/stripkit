@@ -1,6 +1,6 @@
 # ROADMAP — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and several
@@ -41,12 +41,23 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   **source** was accidentally omitted from the release commit — only version files + the installer
   were staged — and was committed retroactively `2026-06-14` (`b55380f`) so the tag can rebuild its
   own installer.)*
-- **v1.2.1** (about to ship — `## [Unreleased]`) — **fix wave.** The Generate→Create handoff now
+- **v1.2.1** (2026-06-14, shipped + signed) — **fix wave.** The Generate→Create handoff now
   **honours the generated control type** (was hard-forced to `RotaryKnob`, so generated
   faders/sliders/buttons broke); **hardened untrusted-SVG XML parsing** against entity-expansion DoS
   / external-entity via new `SafeXml` (applied to both the AI-reply sanitizer and the layered-file
   import picker); added the missing `BindingPlugins.DataValidators.RemoveAt(0)` and a Generate
   structure warning (knob with no pointer / button missing a state). Suite **157→171**.
+- **v1.2.2** (2026-06-14, shipped + signed) — **polish + tooling wave.** The Generate tab's model
+  picker is now an **editable `AutoCompleteBox`** (free text + per-provider suggestions — a
+  custom/just-released model id is sent verbatim; a pinned-but-delisted model shows as text, not a
+  blank box); the **preview build moved off the UI thread** (one `Task.Run` in
+  `GenerateViewModel.BuildPreview`; the UI thread only assigns the bitmap) and **generated temp SVGs
+  no longer accumulate**. Release tooling: a **release-integrity guard** in `Invoke-Release.ps1`
+  (abort if tracked source is uncommitted; untracked strays allowed; `-AllowDirty` override) so
+  feature source can't be orphaned from its tag, plus a Stage-3 website-changelog splat fix
+  (array→hashtable). CI future-proofing: `actions/checkout@v4→v5` + `actions/setup-dotnet@v4→v5`
+  (Node 24) and `coverlet.collector 6.0.2→6.0.4`. New portable skill
+  `release-source-integrity-guard`. Suite **171→172**.
 
 ---
 
@@ -119,9 +130,11 @@ Open items carried from the v0.6.0 release — small, mostly non-feature:
   `VybeCode` profile; `signtool` + the Trusted Signing dlib). Live since v0.8.0's signed re-release.
 - ✅ **Per-release website maintenance — now automated.** `scripts/Publish-WebsiteChangelog.ps1`
   auto-drafts the `updates.json` entry from `docs/CHANGELOG.md`; wired into `Invoke-Release.ps1`
-  as optional Stage 3 (`-WebsiteRepo`). Hybrid: auto-draft → refine → push.
-- ⏳ **Minor: bump `actions/checkout@v4 → v5`** — v4 runs on the soon-deprecated Node 20 (the
-  v1.0.0 Auto Release run warned about it). Both `ci.yml` and `auto-release.yml`.
+  as optional Stage 3 (`-WebsiteRepo`, **hashtable** splat so a trailing `-Push` binds). Hybrid:
+  auto-draft → refine → push.
+- ✅ **Minor: bump `actions/checkout@v4 → v5`** (v1.2.2) — v4 ran on the deprecated Node 20 (the
+  v1.0.0 Auto Release run warned about it). Both `ci.yml` and `auto-release.yml` now pin `@v5`, and
+  `ci.yml` also bumps `actions/setup-dotnet@v4 → v5` (Node 24, ahead of the June 16 2026 forcing).
 
 ---
 
@@ -138,7 +151,9 @@ highest-leverage bets across all groups; pursue them first.
   SVG** (static `body` + rotating `pointer`) that drops into the §6.8 layered-import pipeline, so
   only the pointer rotates. `IAssetGenerationService` (StripKit-aware prompt) + three
   `IAssetGenerationProvider`s over a shared `HttpClient` + `SvgSanitizer` + DPAPI-encrypted keys
-  (`ISecretStore`); preview-by-importing + "Use in Create" handoff. App-only; +27 tests.
+  (`ISecretStore`); preview-by-importing + "Use in Create" handoff. App-only; +27 tests. *(v1.2.2:
+  the model field is now an **editable `AutoCompleteBox`** — type a custom/just-released id — and
+  the preview builds off the UI thread.)*
 - ✅ **Generate: all control types** (v1.2.0) — the Generate tab now produces **knob / fader /
   slider / button** art (was knob-only): the "WHAT TO MAKE" combo drives a type-aware prompt
   (knob → `body`+`pointer`, button → `off`+`on`, fader/slider → a single `body` cap), and the

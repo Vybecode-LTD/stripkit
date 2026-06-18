@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,22 +10,24 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (171 tests)
+dotnet test                                      # whole suite (172 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **171 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **172 passed / 0 failed / 0 skipped** (~1.0 s).
 
 ## CI (automated testing)
 
 `.github/workflows/ci.yml` runs the full suite automatically on every push and every
 pull-request targeting `main`. The job (`build-and-test`) runs on `windows-latest`
-and uses the .NET 9 SDK (`9.0.x`). Steps: `dotnet restore` → `dotnet build -c Debug`
-→ `dotnet test --no-build -c Debug`. A red build or any failing test blocks the
-branch. The separate `auto-release.yml` workflow handles the release pipeline
-(VirusTotal scan + `gh release create`); it is not part of the test gate.
+and uses the .NET 9 SDK (`9.0.x`); it pins `actions/checkout@v5` + `actions/setup-dotnet@v5`
+(Node 24, ahead of the June 16 2026 Node-20 forcing). Steps: `dotnet restore` →
+`dotnet build -c Debug` → `dotnet test --no-build -c Debug`. A red build or any failing test
+blocks the branch. The separate `auto-release.yml` workflow handles the release pipeline
+(VirusTotal scan + `gh release create`; also on `actions/checkout@v5`); it is not part of the
+test gate.
 
 ## Frameworks
 
@@ -37,15 +39,15 @@ branch. The separate `auto-release.yml` workflow handles the release pipeline
 | NSubstitute | 5.1.0 | mocks/fakes for service interfaces |
 | FluentAssertions | 6.12.0 | readable assertions (6.x — MIT/free) |
 | Avalonia.Headless.XUnit | 11.3.0 | headless UI tests (`[AvaloniaFact]`) |
-| coverlet.collector | 6.0.2 | code coverage |
+| coverlet.collector | 6.0.4 | code coverage |
 | SkiaSharp | 3.119.2 (transitive) | pixel comparison in golden tests |
 
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (171)
+## Test inventory (172)
 
-### Generate tab (AI SVG generation) — 27 + integration
+### Generate tab (AI SVG generation) — 28 + integration
 The networked, non-deterministic feature is covered without ever hitting a network:
 - `SvgSanitizerTests.cs` — 6: carve the SVG out of a fenced/chatty reply; strip
   script/`<image>`/`<foreignObject>`/event-handlers/off-document `href`; keep local `#id`
@@ -58,11 +60,14 @@ The networked, non-deterministic feature is covered without ever hitting a netwo
 - `AssetGenerationServiceTests.cs` — 6: a chatty reply reduces to a clean SVG that round-trips
   the real importer as tagged body/pointer layers; the prompt encodes the conventions + model
   fallback; failure paths (no SVG, provider error, missing key); provider display order.
-- `GenerateViewModelTests.cs` — 5: key gating, per-provider key save/reload, the success path
-  (import-validated + Create handoff fires with a real temp SVG), and the two failure paths.
+- `GenerateViewModelTests.cs` — 6: key gating, per-provider key save/reload, the success path
+  (import-validated + Create handoff fires with a real temp SVG), the two failure paths, and that
+  **a custom/delisted model id (not in the suggestions) is sent verbatim** rather than dropped to a
+  suggestion (`A_custom_model_id_not_in_the_suggestions_is_honored` — the editable `AutoCompleteBox`
+  model field, +1 this wave).
 - `GenerateViewTests.cs` — 1: headless realization of `GenerateView` (compiled bindings,
-  design tokens, the reveal binding, the colour-swatch buttons, and the `StringConverters` usage
-  all load at runtime).
+  design tokens, the reveal binding, the colour-swatch buttons, the `AutoCompleteBox` model field,
+  and the `StringConverters` usage all load at runtime).
 - `GenerateIntegrationTests.cs` — the end-to-end Generate→import path per control type: a
   generated knob round-trips as body/pointer layers, a generated **button** maps its `off`/`on`
   groups to `LayerBehavior.Frame` state layers, and the Generate→Create handoff carries the
@@ -275,10 +280,11 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 - **The release pipeline is validated by execution, not by automated tests.** The
   release script (`scripts/Invoke-Release.ps1`) and the GitHub Actions workflow
   (CI YAML) are PowerShell / pipeline glue, not application code; they are verified
-  by running them (the release-tooling fixes were confirmed by re-running the pipeline
-  end-to-end) rather than by unit tests. The packaging switch to Inno
-  Setup likewise removed `UpdateService` (Velopack), which carried no tests, so the
-  suite count was unchanged by that work.
+  by running them (the release-tooling fixes — including the v1.2.2 release-integrity
+  guard and the Stage-3 hashtable-splat fix — were confirmed by running the pipeline
+  end-to-end, which shipped v1.2.1 and v1.2.2) rather than by unit tests. The packaging
+  switch to Inno Setup likewise removed `UpdateService` (Velopack), which carried no
+  tests, so the suite count was unchanged by that work.
 - **The literal OS drag gesture is not auto-tested.** Avalonia.Headless cannot
   construct a synthetic `DragEventArgs` (the type's constructors are internal), so the
   drop is covered indirectly: the VM load path (`LoadPathTests`/`ImporterViewModelTests`)
@@ -290,12 +296,14 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 - **Preview rendering through `ToAvaloniaBitmap` is not asserted** in VM tests (it
   needs a UI platform; tests force the render/extract to throw so the swallowed
   preview path is skipped and load *state* is asserted). The importer's extraction is
-  pixel-tested directly.
+  pixel-tested directly. (The Generate tab's preview build moved off-thread into
+  `BuildPreview` in v1.2.2 — still a UI-platform concern, so the VM tests assert the
+  generated SVG / handoff state rather than the rendered bitmap.)
 - **Live AI generation is never hit.** The providers are tested against a fake
   `HttpMessageHandler`; a real key + a real model call is a manual smoke test (and the
   Generate fader/slider/meter output paths want a live eyeball — knob is the proven path).
-- **No coverage threshold is enforced** yet (coverlet is wired; a gate can be added
-  with a CI step).
+- **No coverage threshold is enforced** yet (coverlet `6.0.4` is wired; a gate can be
+  added with a CI step).
 - **`FilmstripEngine.cs`** (the standalone portable renderer) is not under test — it
   is a hand-maintained mirror of `SkiaFilmstripRenderer` (now including the `RenderLayers`
   layered-knob path, the `RenderButtonLayers` button state-frame path, the `RenderLayer`/

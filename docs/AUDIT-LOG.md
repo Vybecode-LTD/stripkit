@@ -1,8 +1,88 @@
 # AUDIT-LOG — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-14 — v1.2.2 polish wave (editable model + off-thread preview + release-integrity guard) + full reconcile
+
+**Type:** Feature/tooling delivery + release + documentation reconciliation.
+
+**Scope:** Shipped the v1.2.2 polish + tooling wave (both v1.2.1 and v1.2.2 went live the same day),
+then reconciled every managed doc from 1.2.1 → **1.2.2 / 2026-06-14**.
+
+### Ground truth verified (against the codebase)
+- `src/StripKit/StripKit.csproj` `<Version>` = **1.2.2**; `installer/StripKit.iss` `MyAppVersion` = **1.2.2**
+  (both bumped by the release script).
+- Generate model picker is an **`AutoCompleteBox`** (`GenerateView.axaml` line 45 — free text + suggestions;
+  the provider / control-type / style pickers stay `ComboBox`).
+- `GenerateViewModel` builds the preview **off the UI thread**: `await Task.Run(() => BuildPreview(...))`
+  (the `BuildPreview` method does temp-write + layered import + composite + PNG-encode); `TryDelete(_lastSvgPath)`
+  drops the prior temp SVG each generation.
+- `Invoke-Release.ps1` has the **release-integrity guard**: a `-AllowDirty` switch, a `git status --porcelain`
+  check that excludes untracked (`^\?\?`) entries, an abort `throw`, and **hashtable** splatting (`@pubArgs`) for
+  the Stage-3 `Publish-WebsiteChangelog.ps1` call (the comment notes a trailing `-Push` mis-binds under array splat).
+- CI: `ci.yml` pins `actions/checkout@v5` + `actions/setup-dotnet@v5`; `auto-release.yml` pins `actions/checkout@v5`.
+- `tests/StripKit.Tests/StripKit.Tests.csproj` references `coverlet.collector` **6.0.4**.
+- New skill present: `.claude/skills/release-source-integrity-guard/SKILL.md` (already listed in CLAUDE/SOURCE_MAP —
+  verified, not duplicated).
+- New test present: `GenerateViewModelTests.A_custom_model_id_not_in_the_suggestions_is_honored` ("a typed/delisted
+  model id is sent verbatim"). Test suite **172** (was 171; +1 this wave).
+- Working tree's only untracked strays: `docs/PRESS-RELEASE.md`, `press/`, `.claude/launch.json` (not ours).
+
+### What shipped in 1.2.2 (commits)
+- **`cdc466e`** — Generate: editable model input (`AutoCompleteBox`), off-thread preview (`BuildPreview` in a
+  `Task.Run`), temp-SVG cleanup; bump `coverlet.collector` 6.0.2→6.0.4.
+- **`e124e47`** — release-integrity guard in `Invoke-Release.ps1` (abort if tracked source uncommitted; `-AllowDirty`
+  override) + the Stage-3 array→hashtable splat fix.
+- **`0fc64db`** / **`33fc522`** — `actions/checkout@v4→v5` and `actions/setup-dotnet@v4→v5` (Node 24, ahead of the
+  June 16 2026 Node-20 forcing).
+- **`114f8e5`** — new portable skill `release-source-integrity-guard` (linter 0/0) + listed in CLAUDE / SOURCE_MAP.
+- **`5e9e587`** — CHANGELOG `[1.2.2]` (then promoted by the release script), **`ad4e1c2`** — `Release v1.2.2`,
+  **`78e7081`** — HANDOFF v1.2.2-shipped.
+
+### Releases
+- **v1.2.1 AND v1.2.2 both shipped 2026-06-14** — tags `v1.2.1`, `v1.2.2` are live on GitHub Releases (signed via
+  Azure Trusted Signing; CI VirusTotal-scanned each; the website changelog was auto-pushed by Stage 3 → Railway
+  redeploy). The 1.2.2 release itself validated the new release-integrity guard and the Stage-3 splat fix end-to-end.
+
+### Doc reconciliation
+- All managed docs → **1.2.2 / 2026-06-14** (CHANGELOG + HANDOFF were already at 1.2.2 from the release; this pass
+  stamped SOURCE_MAP, TESTING, ARCHITECTURE, ROADMAP, AUDIT-LOG, BUGS, KICKOFF, PACKAGING, CLAUDE).
+- **Test count → 172** everywhere it was at 171 (SOURCE_MAP, TESTING ×several, KICKOFF, CLAUDE). The +1 is
+  `GenerateViewModelTests` (5→6 documented; Generate-section header 27→28).
+- **Editable model + off-thread preview** documented in SOURCE_MAP (GenerateViewModel/GenerateView lines),
+  ARCHITECTURE §11 + §13 (threading) + §3.6, and CLAUDE's GenerateViewModel/GenerateView bullets.
+- **Release-integrity guard + Stage-3 splat fix** documented in PACKAGING (§3 driver + §8.0/§8.4), SOURCE_MAP
+  (scripts line), CLAUDE (Release section), ROADMAP (v1.2.2 entry + the `checkout@v4→v5` follow-up flipped ✅).
+- **coverlet 6.0.4 + CI v5** noted in TESTING (frameworks table + CI section), ARCHITECTURE §18, SOURCE_MAP
+  (workflows line), CLAUDE (stack/CI).
+- **ROADMAP** added the **v1.2.1** and **v1.2.2** release entries and flipped the `actions/checkout@v4→v5`
+  operational follow-up to ✅ (done in v1.2.2).
+- **CLAUDE** gained a new "Last completed task" entry for the 1.2.2 wave; older entries condensed to keep the
+  section readable.
+- **BUGS** header bumped to 1.2.2; **no new tracked bug** — the orphaned-v1.2.0-source and the Stage-3 splat are
+  both already captured as informational release-integrity notes / fixed-in-1.2.2 tooling, so neither warrants a
+  new BUG-### entry. (Added a forward note that the orphaned-source process guard is now *enforced* by the
+  Stage-1 integrity guard, not just documented.)
+
+### Pre-existing contradiction noted (NOT introduced here; flagged for the next tooling pass)
+- **`docs/PACKAGING.md` §13.3 "Code signing" still describes the AzureSignTool path** (`Tool: AzureSignTool v7.0.1`,
+  "wired into `Invoke-Release.ps1`", and an `AzureSignTool sign` example) while **every other signing reference**
+  — CLAUDE, the PACKAGING §0 file table / §1 stage diagram intent, BUGS-note, HANDOFF, KICKOFF — says signing uses
+  **signtool + the `Microsoft.Trusted.Signing.Client` dlib, NOT AzureSignTool (which 403s against Trusted Signing
+  endpoints)**. This is a stale §13.3 sub-section that predates the signtool switch; it contradicts the rest of the
+  doc. **Left as-is this pass** (out of the 1.2.2 delta scope, and rewriting the signing setup steps wants the
+  owner's confirmation of the exact current `Invoke-Release.ps1` signing block). **Recommend** rewriting §13.3 to
+  the signtool + dlib reality in a follow-up.
+
+### Verdict
+**Green.** Build 0/0, **172/172** tests, app boots clean (five tabs + first-run tutorial), `main` == origin,
+0 open bugs, **v1.2.1 + v1.2.2 both live + signed**, website changelog auto-pushed. Doc-version increment:
+**PATCH** (1.2.1 → 1.2.2, stamp + the shipped polish/tooling). One pre-existing contradiction (PACKAGING §13.3
+AzureSignTool vs signtool) flagged for a follow-up, not auto-fixed.
 
 ---
 

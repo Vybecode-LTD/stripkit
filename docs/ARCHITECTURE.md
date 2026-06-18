@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 >
 > The deep, file-and-flow reference for how the **StripKit desktop app** is built.
 > `docs/SOURCE_MAP.md` says *where* things live; this says *how and why* they work.
@@ -153,7 +153,7 @@ A small artistic flourish used throughout the sidebars.
   `skin.json` builder. `SkinControlEntry` is the mutable, observable per-control row the list
   and detail editor bind to (mapped to the immutable `ManifestControl` record on export).
 - `GenerateViewModel` — the **Generate** tab (§11): provider/key/model + the async cancellable
-  generate, preview-by-importing, and the `UseInCreateRequested` handoff to Create.
+  generate, an off-thread preview-by-importing, and the `UseInCreateRequested` handoff to Create.
 - `TutorialViewModel` — the Getting Started overlay (§6.9); a per-screen walkthrough incl. Generate.
 
 All are `partial` (CommunityToolkit source generators require it) and use
@@ -176,7 +176,9 @@ type, not a control/visual. Logic, files, and domain state stay out of code-behi
   the right; markup-only code-behind.
 - `GenerateView.axaml(.cs)` — the Generate tab `UserControl` (`x:DataType` = `GenerateViewModel`):
   provider/key/model + style/accent/size on the left, the SVG preview + Use-in-Create / Save / Copy
-  + raw-response expander on the right. Code-behind: clipboard copy only.
+  + raw-response expander on the right. The model picker is an `AutoCompleteBox` (free text +
+  suggestions); provider + control-type + style stay `ComboBox`es. Code-behind: clipboard copy +
+  the colour-picker flyout handlers.
 
 All bindings are compiled (`x:DataType` on every view; `AvaloniaUseCompiledBindingsByDefault`).
 
@@ -783,7 +785,7 @@ are the child VMs exposed by `MainWindowViewModel` and resolved via DI (see §11
 ## 11. The Generate tab (`GenerateViewModel` + `AssetGenerationService`)
 
 The newest tab **generates** source art instead of importing it: it uses the **user's own** OpenAI /
-Gemini / Claude API key to produce a **layered knob SVG**, which feeds the *same* layered-import
+Gemini / Claude API key to produce a **layered control SVG**, which feeds the *same* layered-import
 pipeline as §6.8 — so there is **no renderer change** and nothing is mirrored into
 `FilmstripEngine.cs`. It is also the only **networked, non-deterministic** part of the app, so it
 brings the first secret (an API key) and the first HTTP I/O.
@@ -806,11 +808,20 @@ provider, key, model, ct)`:
    `<foreignObject>`, `on*` handlers, and any `href` that isn't a local `#id`. Pure
    `System.Xml.Linq`; Svg.Skia (via the importer) is the final validator.
 
-**Preview = validation.** The VM writes the SVG to a temp file and runs it through the *real*
-`ILayeredImportService.Import`; the preview is the flattened import, so a visible preview
-**guarantees** the Create tab can import it. **"Use in Create"** raises `UseInCreateRequested(path)`;
-the host VM switches to the Create tab and calls the shared `ImportLayeredFromPathAsync` (§6.8).
-**Save SVG** / **Copy SVG** persist it for reuse anywhere.
+**Editable model (v1.2.2).** The model field is **free text** — an `AutoCompleteBox` bound to a
+per-provider `SuggestedModels` list, *not* a fixed dropdown. A custom or just-released model id can be
+typed and is sent to the provider **verbatim** (so you can use a model the moment it ships), and a
+pinned-but-delisted model displays as the typed text rather than collapsing to a blank box. Switching
+provider still re-seeds the suggestions for that provider.
+
+**Preview = validation, built off-thread (v1.2.2).** The VM writes the SVG to a temp file and runs it
+through the *real* `ILayeredImportService.Import` — the preview is the flattened import, so a visible
+preview **guarantees** the Create tab can import it. The whole preview build (temp-write + layered
+import + composite + PNG-encode) runs inside **one `Task.Run`** (`BuildPreview`); the UI thread only
+assigns the finished bitmap, so a large canvas no longer hitches the dispatcher. Generated temp SVGs
+**no longer accumulate** — the prior one is dropped (`TryDelete`) each generation. **"Use in Create"**
+raises `UseInCreateRequested(path)`; the host VM switches to the Create tab and calls the shared
+`ImportLayeredFromPathAsync` (§6.8). **Save SVG** / **Copy SVG** persist it for reuse anywhere.
 
 **Keys & persistence.** `ISecretStore`/`DpapiSecretStore` encrypts each provider's key at rest with
 Windows DPAPI (`ProtectedData`, CurrentUser) in `%APPDATA%/StripKit/secrets.dat` — ciphertext only
@@ -851,7 +862,9 @@ folders).
   `StatusMessage`.
 - **Batch** runs its *entire* loop off the UI thread (`Task.Run`); progress marshals back
   via a UI-thread-created `Progress<T>` (§8).
-- **Preview** renders **synchronously on the UI thread** — it is cheap (display-sized,
+- **Generate** builds its preview off the UI thread in one `Task.Run` (`BuildPreview`, §11);
+  only the finished bitmap assignment returns to the UI context.
+- **Preview** (Create) renders **synchronously on the UI thread** — it is cheap (display-sized,
   supersample capped at 2, or 1 while the crosshair is on). The auto-play `DispatcherTimer`
   (33 ms) nudges `PreviewValue` on the UI thread; the crosshair drag coalesces renders to
   one per UI cycle (§7.3).
@@ -961,8 +974,9 @@ items → result summary.
 
 ## 18. Tests (`tests/StripKit.Tests`)
 
-xUnit + NSubstitute + FluentAssertions + `Avalonia.Headless`. Coverage spans: golden-image
-renderer baselines (`RendererGoldenTests`), alignment renders (`AlignmentRenderTests`),
+xUnit + NSubstitute + FluentAssertions + `Avalonia.Headless` (coverlet.collector `6.0.4` for
+coverage; CI on `actions/checkout@v5` + `actions/setup-dotnet@v5`, Node 24). Coverage spans:
+golden-image renderer baselines (`RendererGoldenTests`), alignment renders (`AlignmentRenderTests`),
 meter renders (`MeterRenderTests`), value-arc renders (`ValueArcRenderTests` — golden
 baselines incl. gradient+glow, plus pixel-logic for the lit-sweep growth and the off /
 non-knob no-ops), layered-knob renders (`LayeredKnobRenderTests` — base+pointer golden
@@ -972,10 +986,12 @@ class / draw method, the frame math, stack-axis source, identifier sanitisation,
 `SaveAsync`), `ContentAnalysisTests`, importer engine + VM
 (`FilmstripImporterTests`, `ImporterViewModelTests`), manifest mapping/JSON-Schema
 (`ManifestServiceTests`), batch processor + VM (`BatchProcessorTests`, `BatchViewModelTests`),
-the Create-tab load path (`LoadPathTests`), and a headless `DropZoneViewTests` (a synthetic
-OS drag gesture isn't constructable headlessly, so drop is covered by the VM load-path +
-`AllowDrop`-wiring assertions). `TestAppBuilder`/`TestImages`/`ImageAssert` are the harness.
-See `docs/TESTING.md` for the methodology and the current count.
+the Generate-tab pipeline (`SvgSanitizerTests`, `SecretStoreTests`, `AssetGenerationProviderTests`,
+`AssetGenerationServiceTests`, `GenerateViewModelTests` — incl. the editable/delisted-model test,
+`GenerateViewTests`, `GenerateIntegrationTests`), the Create-tab load path (`LoadPathTests`), and a
+headless `DropZoneViewTests` (a synthetic OS drag gesture isn't constructable headlessly, so drop is
+covered by the VM load-path + `AllowDrop`-wiring assertions). `TestAppBuilder`/`TestImages`/`ImageAssert`
+are the harness. See `docs/TESTING.md` for the methodology and the current count.
 
 ---
 

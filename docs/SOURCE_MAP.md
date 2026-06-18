@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -28,20 +28,23 @@ does each thing live" companion.
   `wizard-small.bmp` (install-wizard art: StripKit brandmark + VybeCode logo).
   `installer/Output/` is the git-ignored ISCC output.
 - `scripts/` — `Invoke-Release.ps1`, the Stage-1 local release driver (test-gate →
+  **release-integrity guard** (abort on uncommitted tracked source; `-AllowDirty` overrides) →
   bump → publish → sign → ISCC → sign → stage `releases/latest/` → commit + tag + push; optional
-  `-WebsiteRepo` runs Stage 3). `Publish-WebsiteChangelog.ps1`, the **project-agnostic** Stage-3
-  tool that auto-drafts a version's `updates.json` entry from `docs/CHANGELOG.md` and (with `-Push`)
-  publishes it to a forward-facing site's repo (auto-deploys). See `docs/PACKAGING.md`.
+  `-WebsiteRepo` runs Stage 3 via **hashtable** splatting). `Publish-WebsiteChangelog.ps1`, the
+  **project-agnostic** Stage-3 tool that auto-drafts a version's `updates.json` entry from
+  `docs/CHANGELOG.md` and (with `-Push`) publishes it to a forward-facing site's repo (auto-deploys).
+  See `docs/PACKAGING.md`.
 - `.github/workflows/` — `ci.yml` (build + test on every push/PR to main, windows-latest,
-  .NET 9) + `auto-release.yml` (Stage-2 CI release creator: VirusTotal scan + the sole
-  `gh release create`, triggered by a pushed `releases/latest/*.exe`).
+  .NET 9; `actions/checkout@v5` + `actions/setup-dotnet@v5`, Node 24) + `auto-release.yml`
+  (Stage-2 CI release creator: VirusTotal scan + the sole `gh release create`, triggered by a
+  pushed `releases/latest/*.exe`; `actions/checkout@v5`).
 - `.github/ISSUE_TEMPLATE/` — `bug_report.md` + `feature_request.md`.
 - `.github/pull_request_template.md` — PR checklist enforcing the house conventions.
 - `releases/latest/` — the staged installer that triggers a release (the only tracked
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (171): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (172): renderer golden-image (with committed
   `baselines/`), the Generate-tab pipeline (`SvgSanitizerTests`, `SecretStoreTests`,
   `AssetGenerationProviderTests` via a fake HTTP handler, `AssetGenerationServiceTests`,
   `GenerateViewModelTests`, `GenerateViewTests`, `GenerateIntegrationTests`), `ContentAnalysis` +
@@ -207,9 +210,14 @@ does each thing live" companion.
 - `GenerateViewModel.cs` — backs the **Generate** tab: provider/model/key/style + the generated
   **control type**, the async cancellable Generate command, preview via `ILayeredImportService.Import`
   (which also validates the layered structure), Save/Copy SVG, a structure warning (knob with no
-  pointer / button missing a state), and the `UseInCreateRequested` handoff event. Persists the
-  provider/model prefs (`ISettingsService`) and the key (`ISecretStore`). No Avalonia UI types beyond
-  the preview bitmap.
+  pointer / button missing a state), and the `UseInCreateRequested` handoff event. The **model field is
+  free text** (an editable `AutoCompleteBox` bound to a per-provider `SuggestedModels` list — a
+  custom/just-released model id is sent verbatim, and a pinned-but-delisted model shows as text rather
+  than a blank box). The preview is built **off the UI thread** (`BuildPreview` runs the temp-write +
+  layered import + composite + PNG-encode inside one `Task.Run`; the UI thread only assigns the
+  finished bitmap), and the prior temp SVG is dropped each generation (no temp accumulation). Persists
+  the provider/model prefs (`ISettingsService`) and the key (`ISecretStore`). No Avalonia UI types
+  beyond the preview bitmap.
 - `TutorialViewModel.cs` — backs the Getting Started overlay: the step list, navigation
   (Next/Back/Skip), first-run auto-open via `ISettingsService`, and the `LoadSampleRequested`
   event the host VM wires to the bundled sample knob. No Avalonia UI types.
@@ -235,9 +243,10 @@ does each thing live" companion.
   Markup-only code-behind.
 - `GenerateView.axaml(.cs)` — the Generate tab's `UserControl` (`x:DataType` = `GenerateViewModel`):
   provider/key/model + control type + style/accent/size + Generate/Cancel (left), the SVG preview +
-  status + Use-in-Create / Save / Copy + a raw-response expander (right). Code-behind holds the
-  clipboard copy + the colour-picker flyout handlers (the swatch buttons), like the Create tab's
-  snippet copy.
+  status + Use-in-Create / Save / Copy + a raw-response expander (right). The **model picker is an
+  `AutoCompleteBox`** (free text + suggestions); the provider + control-type + style pickers stay
+  `ComboBox`es. Code-behind holds the clipboard copy + the colour-picker flyout handlers (the swatch
+  buttons), like the Create tab's snippet copy.
 - `TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (`x:DataType` =
   `TutorialViewModel`): a non-blocking bottom-centre glass card over a click-through scrim,
   hosted as the top layer of `MainWindow`'s root `Panel`. Markup-only code-behind.
