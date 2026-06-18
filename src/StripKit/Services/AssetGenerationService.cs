@@ -61,6 +61,26 @@ public sealed class AssetGenerationService : IAssetGenerationService
         return GenerationResult.Ok(svg, raw);
     }
 
+    public async Task<IReadOnlyList<GenerationSetItem>> GenerateSetAsync(
+        GenerationRequest baseRequest, IReadOnlyList<ComponentType> types,
+        AiProvider provider, string apiKey, string model, CancellationToken ct)
+    {
+        // Generate every control concurrently with identical style inputs (style, colours, effects,
+        // notes, avoid) so the family is visually consistent. Each control's own structure comes from
+        // its ComponentType + the Layered flag (knob = body+pointer; button/toggle/meter = off/on;
+        // fader/slider = a single cap). The shared HttpClient handles the concurrent requests.
+        var tasks = types
+            .Select(t => baseRequest with { ComponentType = t, Layered = IsLayeredType(t) })
+            .Select(async req => new GenerationSetItem(req.ComponentType, await GenerateAsync(req, provider, apiKey, model, ct)))
+            .ToList();
+        return await Task.WhenAll(tasks);
+    }
+
+    /// <summary>True for the control types whose generated art is a layered group structure
+    /// (knob = body+pointer; button/toggle/meter = off/on). Faders/sliders are a single flat cap.</summary>
+    internal static bool IsLayeredType(ComponentType t) =>
+        t is ComponentType.RotaryKnob or ComponentType.Button or ComponentType.Toggle or ComponentType.Meter;
+
     // ---- prompt building (encodes StripKit's filmstrip conventions) ----
 
     private static string BuildSystemPrompt(GenerationRequest r)
@@ -176,6 +196,9 @@ public sealed class AssetGenerationService : IAssetGenerationService
 
         if (!string.IsNullOrWhiteSpace(r.StyleNotes))
             sb.AppendLine($"- Extra direction: {r.StyleNotes.Trim()}.");
+
+        if (!string.IsNullOrWhiteSpace(r.Avoid))
+            sb.AppendLine($"- Avoid (do NOT include): {r.Avoid.Trim()}.");
 
         if (r.Layered && r.ComponentType == ComponentType.RotaryKnob)
             sb.AppendLine("Return the SVG with a static <g id=\"body\"> and a separate <g id=\"pointer\"> pointing straight up.");

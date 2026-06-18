@@ -16,6 +16,13 @@
   the Create tab, and export a latching toggle binding.
 
 ### Added
+- **Matching-set generator.** Pick the controls you want (knob / fader / slider / meter / button /
+  toggle) and **Generate set** produces the whole family in one go — every control generated
+  concurrently from the *same* style, colours, effects and avoid-list, so they look like a set. Each
+  result has its own preview with **Use in Create**, **Save**, and **Regenerate**; **Save set…** writes
+  them all to a folder. A head start on a full, consistent skin from a single prompt.
+- **"Avoid" field.** A free-text negative-direction box ("no text, no numbers, no photo-realism")
+  folded into every generation — single or set.
 - **Toggle control type.** A first-class on/off toggle, distinct from the (momentary/multi-state)
   Button: rendered via the same discrete state-frame path, generated with a switch/rocker-style prompt
   (`off`/`on` groups), code-exported as a latching toggle (JUCE `setClickingTogglesState`, iPlug2

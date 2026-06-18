@@ -51,6 +51,10 @@ public sealed record GenerationRequest
     /// <summary>Free-text refinement (e.g. "amber LED, knurled edge"). Optional.</summary>
     public string StyleNotes { get; init; } = "";
 
+    /// <summary>Free-text "avoid" / negative direction folded into the prompt (e.g. "no text, no
+    /// numbers, no drop shadow, no photorealism"). Optional.</summary>
+    public string Avoid { get; init; } = "";
+
     /// <summary>Accent / indicator colour as <c>#RRGGBB</c> (defaults to the StripKit accent).</summary>
     public string AccentColor { get; init; } = "#E8440A";
 
@@ -98,3 +102,8 @@ public sealed record GenerationResult
     public static GenerationResult Fail(string error, string? raw = null) =>
         new() { Success = false, Error = error, RawResponse = raw };
 }
+
+/// <summary>One control in a matching-set generation: the control type that was requested and the
+/// result of generating it. The set generates every chosen type with the same style inputs so the
+/// family stays visually consistent.</summary>
+public sealed record GenerationSetItem(ComponentType ComponentType, GenerationResult Result);

@@ -124,6 +124,51 @@ public class AssetGenerationServiceTests
     }
 
     [Fact]
+    public async Task The_avoid_text_is_folded_into_the_user_prompt()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+
+        await svc.GenerateAsync(new GenerationRequest { Avoid = "no text, no numbers" },
+                                AiProvider.Claude, "KEY", "", default);
+
+        fake.LastUser.Should().Contain("no text, no numbers", "the avoid list shapes the prompt");
+    }
+
+    [Fact]
+    public async Task GenerateSetAsync_returns_one_result_per_type_in_order()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+        var types = new[] { ComponentType.RotaryKnob, ComponentType.Button, ComponentType.Meter, ComponentType.VerticalFader };
+
+        var items = await svc.GenerateSetAsync(
+            new GenerationRequest { Style = GenerationStyle.Vintage, AccentColor = "#ABCDEF" },
+            types, AiProvider.Claude, "KEY", "", default);
+
+        items.Should().HaveCount(4);
+        items.Select(i => i.ComponentType).Should().Equal(types, "one item per requested type, in order");
+        items.Should().OnlyContain(i => i.Result.Success);
+    }
+
+    [Fact]
+    public async Task GenerateSetAsync_surfaces_a_per_item_failure_without_sinking_the_rest()
+    {
+        // First call fails, the rest succeed — the set must report each item independently.
+        int n = 0;
+        var fake = new FakeProvider(AiProvider.Claude, () => Interlocked.Increment(ref n) == 1 ? "not an svg at all" : LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+
+        var items = await svc.GenerateSetAsync(new GenerationRequest(),
+            new[] { ComponentType.RotaryKnob, ComponentType.Button, ComponentType.Meter },
+            AiProvider.Claude, "KEY", "", default);
+
+        items.Should().HaveCount(3);
+        items.Count(i => i.Result.Success).Should().Be(2, "one reply was not an SVG");
+        items.Count(i => !i.Result.Success).Should().Be(1);
+    }
+
+    [Fact]
     public async Task A_toggle_prompt_asks_for_off_on_switch_groups()
     {
         var fake = new FakeProvider(AiProvider.Claude, () => LayeredToggle);

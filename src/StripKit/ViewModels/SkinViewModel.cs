@@ -32,7 +32,8 @@ public partial class SkinViewModel : ViewModelBase
     }
 
     public ComponentType[] ComponentTypes { get; } =
-        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter];
+        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter,
+         ComponentType.Button, ComponentType.Toggle];
     public StackDirection[] StackDirections { get; } = [StackDirection.Vertical, StackDirection.Horizontal];
 
     /// <summary>The controls bound by this skin (the manifest's <c>controls[]</c>).</summary>
@@ -195,6 +196,8 @@ public partial class SkinViewModel : ViewModelBase
         ComponentType.VerticalFader => "vfader",
         ComponentType.HorizontalSlider => "hslider",
         ComponentType.Meter => "meter",
+        ComponentType.Button => "button",
+        ComponentType.Toggle => "toggle",
         _ => "knob",
     };
 

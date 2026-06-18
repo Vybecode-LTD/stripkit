@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using SkiaSharp;
@@ -32,6 +33,11 @@ public partial class GenerateViewModel : ViewModelBase
     // on the same temp file name.
     private readonly string _sessionTag = Guid.NewGuid().ToString("N")[..8];
 
+    // ---- matching-set state ----
+    private CancellationTokenSource? _setCts;
+    private int _setRun;                                  // bumps each set generation (temp-file naming)
+    private readonly List<string> _setSvgPaths = new();   // temp SVGs of the current set, cleared on regenerate
+
     public GenerateViewModel(IAssetGenerationService generation, ISecretStore secrets,
                              ISettingsService settings, ILayeredImportService layeredImport,
                              IFileDialogService dialogs)
@@ -54,6 +60,22 @@ public partial class GenerateViewModel : ViewModelBase
         _model = ModelPrefFor(_selectedProvider);
         _suggestedModels = _generation.ModelsFor(_selectedProvider);
         _keyStatus = _hasKey ? "Key saved (loaded)." : "No key stored for this provider.";
+
+        // The matching-set picker: a sensible default spread (knob + fader + button + meter ticked).
+        foreach (var (type, label, on) in new[]
+        {
+            (ComponentType.RotaryKnob, "Knob", true),
+            (ComponentType.VerticalFader, "Fader", true),
+            (ComponentType.HorizontalSlider, "Slider", false),
+            (ComponentType.Meter, "Meter", true),
+            (ComponentType.Button, "Button", true),
+            (ComponentType.Toggle, "Toggle", false),
+        })
+        {
+            var option = new SetTypeOption(type, label, on);
+            option.PropertyChanged += (_, _) => GenerateSetCommand.NotifyCanExecuteChanged();
+            SetTypeOptions.Add(option);
+        }
     }
 
     /// <summary>Raised by "Use in Create" with the temp SVG path + the control type that generated it;
@@ -96,6 +118,7 @@ public partial class GenerateViewModel : ViewModelBase
     private ComponentType _generateControlType = ComponentType.RotaryKnob;
     [ObservableProperty] private GenerationStyle _style = GenerationStyle.Modern;
     [ObservableProperty] private string _styleNotes = "";
+    [ObservableProperty] private string _avoid = "";
     [ObservableProperty] private string _accentColorHex = "#E8440A";
     [ObservableProperty] private string _bodyColorHex = "";
     [ObservableProperty] private int _canvasSize = 512;
@@ -136,6 +159,26 @@ public partial class GenerateViewModel : ViewModelBase
 
     /// <summary>True when the meter control type is selected — gates the meter-only options (orientation).</summary>
     public bool IsMeterType => GenerateControlType == ComponentType.Meter;
+
+    // ---- matching set ----
+
+    /// <summary>The control types offered in the matching-set picker (checkable; populated in the ctor).</summary>
+    public ObservableCollection<SetTypeOption> SetTypeOptions { get; } = new();
+
+    /// <summary>The generated set's per-control results (preview + handoff path + raw SVG).</summary>
+    public ObservableCollection<GeneratedSetResult> SetResults { get; } = new();
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(GenerateSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelSetCommand))]
+    private bool _isGeneratingSet;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveSetCommand))]
+    private bool _hasSetResults;
+
+    [ObservableProperty] private string _setStatus =
+        "Pick the controls you want, then Generate set — one consistent family from your current style settings.";
 
     // ---- reactions ----
 
@@ -181,20 +224,10 @@ public partial class GenerateViewModel : ViewModelBase
             var shownModel = string.IsNullOrWhiteSpace(model) ? _generation.DefaultModelFor(SelectedProvider) : model;
             StatusMessage = $"Generating with {SelectedProvider} ({shownModel})…";
 
-            var request = new GenerationRequest
+            var request = BuildBaseRequest() with
             {
                 ComponentType = GenerateControlType,
-                Layered = GenerateControlType is ComponentType.RotaryKnob or ComponentType.Button or ComponentType.Toggle or ComponentType.Meter,
-                Style = Style,
-                StyleNotes = StyleNotes,
-                AccentColor = AccentColorHex,
-                BodyColor = BodyColorHex,
-                CanvasSize = CanvasSize,
-                HasDropShadow = HasDropShadow,
-                HasOuterGlow = HasOuterGlow,
-                HasBevel = HasBevel,
-                HasMetallicSheen = HasMetallicSheen,
-                MeterHorizontal = MeterHorizontal,
+                Layered = AssetGenerationService.IsLayeredType(GenerateControlType),
             };
 
             var result = await _generation.GenerateAsync(request, SelectedProvider, ApiKey, model, ct);
@@ -324,7 +357,219 @@ public partial class GenerateViewModel : ViewModelBase
         }
     }
 
+    // ---- matching-set commands ----
+
+    private bool CanGenerateSet() =>
+        !IsGeneratingSet && !string.IsNullOrWhiteSpace(ApiKey) && SetTypeOptions.Any(o => o.Include);
+
+    [RelayCommand(CanExecute = nameof(CanGenerateSet))]
+    private async Task GenerateSetAsync()
+    {
+        _setCts?.Cancel();
+        _setCts?.Dispose();
+        _setCts = new CancellationTokenSource();
+        var ct = _setCts.Token;
+
+        var types = SetTypeOptions.Where(o => o.Include).Select(o => o.Type).ToList();
+        if (types.Count == 0) return;
+
+        IsGeneratingSet = true;
+        ClearSetResults();
+        _setRun++;
+        try
+        {
+            var model = (Model ?? "").Trim();
+            _settings.Settings.GenerateProvider = SelectedProvider;
+            (_settings.Settings.GenerateModels ??= new())[SelectedProvider.ToString()] = model;
+            _settings.Save();
+
+            SetStatus = $"Generating {types.Count} matching controls with {SelectedProvider}…";
+
+            var items = await _generation.GenerateSetAsync(BuildBaseRequest(), types, SelectedProvider, ApiKey, model, ct);
+
+            // Build the previews off the UI thread (each import + composite is CPU-bound); the UI thread
+            // only adds the finished results.
+            var built = await Task.Run(() =>
+            {
+                var list = new List<GeneratedSetResult>(items.Count);
+                for (int i = 0; i < items.Count; i++)
+                    list.Add(BuildSetResult(items[i], i));
+                return list;
+            }, ct);
+
+            foreach (var r in built) SetResults.Add(r);
+            HasSetResults = SetResults.Count > 0;
+
+            int ok = built.Count(r => r.IsSuccess);
+            SetStatus = ok == built.Count
+                ? $"Generated {ok} matching controls. Send each to Create, or Save the set."
+                : $"Generated {ok}/{built.Count} controls — Regenerate the ones that failed.";
+        }
+        catch (OperationCanceledException)
+        {
+            SetStatus = "Set generation cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SetStatus = $"Set generation failed: {ex.Message}";
+        }
+        finally
+        {
+            IsGeneratingSet = false;
+        }
+    }
+
+    private bool CanCancelSet() => IsGeneratingSet;
+
+    [RelayCommand(CanExecute = nameof(CanCancelSet))]
+    private void CancelSet() => _setCts?.Cancel();
+
+    [RelayCommand]
+    private void UseSetItemInCreate(GeneratedSetResult? item)
+    {
+        if (item?.SvgPath is null) return;
+        UseInCreateRequested?.Invoke(item.SvgPath, item.ComponentType);
+        SetStatus = $"Sent the {item.Label.ToLowerInvariant()} to the Create tab.";
+    }
+
+    [RelayCommand]
+    private async Task SaveSetItemAsync(GeneratedSetResult? item)
+    {
+        if (item?.Svg is null) return;
+        var path = await _dialogs.SaveSvgAsync($"{StyleSlug()}-{item.ComponentType.ToString().ToLowerInvariant()}");
+        if (path is null) return;
+        try { await File.WriteAllTextAsync(path, item.Svg); SetStatus = $"Saved {Path.GetFileName(path)}"; }
+        catch (Exception ex) { SetStatus = $"Couldn't save: {ex.Message}"; }
+    }
+
+    [RelayCommand]
+    private async Task RegenerateSetItemAsync(GeneratedSetResult? item)
+    {
+        if (item is null || IsGeneratingSet) return;
+        int index = SetResults.IndexOf(item);
+        if (index < 0) return;
+
+        _setCts ??= new CancellationTokenSource();
+        var ct = _setCts.Token;
+        IsGeneratingSet = true;
+        try
+        {
+            var model = (Model ?? "").Trim();
+            var req = BuildBaseRequest() with
+            {
+                ComponentType = item.ComponentType,
+                Layered = AssetGenerationService.IsLayeredType(item.ComponentType),
+            };
+            SetStatus = $"Regenerating the {item.Label.ToLowerInvariant()}…";
+            var result = await _generation.GenerateAsync(req, SelectedProvider, ApiKey, model, ct);
+            var rebuilt = await Task.Run(() => BuildSetResult(new GenerationSetItem(item.ComponentType, result), index), ct);
+            if (index < SetResults.Count) SetResults[index] = rebuilt;
+            SetStatus = rebuilt.IsSuccess ? $"Regenerated the {item.Label.ToLowerInvariant()}." : rebuilt.StatusMessage;
+        }
+        catch (OperationCanceledException) { SetStatus = "Regeneration cancelled."; }
+        catch (Exception ex) { SetStatus = $"Couldn't regenerate: {ex.Message}"; }
+        finally { IsGeneratingSet = false; }
+    }
+
+    private bool CanSaveSet() => HasSetResults && SetResults.Any(r => r.IsSuccess);
+
+    [RelayCommand(CanExecute = nameof(CanSaveSet))]
+    private async Task SaveSetAsync()
+    {
+        var folder = await _dialogs.OpenFolderAsync("Choose a folder for the matching-set SVGs");
+        if (folder is null) return;
+        int saved = 0;
+        foreach (var r in SetResults.Where(r => r.IsSuccess && r.Svg is not null))
+        {
+            var name = $"{StyleSlug()}-{r.ComponentType.ToString().ToLowerInvariant()}.svg";
+            try { await File.WriteAllTextAsync(Path.Combine(folder, name), r.Svg!); saved++; }
+            catch { /* skip the odd unwritable file */ }
+        }
+        SetStatus = $"Saved {saved} SVG(s) to {Path.GetFileName(folder)}.";
+    }
+
     // ---- helpers ----
+
+    /// <summary>The style inputs common to both the single generate and the matching set — everything
+    /// except the per-control <see cref="GenerationRequest.ComponentType"/>/<c>Layered</c>, which the
+    /// caller sets. Keeping one builder is what makes a set visually consistent with a single generate.</summary>
+    private GenerationRequest BuildBaseRequest() => new()
+    {
+        Style = Style,
+        StyleNotes = StyleNotes,
+        Avoid = Avoid,
+        AccentColor = AccentColorHex,
+        BodyColor = BodyColorHex,
+        CanvasSize = CanvasSize,
+        HasDropShadow = HasDropShadow,
+        HasOuterGlow = HasOuterGlow,
+        HasBevel = HasBevel,
+        HasMetallicSheen = HasMetallicSheen,
+        MeterHorizontal = MeterHorizontal,
+    };
+
+    /// <summary>Turns one generated set item into a bindable result: writes the SVG to its own temp file,
+    /// imports it (validating the layer structure), and composites an at-rest preview. Pure CPU work —
+    /// call it inside a <see cref="Task.Run(Action)"/>.</summary>
+    private GeneratedSetResult BuildSetResult(GenerationSetItem item, int index)
+    {
+        var label = Humanize(item.ComponentType);
+        if (!item.Result.Success)
+            return new GeneratedSetResult
+            {
+                ComponentType = item.ComponentType, Label = label, IsSuccess = false,
+                StatusMessage = item.Result.Error ?? "Generation failed.",
+            };
+
+        var path = WriteSetSvg(item.Result.Svg!, index);
+        var import = _layeredImport.Import(path);
+        if (import is null || import.Layers.Count == 0)
+            return new GeneratedSetResult
+            {
+                ComponentType = item.ComponentType, Label = label, Svg = item.Result.Svg, IsSuccess = false,
+                StatusMessage = "The model returned an SVG, but its layers couldn't be read.",
+            };
+
+        var image = TryCompositePreview(import);   // composites, then disposes the layer art
+        _setSvgPaths.Add(path);
+        return new GeneratedSetResult
+        {
+            ComponentType = item.ComponentType, Label = label, SvgPath = path, PreviewImage = image,
+            Svg = item.Result.Svg, IsSuccess = true, StatusMessage = "Ready.",
+        };
+    }
+
+    /// <summary>Writes one set member's SVG to its own per-run temp file (siblings coexist, unlike the
+    /// single-result temp which is replaced each generation).</summary>
+    private string WriteSetSvg(string svg, int index)
+    {
+        var dir = Path.Combine(Path.GetTempPath(), "StripKit");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"set-{_sessionTag}-{_setRun}-{index}.svg");
+        File.WriteAllText(path, svg);
+        return path;
+    }
+
+    private void ClearSetResults()
+    {
+        SetResults.Clear();
+        HasSetResults = false;
+        foreach (var p in _setSvgPaths) TryDelete(p);
+        _setSvgPaths.Clear();
+    }
+
+    private string StyleSlug() => Style.ToString().ToLowerInvariant();
+
+    private static string Humanize(ComponentType type) => type switch
+    {
+        ComponentType.RotaryKnob => "Knob",
+        ComponentType.VerticalFader => "Fader",
+        ComponentType.HorizontalSlider => "Slider",
+        ComponentType.Meter => "Meter",
+        ComponentType.Button => "Button",
+        ComponentType.Toggle => "Toggle",
+        _ => type.ToString(),
+    };
 
     private sealed record GeneratedPreview(string Path, int LayerCount, int RotateCount, int FrameCount, AvBitmap? Image);
 

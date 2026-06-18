@@ -50,6 +50,19 @@ public class GenerateViewModelTests
         gen.GenerateAsync(Arg.Any<GenerationRequest>(), Arg.Any<AiProvider>(), Arg.Any<string>(),
                           Arg.Any<string>(), Arg.Any<CancellationToken>()).Returns(result);
 
+    // Stubs GenerateSetAsync to return one successful item per requested type, each carrying the given
+    // SVG (a real layered SVG so the VM's import-based preview succeeds against the real importer).
+    static void StubSet(IAssetGenerationService gen, string svg) =>
+        gen.GenerateSetAsync(Arg.Any<GenerationRequest>(), Arg.Any<IReadOnlyList<ComponentType>>(),
+                             Arg.Any<AiProvider>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+           .Returns(ci =>
+           {
+               var types = ci.Arg<IReadOnlyList<ComponentType>>();
+               IReadOnlyList<GenerationSetItem> items =
+                   types.Select(t => new GenerationSetItem(t, GenerationResult.Ok(svg))).ToList();
+               return Task.FromResult(items);
+           });
+
     [Fact]
     public void Generate_is_gated_on_a_present_api_key()
     {
@@ -238,6 +251,68 @@ public class GenerateViewModelTests
             captured.Should().NotBeNull();
             captured!.ComponentType.Should().Be(ComponentType.Toggle);
             captured.Layered.Should().BeTrue("a toggle is layered (off/on groups)");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    // ---- matching set ----
+
+    [Fact]
+    public void Generate_set_is_gated_on_a_key_and_at_least_one_chosen_type()
+    {
+        var (vm, _, _, temps) = Build();
+        try
+        {
+            vm.GenerateSetCommand.CanExecute(null).Should().BeFalse("no key entered");
+            vm.ApiKey = "sk-test";
+            vm.GenerateSetCommand.CanExecute(null).Should().BeTrue("key + the default ticked types");
+            foreach (var o in vm.SetTypeOptions) o.Include = false;
+            vm.GenerateSetCommand.CanExecute(null).Should().BeFalse("nothing ticked");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task Generate_set_builds_one_result_per_included_type_and_enables_save()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubSet(gen, LayeredKnobSvg);
+            vm.ApiKey = "sk-test";
+            int included = vm.SetTypeOptions.Count(o => o.Include);
+            included.Should().BeGreaterThan(0);
+
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+
+            vm.SetResults.Should().HaveCount(included);
+            vm.SetResults.Select(r => r.ComponentType)
+              .Should().Equal(vm.SetTypeOptions.Where(o => o.Include).Select(o => o.Type));
+            vm.SetResults.Should().OnlyContain(r => r.IsSuccess);
+            vm.HasSetResults.Should().BeTrue();
+            vm.SaveSetCommand.CanExecute(null).Should().BeTrue();
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task Using_a_set_item_hands_off_its_own_path_and_type()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubSet(gen, LayeredKnobSvg);
+            string? handedPath = null;
+            ComponentType handedType = default;
+            vm.UseInCreateRequested += (p, t) => { handedPath = p; handedType = t; };
+            vm.ApiKey = "sk-test";
+
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+            var knob = vm.SetResults.First(r => r.ComponentType == ComponentType.RotaryKnob);
+            vm.UseSetItemInCreateCommand.Execute(knob);
+
+            handedPath.Should().Be(knob.SvgPath).And.NotBeNull();
+            handedType.Should().Be(ComponentType.RotaryKnob, "each set member hands off as its own type");
         }
         finally { Cleanup(temps); }
     }

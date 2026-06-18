@@ -112,6 +112,11 @@
                     <TextBox Text="{Binding StyleNotes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
                              Watermark="e.g. amber LED ring, knurled edge, brushed aluminium face" />
 
+                    <TextBlock Classes="label" Text="Avoid (optional)" Margin="0,8,0,0" />
+                    <TextBox Text="{Binding Avoid}" TextWrapping="Wrap"
+                             Watermark="e.g. no text, no numbers, no photo-realism"
+                             ToolTip.Tip="Things the model should NOT include — folded into every generation, single or set." />
+
                     <TextBlock Classes="label" Text="Canvas size (px)" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding CanvasSizes}" SelectedItem="{Binding CanvasSize}" />
@@ -124,8 +129,31 @@
                     </Grid>
                     <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsGenerating}" Margin="0,8,0,0" />
 
-                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,8,0,12"
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,8,0,8"
                                Text="Each Generate is a new attempt — regenerate until you like it. Your key stays encrypted on this PC." />
+
+                    <!-- Matching set -->
+                    <controls:SectionHeader Text="MATCHING SET" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,0,0,6"
+                               Text="Generate a whole family of controls at once, all sharing the style, colours, effects and avoid-list above — a head start on a full, consistent skin." />
+                    <ItemsControl ItemsSource="{Binding SetTypeOptions}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SetTypeOption">
+                                <CheckBox Content="{Binding Label}" IsChecked="{Binding Include}" Margin="0,0,12,2" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <Grid ColumnDefinitions="*,8,Auto" Margin="0,8,0,0">
+                        <Button Grid.Column="0" Classes="accent" Content="Generate set" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Generate every ticked control at once, in one consistent style."
+                                Command="{Binding GenerateSetCommand}" />
+                        <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelSetCommand}" />
+                    </Grid>
+                    <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsGeneratingSet}" Margin="0,8,0,0" />
+                    <TextBlock Classes="label" Text="{Binding SetStatus}" TextWrapping="Wrap" Margin="0,4,0,12" />
 
                 </StackPanel>
             </ScrollViewer>
@@ -137,12 +165,59 @@
             <Border Grid.Row="0" Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
                     BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
                 <Panel>
-                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
-                           RenderOptions.BitmapInterpolationMode="HighQuality" />
-                    <TextBlock Text="Your generated control preview appears here"
-                               IsVisible="{Binding !HasPreview}"
-                               HorizontalAlignment="Center" VerticalAlignment="Center"
-                               Foreground="{DynamicResource Text3Brush}" />
+                    <!-- Single-control preview -->
+                    <Panel IsVisible="{Binding !HasSetResults}">
+                        <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
+                               RenderOptions.BitmapInterpolationMode="HighQuality" />
+                        <TextBlock Text="Your generated control preview appears here"
+                                   IsVisible="{Binding !HasPreview}"
+                                   HorizontalAlignment="Center" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text3Brush}" />
+                    </Panel>
+
+                    <!-- Matching-set results grid -->
+                    <ScrollViewer IsVisible="{Binding HasSetResults}" Padding="12">
+                        <ItemsControl ItemsSource="{Binding SetResults}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GeneratedSetResult">
+                                    <Border Classes="tile" Width="190" Margin="6" Padding="8">
+                                        <StackPanel Spacing="6">
+                                            <TextBlock Text="{Binding Label}" FontWeight="Bold" Foreground="White" />
+                                            <Border Height="120" Background="{DynamicResource GlassFillGradient}"
+                                                    CornerRadius="8" ClipToBounds="True">
+                                                <Panel>
+                                                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="8"
+                                                           RenderOptions.BitmapInterpolationMode="HighQuality"
+                                                           IsVisible="{Binding HasPreview}" />
+                                                    <TextBlock Text="no preview" IsVisible="{Binding !HasPreview}"
+                                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                                               Foreground="{DynamicResource Text3Brush}" FontSize="11" />
+                                                </Panel>
+                                            </Border>
+                                            <TextBlock Text="{Binding StatusMessage}" Foreground="{DynamicResource Text2Brush}"
+                                                       FontSize="11" TextWrapping="Wrap" />
+                                            <Button Content="Use in Create" Classes="accent" HorizontalAlignment="Stretch"
+                                                    IsEnabled="{Binding IsSuccess}"
+                                                    Command="{Binding $parent[ItemsControl].((vm:GenerateViewModel)DataContext).UseSetItemInCreateCommand}"
+                                                    CommandParameter="{Binding}" />
+                                            <Grid ColumnDefinitions="*,6,*">
+                                                <Button Grid.Column="0" Content="Save" HorizontalAlignment="Stretch"
+                                                        IsEnabled="{Binding IsSuccess}"
+                                                        Command="{Binding $parent[ItemsControl].((vm:GenerateViewModel)DataContext).SaveSetItemCommand}"
+                                                        CommandParameter="{Binding}" />
+                                                <Button Grid.Column="2" Content="Regenerate" HorizontalAlignment="Stretch"
+                                                        Command="{Binding $parent[ItemsControl].((vm:GenerateViewModel)DataContext).RegenerateSetItemCommand}"
+                                                        CommandParameter="{Binding}" />
+                                            </Grid>
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
                 </Panel>
             </Border>
 
@@ -158,6 +233,11 @@
                         <Button Grid.Column="2" Content="Save SVG…" Command="{Binding SaveSvgCommand}" />
                         <Button Grid.Column="4" Content="Copy SVG" Click="OnCopySvg" IsEnabled="{Binding HasResult}" />
                     </Grid>
+
+                    <Button Content="Save set…" Classes="accent" HorizontalAlignment="Left" MinWidth="140"
+                            IsVisible="{Binding HasSetResults}"
+                            ToolTip.Tip="Save every generated control in the set to a folder as SVGs."
+                            Command="{Binding SaveSetCommand}" />
 
                     <Expander Header="Model response (raw)"
                               IsVisible="{Binding LastRawResponse, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">
