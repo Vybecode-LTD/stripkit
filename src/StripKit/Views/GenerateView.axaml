@@ -118,6 +118,9 @@
                     <TextBlock Classes="label" Text="Extra direction (optional)" Margin="0,8,0,0" />
                     <TextBox Text="{Binding StyleNotes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
                              Watermark="e.g. amber LED ring, knurled edge, brushed aluminium face" />
+                    <Button Content="Describe a reference image…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                            ToolTip.Tip="Pick a screenshot of a control you like — a vision model describes its style and adds it to Extra direction above."
+                            Command="{Binding DescribeReferenceCommand}" />
 
                     <TextBlock Classes="label" Text="Avoid (optional)" Margin="0,8,0,0" />
                     <TextBox Text="{Binding Avoid}" TextWrapping="Wrap"

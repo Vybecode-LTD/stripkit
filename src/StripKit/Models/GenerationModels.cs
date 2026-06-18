@@ -111,3 +111,11 @@ public sealed record GenerationResult
 /// result of generating it. The set generates every chosen type with the same style inputs so the
 /// family stays visually consistent.</summary>
 public sealed record GenerationSetItem(ComponentType ComponentType, GenerationResult Result);
+
+/// <summary>The outcome of describing a reference image (vision, for "match this style"): the text
+/// description on success, or a friendly error.</summary>
+public sealed record ReferenceDescription(bool Success, string? Text, string? Error)
+{
+    public static ReferenceDescription Ok(string text) => new(true, text, null);
+    public static ReferenceDescription Fail(string error) => new(false, null, error);
+}

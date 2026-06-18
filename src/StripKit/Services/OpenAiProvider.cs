@@ -33,8 +33,38 @@ public class OpenAiProvider(HttpClient http) : HttpAssetGenerationProvider(http)
         });
 
         using var doc = await SendAsync(request, ct);
+        return ExtractText(doc);
+    }
 
-        // choices: [ { "message": { "content": "…" } }, … ]
+    public override async Task<string> DescribeImageAsync(byte[] image, string mediaType, string prompt, string apiKey, string model, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, EndpointUrl);
+        request.Headers.Add("Authorization", $"Bearer {apiKey}");
+        var dataUri = $"data:{mediaType};base64,{Convert.ToBase64String(image)}";
+        request.Content = JsonBody(new
+        {
+            model,
+            messages = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "text", text = prompt },
+                        new { type = "image_url", image_url = new { url = dataUri } },
+                    },
+                },
+            },
+        });
+
+        using var doc = await SendAsync(request, ct);
+        return ExtractText(doc);
+    }
+
+    // choices: [ { "message": { "content": "…" } }, … ]
+    private static string ExtractText(JsonDocument doc)
+    {
         if (doc.RootElement.TryGetProperty("choices", out var choices)
             && choices.ValueKind == JsonValueKind.Array && choices.GetArrayLength() > 0
             && choices[0].TryGetProperty("message", out var message)

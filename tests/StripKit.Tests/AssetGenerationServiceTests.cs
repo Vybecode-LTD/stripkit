@@ -15,7 +15,8 @@ public class AssetGenerationServiceTests
 {
     sealed class FakeProvider(AiProvider provider, Func<string> reply) : IAssetGenerationProvider
     {
-        public string? LastSystem, LastUser, LastModel, LastKey;
+        public string? LastSystem, LastUser, LastModel, LastKey, LastImagePrompt;
+        public byte[]? LastImage;
         public AiProvider Provider { get; } = provider;
         public string DefaultModel => "fake-default";
         public IReadOnlyList<string> SuggestedModels => ["fake-default", "fake-alt"];
@@ -24,6 +25,12 @@ public class AssetGenerationServiceTests
         {
             LastSystem = systemPrompt; LastUser = userPrompt; LastModel = model; LastKey = apiKey;
             return Task.FromResult(reply());
+        }
+
+        public Task<string> DescribeImageAsync(byte[] image, string mediaType, string prompt, string apiKey, string model, CancellationToken ct)
+        {
+            LastImage = image; LastImagePrompt = prompt; LastKey = apiKey; LastModel = model;
+            return Task.FromResult("amber knurled knob, brushed metal, warm LED ring");
         }
     }
 
@@ -205,6 +212,30 @@ public class AssetGenerationServiceTests
 
         result.Success.Should().BeFalse();
         result.Error.Should().Contain("change");
+    }
+
+    [Fact]
+    public async Task DescribeReferenceAsync_returns_the_vision_description()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+
+        var result = await svc.DescribeReferenceAsync(new byte[] { 1, 2, 3 }, "image/png", AiProvider.Claude, "KEY", "", default);
+
+        result.Success.Should().BeTrue(result.Error);
+        result.Text.Should().Contain("amber");
+        fake.LastImage.Should().NotBeNull();
+        fake.LastImagePrompt.Should().Contain("SVG", "the vision prompt asks for an SVG-oriented style description");
+    }
+
+    [Fact]
+    public async Task DescribeReferenceAsync_fails_cleanly_without_a_key()
+    {
+        var svc = new AssetGenerationService([new FakeProvider(AiProvider.Claude, () => LayeredKnob)]);
+
+        var result = await svc.DescribeReferenceAsync(new byte[] { 1 }, "image/png", AiProvider.Claude, "  ", "", default);
+
+        result.Success.Should().BeFalse();
     }
 
     [Fact]

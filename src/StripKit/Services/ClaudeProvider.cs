@@ -29,8 +29,39 @@ public sealed class ClaudeProvider(HttpClient http) : HttpAssetGenerationProvide
         });
 
         using var doc = await SendAsync(request, ct);
+        return ExtractText(doc);
+    }
 
-        // content: [ { "type": "text", "text": "…" }, … ]
+    public override async Task<string> DescribeImageAsync(byte[] image, string mediaType, string prompt, string apiKey, string model, CancellationToken ct)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, Url);
+        request.Headers.Add("x-api-key", apiKey);
+        request.Headers.Add("anthropic-version", "2023-06-01");
+        request.Content = JsonBody(new
+        {
+            model,
+            max_tokens = 1024,
+            messages = new[]
+            {
+                new
+                {
+                    role = "user",
+                    content = new object[]
+                    {
+                        new { type = "image", source = new { type = "base64", media_type = mediaType, data = Convert.ToBase64String(image) } },
+                        new { type = "text", text = prompt },
+                    },
+                },
+            },
+        });
+
+        using var doc = await SendAsync(request, ct);
+        return ExtractText(doc);
+    }
+
+    // content: [ { "type": "text", "text": "…" }, … ]
+    private static string ExtractText(JsonDocument doc)
+    {
         if (doc.RootElement.TryGetProperty("content", out var content) && content.ValueKind == JsonValueKind.Array)
         {
             var sb = new StringBuilder();

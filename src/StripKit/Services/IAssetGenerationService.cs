@@ -45,4 +45,10 @@ public interface IAssetGenerationService
     /// failure does not sink the rest. Cancellation propagates.</summary>
     Task<IReadOnlyList<GenerationResult>> GenerateVariationsAsync(GenerationRequest request, int count,
                                                                  AiProvider provider, string apiKey, string model, CancellationToken ct);
+
+    /// <summary>Vision: describes a reference image's style as text, for "match this style" — the result
+    /// is meant to be folded into the prompt's extra-direction. Never throws for expected failures
+    /// (unsupported provider/model, auth, network); cancellation propagates.</summary>
+    Task<ReferenceDescription> DescribeReferenceAsync(byte[] image, string mediaType, AiProvider provider,
+                                                      string apiKey, string model, CancellationToken ct);
 }

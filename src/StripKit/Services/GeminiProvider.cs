@@ -29,8 +29,39 @@ public sealed class GeminiProvider(HttpClient http) : HttpAssetGenerationProvide
         });
 
         using var doc = await SendAsync(request, ct);
+        return ExtractText(doc);
+    }
 
-        // candidates: [ { "content": { "parts": [ { "text": "…" }, … ] } }, … ]
+    public override async Task<string> DescribeImageAsync(byte[] image, string mediaType, string prompt, string apiKey, string model, CancellationToken ct)
+    {
+        var id = model.StartsWith("models/", StringComparison.OrdinalIgnoreCase) ? model["models/".Length..] : model;
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"{Base}{Uri.EscapeDataString(id)}:generateContent");
+        request.Headers.Add("x-goog-api-key", apiKey);
+        request.Content = JsonBody(new
+        {
+            contents = new[]
+            {
+                new
+                {
+                    role = "user",
+                    parts = new object[]
+                    {
+                        new { inline_data = new { mime_type = mediaType, data = Convert.ToBase64String(image) } },
+                        new { text = prompt },
+                    },
+                },
+            },
+            generationConfig = new { temperature = 0.4, maxOutputTokens = 1024 },
+        });
+
+        using var doc = await SendAsync(request, ct);
+        return ExtractText(doc);
+    }
+
+    // candidates: [ { "content": { "parts": [ { "text": "…" }, … ] } }, … ]
+    private static string ExtractText(JsonDocument doc)
+    {
         if (doc.RootElement.TryGetProperty("candidates", out var candidates)
             && candidates.ValueKind == JsonValueKind.Array && candidates.GetArrayLength() > 0
             && candidates[0].TryGetProperty("content", out var content)

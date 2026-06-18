@@ -123,6 +123,7 @@ public partial class GenerateViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(SaveKeyCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateSetCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateVariationsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DescribeReferenceCommand))]
     private string _apiKey;
 
     [ObservableProperty] private string _model;
@@ -156,6 +157,7 @@ public partial class GenerateViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
     [NotifyCanExecuteChangedFor(nameof(RefineCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DescribeReferenceCommand))]
     private bool _isGenerating;
 
     /// <summary>Plain-language change for "Refine" (e.g. "thicker pointer, warmer accent").</summary>
@@ -196,6 +198,7 @@ public partial class GenerateViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(GenerateSetCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateVariationsCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DescribeReferenceCommand))]
     private bool _isGeneratingSet;
 
     /// <summary>How many takes "Generate variations" produces of the selected control.</summary>
@@ -444,6 +447,62 @@ public partial class GenerateViewModel : ViewModelBase
             IsGenerating = false;
         }
     }
+
+    private bool CanDescribeReference() => !IsGenerating && !IsGeneratingSet && !string.IsNullOrWhiteSpace(ApiKey);
+
+    [RelayCommand(CanExecute = nameof(CanDescribeReference))]
+    private async Task DescribeReferenceAsync()
+    {
+        var path = await _dialogs.OpenImageAsync();
+        if (path is null) return;
+
+        byte[] bytes;
+        try { bytes = await File.ReadAllBytesAsync(path); }
+        catch (Exception ex) { StatusMessage = $"Couldn't read that image: {ex.Message}"; return; }
+
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        IsGenerating = true;
+        try
+        {
+            var model = (Model ?? "").Trim();
+            StatusMessage = $"Looking at {Path.GetFileName(path)} to capture its style…";
+            var desc = await _generation.DescribeReferenceAsync(bytes, MediaTypeFor(path), SelectedProvider, ApiKey, model, ct);
+            if (!desc.Success)
+            {
+                StatusMessage = desc.Error ?? "Couldn't describe the image.";
+                return;
+            }
+
+            // Fold the description into the extra-direction box so it shapes the next generation
+            // (kept editable — append rather than clobber anything the user already typed).
+            StyleNotes = string.IsNullOrWhiteSpace(StyleNotes) ? desc.Text! : $"{StyleNotes}\n{desc.Text}";
+            StatusMessage = "Captured the reference style into Extra direction — tweak it, then Generate.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Reference cancelled.";
+        }
+        catch (Exception ex)
+        {
+            StatusMessage = $"Reference failed: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
+        }
+    }
+
+    private static string MediaTypeFor(string path) => Path.GetExtension(path).ToLowerInvariant() switch
+    {
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".webp" => "image/webp",
+        ".gif" => "image/gif",
+        _ => "image/png",
+    };
 
     // ---- matching-set commands ----
 

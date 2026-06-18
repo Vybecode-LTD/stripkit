@@ -25,6 +25,11 @@ public interface IAssetGenerationProvider
     /// <summary>Sends the prompts to the provider and returns the raw text completion. Throws
     /// <see cref="GenerationException"/> with a user-facing message on any auth/network/API failure.</summary>
     Task<string> CompleteAsync(string systemPrompt, string userPrompt, string apiKey, string model, CancellationToken ct);
+
+    /// <summary>Vision: describes a reference image as text (for "match this style"). Returns the model's
+    /// plain-text description. <paramref name="mediaType"/> is e.g. "image/png". Throws
+    /// <see cref="GenerationException"/> on failure (including providers/models without image support).</summary>
+    Task<string> DescribeImageAsync(byte[] image, string mediaType, string prompt, string apiKey, string model, CancellationToken ct);
 }
 
 /// <summary>A provider failure carrying a message safe to show the user (no secrets, no stack noise).</summary>
@@ -43,6 +48,11 @@ public abstract class HttpAssetGenerationProvider(HttpClient http) : IAssetGener
     public abstract string DefaultModel { get; }
     public abstract IReadOnlyList<string> SuggestedModels { get; }
     public abstract Task<string> CompleteAsync(string systemPrompt, string userPrompt, string apiKey, string model, CancellationToken ct);
+
+    /// <summary>Vision support is opt-in per provider; the default reports it as unsupported so a new
+    /// provider compiles without it. The three shipped providers override this.</summary>
+    public virtual Task<string> DescribeImageAsync(byte[] image, string mediaType, string prompt, string apiKey, string model, CancellationToken ct) =>
+        Task.FromException<string>(new GenerationException($"{Provider} does not support image input in StripKit."));
 
     /// <summary>Serializes an anonymous payload to a JSON request body. Default naming is verbatim,
     /// so member names must match the API exactly (e.g. <c>max_tokens</c>, <c>maxOutputTokens</c>).</summary>

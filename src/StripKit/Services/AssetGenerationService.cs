@@ -105,6 +105,43 @@ public sealed class AssetGenerationService : IAssetGenerationService
         return await Task.WhenAll(tasks);
     }
 
+    private const string ReferencePrompt =
+        "Describe this audio-plugin control's visual style so it can be re-created as clean vector SVG art: " +
+        "its colours (give hex values where you can), material / finish, overall shape, lighting and shading, " +
+        "and any standout details. Two to four sentences — just the description, no preamble.";
+
+    public async Task<ReferenceDescription> DescribeReferenceAsync(byte[] image, string mediaType, AiProvider provider,
+                                                                   string apiKey, string model, CancellationToken ct)
+    {
+        if (!_providers.TryGetValue(provider, out var impl))
+            return ReferenceDescription.Fail($"{provider} is not available.");
+        if (string.IsNullOrWhiteSpace(apiKey))
+            return ReferenceDescription.Fail($"Enter your {provider} API key first.");
+        if (image is null || image.Length == 0)
+            return ReferenceDescription.Fail("Couldn't read that image.");
+
+        var useModel = string.IsNullOrWhiteSpace(model) ? impl.DefaultModel : model.Trim();
+        try
+        {
+            var text = await impl.DescribeImageAsync(image, mediaType, ReferencePrompt, apiKey, useModel, ct);
+            return string.IsNullOrWhiteSpace(text)
+                ? ReferenceDescription.Fail("The model returned no description.")
+                : ReferenceDescription.Ok(text.Trim());
+        }
+        catch (GenerationException ge)
+        {
+            return ReferenceDescription.Fail(ge.Message);
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            return ReferenceDescription.Fail($"Unexpected error talking to {provider}: {ex.Message}");
+        }
+    }
+
     /// <summary>True for the control types whose generated art is a layered group structure
     /// (knob = body+pointer; button/toggle/meter = off/on). Faders/sliders are a single flat cap.</summary>
     internal static bool IsLayeredType(ComponentType t) =>
