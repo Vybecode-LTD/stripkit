@@ -10,7 +10,7 @@
 //  drops straight into a CLI, a build step, a web backend, or another app.
 //
 //  Dependency:
-//      <PackageReference Include="SkiaSharp" Version="3.119.0" />
+//      <PackageReference Include="SkiaSharp" Version="3.119.2" />
 //
 //  The whole engine is one idea: for each of N frames, place the source art in a
 //  fixed-size frame cell under a per-frame transform, then stack the cells into a

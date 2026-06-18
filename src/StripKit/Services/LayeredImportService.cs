@@ -14,6 +14,15 @@ public sealed class LayeredImportService : ILayeredImportService
     /// the renderer contain-fits into the (usually small) frame cell anyway.</summary>
     private const int MaxCanvasEdge = 2048;
 
+    /// <summary>Cap the raw SVG text we read — a vector control is KBs; anything past this is
+    /// pathological (entity-free DoS / accidental huge file), rejected before allocation.</summary>
+    private const long MaxSvgBytes = 20L * 1024 * 1024;
+
+    /// <summary>Cap the PSD canvas pixel count. Unlike SVG (which we downscale to
+    /// <see cref="MaxCanvasEdge"/>), PSD layers composite at native size, one full-canvas bitmap per
+    /// layer — so a giant canvas would allocate gigabytes. 64 MP (≈ 8192×8192) is a generous ceiling.</summary>
+    private const long MaxPsdPixels = 64L * 1024 * 1024;
+
     // Strong indicator words → Rotate; everything else stays Static. A body that wrongly spins is a
     // worse default than a missed pointer the user re-tags, so the list is deliberately narrow.
     private static readonly string[] RotateNameHints =
@@ -65,6 +74,7 @@ public sealed class LayeredImportService : ILayeredImportService
 
     private static LayeredImportResult? ImportSvg(string path)
     {
+        if (new FileInfo(path).Length > MaxSvgBytes) return null;
         var text = File.ReadAllText(path);
 
         // Hardened parse FIRST — before the text ever reaches Svg.Skia. The file picker accepts
@@ -185,6 +195,7 @@ public sealed class LayeredImportService : ILayeredImportService
         int canvasW = (int)coll[0].Width;
         int canvasH = (int)coll[0].Height;
         if (canvasW <= 0 || canvasH <= 0) return null;
+        if ((long)canvasW * canvasH > MaxPsdPixels) return null;   // guard giant per-layer allocations
 
         bool firstIsComposite = coll.Count > 1
             && string.IsNullOrEmpty(coll[0].GetAttribute("label"))
