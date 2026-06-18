@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:StripKit.ViewModels"
+             xmlns:models="clr-namespace:StripKit.Models"
              xmlns:controls="clr-namespace:StripKit.Controls"
              xmlns:helpers="clr-namespace:StripKit.Helpers"
              x:Class="StripKit.Views.GenerateView"
@@ -67,6 +68,28 @@
                               IsVisible="{Binding IsMeterType}"
                               Margin="0,6,0,0"
                               ToolTip.Tip="Generate a wide meter that fills left to right. Unchecked = a tall meter that fills bottom to top." />
+
+                    <!-- Seeds (saved style bundles) -->
+                    <controls:SectionHeader Text="SEEDS" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,0,0,4"
+                               Text="Reusable style presets. Apply one to prefill the style / colours / effects below, then tweak — or save the current settings as your own seed." />
+                    <Grid ColumnDefinitions="*,6,Auto">
+                        <ComboBox Grid.Column="0" HorizontalAlignment="Stretch"
+                                  ItemsSource="{Binding Seeds}" SelectedItem="{Binding SelectedSeed}">
+                            <ComboBox.ItemTemplate>
+                                <DataTemplate x:DataType="models:GenerationSeed">
+                                    <TextBlock Text="{Binding Name}" />
+                                </DataTemplate>
+                            </ComboBox.ItemTemplate>
+                        </ComboBox>
+                        <Button Grid.Column="2" Content="Apply" Command="{Binding ApplySeedCommand}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,6,Auto,6,Auto" Margin="0,6,0,0">
+                        <TextBox Grid.Column="0" Text="{Binding SeedName}" Watermark="name to save current as…" />
+                        <Button Grid.Column="2" Content="Save" Command="{Binding SaveSeedCommand}" />
+                        <Button Grid.Column="4" Content="Delete" Command="{Binding DeleteSeedCommand}"
+                                ToolTip.Tip="Delete the selected saved seed (built-in seeds can't be deleted)." />
+                    </Grid>
 
                     <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"

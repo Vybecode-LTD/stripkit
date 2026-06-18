@@ -77,6 +77,14 @@ public partial class GenerateViewModel : ViewModelBase
             option.PropertyChanged += (_, _) => GenerateSetCommand.NotifyCanExecuteChanged();
             SetTypeOptions.Add(option);
         }
+
+        // Prompt seeds: the built-in library first, then the user's saved seeds.
+        foreach (var s in GenerationSeedLibrary.BuiltIn) Seeds.Add(s);
+        foreach (var s in _settings.Settings.GenerateSeeds ?? new())
+        {
+            s.IsBuiltIn = false;
+            Seeds.Add(s);
+        }
     }
 
     /// <summary>Raised by "Use in Create" with the temp SVG path + the control type that generated it;
@@ -215,6 +223,20 @@ public partial class GenerateViewModel : ViewModelBase
         if (e.PropertyName is not null && PromptShapingProps.Contains(e.PropertyName))
             OnPropertyChanged(nameof(PromptPreview));
     }
+
+    // ---- prompt seeds (saved style bundles) ----
+
+    /// <summary>The seed library shown in the picker: the built-ins plus the user's saved seeds.</summary>
+    public ObservableCollection<GenerationSeed> Seeds { get; } = new();
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplySeedCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DeleteSeedCommand))]
+    private GenerationSeed? _selectedSeed;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveSeedCommand))]
+    private string _seedName = "";
 
     // ---- matching set ----
 
@@ -370,6 +392,71 @@ public partial class GenerateViewModel : ViewModelBase
         HasKey = false;
         KeyStatus = "No key stored.";
         StatusMessage = $"Cleared the stored {SelectedProvider} key.";
+    }
+
+    // ---- prompt seeds ----
+
+    private bool CanApplySeed() => SelectedSeed is not null;
+
+    [RelayCommand(CanExecute = nameof(CanApplySeed))]
+    private void ApplySeed()
+    {
+        var s = SelectedSeed;
+        if (s is null) return;
+        Style = s.Style;
+        StyleNotes = s.StyleNotes;
+        Avoid = s.Avoid;
+        AccentColorHex = s.AccentColor;
+        BodyColorHex = s.BodyColor;
+        CanvasSize = s.CanvasSize;
+        HasDropShadow = s.HasDropShadow;
+        HasOuterGlow = s.HasOuterGlow;
+        HasBevel = s.HasBevel;
+        HasMetallicSheen = s.HasMetallicSheen;
+        StatusMessage = $"Applied the \"{s.Name}\" seed — tweak anything, then Generate.";
+    }
+
+    private bool CanSaveSeed() => !string.IsNullOrWhiteSpace(SeedName);
+
+    [RelayCommand(CanExecute = nameof(CanSaveSeed))]
+    private void SaveSeed()
+    {
+        var name = SeedName.Trim();
+        var seed = new GenerationSeed
+        {
+            Name = name, Style = Style, StyleNotes = StyleNotes, Avoid = Avoid,
+            AccentColor = AccentColorHex, BodyColor = BodyColorHex, CanvasSize = CanvasSize,
+            HasDropShadow = HasDropShadow, HasOuterGlow = HasOuterGlow, HasBevel = HasBevel,
+            HasMetallicSheen = HasMetallicSheen, IsBuiltIn = false,
+        };
+
+        // Overwrite an existing user seed of the same name, else append (built-ins are never touched).
+        var store = _settings.Settings.GenerateSeeds ??= new();
+        store.RemoveAll(x => !x.IsBuiltIn && x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        store.Add(seed);
+        _settings.Save();
+
+        var dup = Seeds.FirstOrDefault(x => !x.IsBuiltIn && x.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
+        if (dup is not null) Seeds.Remove(dup);
+        Seeds.Add(seed);
+        SelectedSeed = seed;
+        SeedName = "";
+        StatusMessage = $"Saved the \"{name}\" seed.";
+    }
+
+    private bool CanDeleteSeed() => SelectedSeed is { IsBuiltIn: false };
+
+    [RelayCommand(CanExecute = nameof(CanDeleteSeed))]
+    private void DeleteSeed()
+    {
+        var s = SelectedSeed;
+        if (s is null || s.IsBuiltIn) return;
+        (_settings.Settings.GenerateSeeds ??= new())
+            .RemoveAll(x => !x.IsBuiltIn && x.Name.Equals(s.Name, StringComparison.OrdinalIgnoreCase));
+        _settings.Save();
+        Seeds.Remove(s);
+        SelectedSeed = null;
+        StatusMessage = $"Deleted the \"{s.Name}\" seed.";
     }
 
     /// <summary>Builds the success status, warning when the layer structure won't actually animate —

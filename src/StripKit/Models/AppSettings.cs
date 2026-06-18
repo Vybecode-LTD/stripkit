@@ -23,4 +23,8 @@ public sealed class AppSettings
     /// http://localhost:11434/v1 for Ollama, or an LM Studio server). Used only when the Custom provider
     /// is selected; the key still lives in the secret store.</summary>
     public string? GenerateCustomBaseUrl { get; set; }
+
+    /// <summary>The user's saved prompt seeds (named style bundles) on the Generate tab. Built-in seeds
+    /// are not stored here — only ones the user saved.</summary>
+    public List<GenerationSeed> GenerateSeeds { get; set; } = new();
 }

@@ -16,6 +16,9 @@
   the Create tab, and export a latching toggle binding.
 
 ### Added
+- **Prompt seeds library.** Reusable named style bundles on the Generate tab — apply a built-in seed
+  (Vital/Serum modern, Vintage hardware, Minimal flat, Skeuomorphic metal, Neon glow) to prefill the
+  style/colours/effects, tweak, and save your own (persisted, deletable).
 - **Variations grid.** "Generate variations" produces several takes (2/4/6/8) of the selected control
   at once, in a pick-the-best grid (same Use-in-Create / Save / Regenerate per item as the set).
 - **Custom AI endpoint.** A new "Custom" provider points the Generate tab at any OpenAI-compatible

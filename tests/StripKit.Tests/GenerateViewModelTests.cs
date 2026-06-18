@@ -336,6 +336,86 @@ public class GenerateViewModelTests
         finally { Cleanup(temps); }
     }
 
+    // ---- prompt seeds ----
+
+    [Fact]
+    public void Seeds_start_with_the_built_in_library()
+    {
+        var (vm, _, _, temps) = Build();
+        try
+        {
+            vm.Seeds.Should().NotBeEmpty();
+            vm.Seeds.Should().OnlyContain(s => s.IsBuiltIn, "a fresh profile has only the built-ins");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public void Applying_a_seed_fills_the_style_inputs()
+    {
+        var (vm, _, _, temps) = Build();
+        try
+        {
+            vm.SelectedSeed = vm.Seeds.First(s => s.Name == "Vintage hardware");
+            vm.ApplySeedCommand.Execute(null);
+
+            vm.Style.Should().Be(GenerationStyle.Vintage);
+            vm.AccentColorHex.Should().Be("#E0B050");
+            vm.HasMetallicSheen.Should().BeTrue();
+            vm.StyleNotes.Should().Contain("knurled");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public void Saving_a_seed_adds_it_and_persists_it_then_delete_removes_it()
+    {
+        var settingsPath = Path.Combine(Path.GetTempPath(), $"stripkit_seed_{Guid.NewGuid():N}.json");
+        var settings = new SettingsService(settingsPath);
+        var gen = Substitute.For<IAssetGenerationService>();
+        gen.AvailableProviders.Returns([AiProvider.Claude]);
+        gen.ModelsFor(Arg.Any<AiProvider>()).Returns(["m"]);
+        gen.DefaultModelFor(Arg.Any<AiProvider>()).Returns("m");
+        var secretsPath = Path.Combine(Path.GetTempPath(), $"stripkit_seedsecrets_{Guid.NewGuid():N}.dat");
+        try
+        {
+            var vm = new GenerateViewModel(gen, new DpapiSecretStore(secretsPath), settings,
+                                           new LayeredImportService(), Substitute.For<IFileDialogService>());
+            vm.AccentColorHex = "#ABCDEF";
+            vm.SeedName = "My Seed";
+            vm.SaveSeedCommand.Execute(null);
+
+            vm.Seeds.Should().Contain(s => s.Name == "My Seed" && !s.IsBuiltIn);
+            settings.Settings.GenerateSeeds.Should().ContainSingle(s => s.Name == "My Seed");
+            new SettingsService(settingsPath).Settings.GenerateSeeds.Should().ContainSingle(s => s.AccentColor == "#ABCDEF",
+                "the seed persisted to disk");
+
+            // A fresh VM reloads it, can select and delete it.
+            var vm2 = new GenerateViewModel(gen, new DpapiSecretStore(secretsPath), settings,
+                                            new LayeredImportService(), Substitute.For<IFileDialogService>());
+            vm2.SelectedSeed = vm2.Seeds.First(s => s.Name == "My Seed");
+            vm2.DeleteSeedCommand.CanExecute(null).Should().BeTrue("a user seed can be deleted");
+            vm2.DeleteSeedCommand.Execute(null);
+            vm2.Seeds.Should().NotContain(s => s.Name == "My Seed");
+        }
+        finally
+        {
+            foreach (var p in new[] { settingsPath, secretsPath }) try { if (File.Exists(p)) File.Delete(p); } catch { }
+        }
+    }
+
+    [Fact]
+    public void A_built_in_seed_cannot_be_deleted()
+    {
+        var (vm, _, _, temps) = Build();
+        try
+        {
+            vm.SelectedSeed = vm.Seeds.First(s => s.IsBuiltIn);
+            vm.DeleteSeedCommand.CanExecute(null).Should().BeFalse("built-ins are read-only");
+        }
+        finally { Cleanup(temps); }
+    }
+
     // ---- matching set ----
 
     [Fact]
