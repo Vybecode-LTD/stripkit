@@ -967,7 +967,9 @@ public partial class MainWindowViewModel : ViewModelBase
         FrameWidth = w;
         FrameHeight = h;
         ContinuousFill = true;                       // generated art reveals smoothly, not in steps
-        FillDirection = MeterFillDirection.Up;       // generated vertically: low bottom, high top
+        // Orientation follows the generated art's shape: a wide meter fills left→right, a tall one
+        // fills bottom→top (low value at the start edge in both).
+        FillDirection = w > h ? MeterFillDirection.LeftToRight : MeterFillDirection.Up;
         _suspendRefresh = false;
 
         StatusMessage = offArt is not null

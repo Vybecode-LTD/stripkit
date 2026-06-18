@@ -16,8 +16,11 @@
 - **Meter generation.** The Generate tab offers **Meter** as a control type. The prompt asks for a
   tall portrait SVG with an unlit `<g id="off">` group and a fully-lit `<g id="on">` group spanning
   the full height; the **Use in Create** handoff adopts `off` → meter background (drawn full) and
-  `on` → source (revealed up to the value), sets a continuous vertical (Up) fill, and squares the
-  frame to the canvas. No renderer change — it reuses the existing layered-meter reveal path.
+  `on` → source (revealed up to the value), and squares the frame to the canvas. No renderer change —
+  it reuses the existing layered-meter reveal path.
+- **Horizontal meters.** A "Horizontal meter" option (shown when Meter is selected) generates a wide
+  landscape off/on pair; the handoff infers the fill direction from the art's aspect (wide → left→right,
+  tall → bottom→top), so hand-imported meters orient correctly too.
 - **Input-size guards.** `ImageLoadService` now rejects a decompression-bomb image (peeks the header
   via `SKCodec`, caps at 64 MP); `LayeredImportService` caps raw SVG text (20 MB) and PSD canvas
   (64 MP) before allocating.

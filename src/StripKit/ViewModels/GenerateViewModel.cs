@@ -88,7 +88,9 @@ public partial class GenerateViewModel : ViewModelBase
     [ObservableProperty] private string _keyStatus;
 
     // ---- prompt shaping ----
-    [ObservableProperty] private ComponentType _generateControlType = ComponentType.RotaryKnob;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsMeterType))]
+    private ComponentType _generateControlType = ComponentType.RotaryKnob;
     [ObservableProperty] private GenerationStyle _style = GenerationStyle.Modern;
     [ObservableProperty] private string _styleNotes = "";
     [ObservableProperty] private string _accentColorHex = "#E8440A";
@@ -100,6 +102,11 @@ public partial class GenerateViewModel : ViewModelBase
     [ObservableProperty] private bool _hasOuterGlow;
     [ObservableProperty] private bool _hasBevel;
     [ObservableProperty] private bool _hasMetallicSheen;
+
+    // ---- meter options ----
+    /// <summary>Generate a wide landscape meter (fills left→right) instead of the default tall one
+    /// (fills bottom→top). Only meaningful when the control type is Meter.</summary>
+    [ObservableProperty] private bool _meterHorizontal;
 
     // ---- result / status ----
     [ObservableProperty]
@@ -123,6 +130,9 @@ public partial class GenerateViewModel : ViewModelBase
         "Pick a provider, paste your API key, describe the knob, then Generate.";
 
     public bool HasPreview => PreviewImage is not null;
+
+    /// <summary>True when the meter control type is selected — gates the meter-only options (orientation).</summary>
+    public bool IsMeterType => GenerateControlType == ComponentType.Meter;
 
     // ---- reactions ----
 
@@ -181,6 +191,7 @@ public partial class GenerateViewModel : ViewModelBase
                 HasOuterGlow = HasOuterGlow,
                 HasBevel = HasBevel,
                 HasMetallicSheen = HasMetallicSheen,
+                MeterHorizontal = MeterHorizontal,
             };
 
             var result = await _generation.GenerateAsync(request, SelectedProvider, ApiKey, model, ct);

@@ -69,6 +69,10 @@ public sealed record GenerationRequest
     public bool HasOuterGlow { get; init; }
     public bool HasBevel { get; init; }
     public bool HasMetallicSheen { get; init; }
+
+    /// <summary>Meter only: draw a wide landscape meter that fills left→right, instead of the default
+    /// tall portrait meter that fills bottom→top. Ignored for non-meter types.</summary>
+    public bool MeterHorizontal { get; init; }
 }
 
 /// <summary>

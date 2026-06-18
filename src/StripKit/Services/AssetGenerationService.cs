@@ -114,8 +114,20 @@ public sealed class AssetGenerationService : IAssetGenerationService
     private static string BuildMeterSystemPrompt(GenerationRequest r)
     {
         int size = Math.Clamp(r.CanvasSize, 64, 2048);
-        int w = Math.Max(64, (int)Math.Round(size / 3.0));   // portrait: a meter is tall and narrow
-        int h = size;
+        bool horiz = r.MeterHorizontal;
+        int thin = Math.Max(64, (int)Math.Round(size / 3.0));
+        int w = horiz ? size : thin;     // horizontal = wide landscape; vertical = tall portrait
+        int h = horiz ? thin : size;
+
+        // The lit art is revealed by clipping along the fill axis, so the meter must fill that axis
+        // edge-to-edge with no margin (a gap would misread the value).
+        string axis = horiz ? "width" : "height";
+        string fromEdge = horiz ? $"the very left edge (x=0) to the very right edge (x={w})"
+                                : $"the very top edge (y=0) to the very bottom edge (y={h})";
+        string crossMargin = horiz ? "vertical" : "horizontal";
+        string layout = horiz ? "horizontally: low values at the LEFT, high values at the RIGHT"
+                              : "vertically: low values at the BOTTOM, high values at the TOP";
+        string revealedFrom = horiz ? "the left" : "the bottom";
 
         var sb = new StringBuilder();
         sb.AppendLine("You are an expert SVG illustrator producing production-ready vector art for audio-plugin GUI controls.");
@@ -124,14 +136,14 @@ public sealed class AssetGenerationService : IAssetGenerationService
         sb.AppendLine("Hard requirements:");
         sb.AppendLine($"- Root element: <svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 {w} {h}\" width=\"{w}\" height=\"{h}\">.");
         sb.AppendLine("- Fully transparent background — do NOT draw a full-canvas opaque rectangle.");
-        sb.AppendLine($"- The meter MUST fill the full height, from the very top edge (y=0) to the very bottom edge (y={h}), with NO vertical margin — the level is shown by clipping the lit art along the height, so any gap top or bottom misreads the value. A small horizontal margin is fine.");
-        sb.AppendLine("- Lay it out vertically: low values at the BOTTOM, high values at the TOP — e.g. a stack of LED segments, or a continuous bar.");
+        sb.AppendLine($"- The meter MUST fill the full {axis}, from {fromEdge}, with NO margin along that axis — the level is shown by clipping the lit art along the {axis}, so any gap at either end misreads the value. A small {crossMargin} margin is fine.");
+        sb.AppendLine($"- Lay it out {layout} — e.g. a row/stack of LED segments, or a continuous bar.");
         sb.AppendLine("- Pure vector only: path, circle, ellipse, rect, line, polygon, polyline, linearGradient, radialGradient, filter.");
         sb.AppendLine("- Do NOT use <image>, <script>, <foreignObject>, external file/URL references, href to anything but a local #id, or event handlers.");
         sb.AppendLine("- Structure the drawing as EXACTLY two top-level groups, in this order:");
-        sb.AppendLine("    <g id=\"off\"> the ENTIRE meter in its UNLIT / resting state — dim or empty segments, dark track; full height </g>");
-        sb.AppendLine("    <g id=\"on\"> the SAME meter fully LIT — bright / glowing segments; identical geometry and position; full height </g>");
-        sb.AppendLine("  Both groups span the full height and occupy exactly the same place. The lit group is revealed from the bottom up to show the level, so the two MUST line up pixel-for-pixel.");
+        sb.AppendLine($"    <g id=\"off\"> the ENTIRE meter in its UNLIT / resting state — dim or empty segments, dark track; full {axis} </g>");
+        sb.AppendLine($"    <g id=\"on\"> the SAME meter fully LIT — bright / glowing segments; identical geometry and position; full {axis} </g>");
+        sb.AppendLine($"  Both groups span the full {axis} and occupy exactly the same place. The lit group is revealed from {revealedFrom} to show the level, so the two MUST line up pixel-for-pixel.");
 
         return sb.ToString();
     }
@@ -147,7 +159,9 @@ public sealed class AssetGenerationService : IAssetGenerationService
         if (!string.IsNullOrWhiteSpace(r.BodyColor))
             sb.AppendLine($"- Body / face colour: {r.BodyColor.Trim()}.");
         if (r.ComponentType == ComponentType.Meter)
-            sb.AppendLine("- A tall vertical meter that fills the full height: low at the bottom, high at the top, segments or a bar spanning edge to edge.");
+            sb.AppendLine(r.MeterHorizontal
+                ? "- A wide horizontal meter that fills the full width: low at the left, high at the right, segments or a bar spanning edge to edge."
+                : "- A tall vertical meter that fills the full height: low at the bottom, high at the top, segments or a bar spanning edge to edge.");
         else
             sb.AppendLine($"- Canvas: {size}x{size}px, control centred with about a 10% transparent margin.");
 
@@ -167,7 +181,9 @@ public sealed class AssetGenerationService : IAssetGenerationService
         else if (r.ComponentType == ComponentType.Button)
             sb.AppendLine("Return the SVG with an <g id=\"off\"> group for the inactive state and a <g id=\"on\"> group for the active/lit state.");
         else if (r.ComponentType == ComponentType.Meter)
-            sb.AppendLine("Return the SVG with an <g id=\"off\"> group (the unlit meter) and an <g id=\"on\"> group (the same meter fully lit), both spanning the full height.");
+            sb.AppendLine(r.MeterHorizontal
+                ? "Return the SVG with an <g id=\"off\"> group (the unlit meter) and an <g id=\"on\"> group (the same meter fully lit), both spanning the full width."
+                : "Return the SVG with an <g id=\"off\"> group (the unlit meter) and an <g id=\"on\"> group (the same meter fully lit), both spanning the full height.");
         else
             sb.AppendLine("Return the SVG with the drawing inside a single <g id=\"body\"> group.");
 

@@ -55,6 +55,12 @@
                               SelectedItem="{Binding GenerateControlType}"
                               ToolTip.Tip="What kind of control to generate. Knobs, buttons and meters produce layered SVGs (knob = body+pointer, button/meter = off+on); faders and sliders produce a single cap/handle shape." />
 
+                    <CheckBox Content="Horizontal meter (fills left → right)"
+                              IsChecked="{Binding MeterHorizontal}"
+                              IsVisible="{Binding IsMeterType}"
+                              Margin="0,6,0,0"
+                              ToolTip.Tip="Generate a wide meter that fills left to right. Unchecked = a tall meter that fills bottom to top." />
+
                     <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding Styles}" SelectedItem="{Binding Style}" />

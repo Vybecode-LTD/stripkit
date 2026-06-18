@@ -102,6 +102,20 @@ public class AssetGenerationServiceTests
     }
 
     [Fact]
+    public async Task A_horizontal_meter_prompt_uses_a_landscape_canvas_filling_left_to_right()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredMeter);
+        var svc = new AssetGenerationService([fake]);
+
+        await svc.GenerateAsync(new GenerationRequest { ComponentType = ComponentType.Meter, MeterHorizontal = true },
+                                AiProvider.Claude, "KEY", "", default);
+
+        fake.LastSystem.Should().Contain("full width", "a horizontal meter spans the width, not the height");
+        fake.LastSystem.Should().Contain("LEFT", "low values sit at the left for a horizontal meter");
+        fake.LastUser.Should().Contain("horizontal meter");
+    }
+
+    [Fact]
     public async Task A_reply_without_an_svg_fails_gracefully_and_keeps_the_raw_text()
     {
         var fake = new FakeProvider(AiProvider.Claude, () => "I'm sorry, I can't draw that.");

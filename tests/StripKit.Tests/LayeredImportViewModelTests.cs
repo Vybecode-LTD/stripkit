@@ -47,6 +47,14 @@ public class LayeredImportViewModelTests
         </svg>
         """;
 
+    const string WideMeterSvg =
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="160" height="48" viewBox="0 0 160 48">
+          <g id="off"><rect x="0" y="8" width="160" height="32" fill="#222222"/></g>
+          <g id="on"><rect x="0" y="8" width="160" height="32" fill="#00ff00"/></g>
+        </svg>
+        """;
+
     static SKBitmap Bmp(int w, int h) => new(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
 
     static string WriteTempSvg(string svg)
@@ -139,7 +147,26 @@ public class LayeredImportViewModelTests
             vm.HasSource.Should().BeTrue("the on-state is adopted as the revealed source");
             vm.HasBackground.Should().BeTrue("the off-state is adopted as the background");
             vm.ContinuousFill.Should().BeTrue("generated meter art reveals smoothly, not in steps");
+            vm.FillDirection.Should().Be(MeterFillDirection.Up, "a tall meter fills bottom→top");
             vm.HasImportedLayers.Should().BeFalse("a meter is a source+background pair, not a layer stack");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task Importing_a_wide_meter_infers_a_left_to_right_fill()
+    {
+        // The handoff reads orientation from the generated art's aspect: a landscape off/on pair
+        // becomes a left→right meter without any extra flag threaded through.
+        var (vm, _, _, _) = Build();
+        var path = WriteTempSvg(WideMeterSvg);
+        try
+        {
+            await vm.ImportLayeredFromPathAsync(path, ComponentType.Meter);
+
+            vm.ComponentType.Should().Be(ComponentType.Meter);
+            vm.FillDirection.Should().Be(MeterFillDirection.LeftToRight, "a wide meter fills left→right");
+            vm.FrameWidth.Should().BeGreaterThan(vm.FrameHeight, "the frame matches the landscape canvas");
         }
         finally { File.Delete(path); }
     }
