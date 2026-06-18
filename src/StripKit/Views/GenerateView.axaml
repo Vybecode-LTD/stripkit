@@ -41,6 +41,13 @@
                     </Grid>
                     <TextBlock Classes="label" Text="{Binding KeyStatus}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
+                    <StackPanel IsVisible="{Binding IsCustomProvider}" Spacing="2">
+                        <TextBlock Classes="label" Text="Endpoint base URL" Margin="0,8,0,0" />
+                        <TextBox Text="{Binding CustomBaseUrl}"
+                                 Watermark="https://openrouter.ai/api/v1  (or http://localhost:11434/v1)"
+                                 ToolTip.Tip="Any OpenAI-compatible chat-completions endpoint (OpenRouter, Ollama, LM Studio…). Then type the model id your endpoint expects below." />
+                    </StackPanel>
+
                     <TextBlock Classes="label" Text="Model" Margin="0,8,0,0" />
                     <AutoCompleteBox HorizontalAlignment="Stretch"
                                      ItemsSource="{Binding SuggestedModels}" Text="{Binding Model}"

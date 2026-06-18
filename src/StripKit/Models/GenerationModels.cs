@@ -14,6 +14,10 @@ public enum AiProvider
 
     /// <summary>Google Gemini (generateContent API).</summary>
     Gemini,
+
+    /// <summary>Any OpenAI-compatible chat-completions endpoint (OpenRouter, Azure OpenAI, a local
+    /// Ollama/LM Studio server, …). The base URL is set by the user; the wire format matches OpenAI.</summary>
+    Custom,
 }
 
 /// <summary>A coarse visual style preset folded into the generation prompt. Free-text style notes

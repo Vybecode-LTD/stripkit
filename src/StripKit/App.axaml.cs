@@ -39,6 +39,7 @@ public partial class App : Application
         services.AddSingleton<IAssetGenerationProvider, ClaudeProvider>();
         services.AddSingleton<IAssetGenerationProvider, OpenAiProvider>();
         services.AddSingleton<IAssetGenerationProvider, GeminiProvider>();
+        services.AddSingleton<IAssetGenerationProvider, CustomOpenAiProvider>();
         services.AddSingleton<IAssetGenerationService, AssetGenerationService>();
 
         // FileDialogService needs a concrete reference so we can set its Owner

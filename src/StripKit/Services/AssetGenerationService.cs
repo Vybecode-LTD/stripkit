@@ -8,7 +8,7 @@ namespace StripKit.Services;
 public sealed class AssetGenerationService : IAssetGenerationService
 {
     // Display / picker order — independent of DI registration order.
-    private static readonly AiProvider[] Order = [AiProvider.Claude, AiProvider.OpenAI, AiProvider.Gemini];
+    private static readonly AiProvider[] Order = [AiProvider.Claude, AiProvider.OpenAI, AiProvider.Gemini, AiProvider.Custom];
 
     private readonly Dictionary<AiProvider, IAssetGenerationProvider> _providers;
 

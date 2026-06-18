@@ -7,9 +7,11 @@ namespace StripKit.Services;
 /// <remarks>The body is kept to <c>model</c> + <c>messages</c> only (no <c>max_tokens</c>/<c>temperature</c>)
 /// so it stays compatible across the chat models a user might pin, including reasoning models that
 /// reject those fields. Default temperature gives enough variety on Regenerate.</remarks>
-public sealed class OpenAiProvider(HttpClient http) : HttpAssetGenerationProvider(http)
+public class OpenAiProvider(HttpClient http) : HttpAssetGenerationProvider(http)
 {
-    private const string Url = "https://api.openai.com/v1/chat/completions";
+    /// <summary>The chat-completions endpoint. Overridden by <see cref="CustomOpenAiProvider"/> to point
+    /// at any OpenAI-compatible server (the only thing that differs between them).</summary>
+    protected virtual string EndpointUrl => "https://api.openai.com/v1/chat/completions";
 
     public override AiProvider Provider => AiProvider.OpenAI;
     public override string DefaultModel => "gpt-4o";
@@ -18,7 +20,7 @@ public sealed class OpenAiProvider(HttpClient http) : HttpAssetGenerationProvide
 
     public override async Task<string> CompleteAsync(string systemPrompt, string userPrompt, string apiKey, string model, CancellationToken ct)
     {
-        using var request = new HttpRequestMessage(HttpMethod.Post, Url);
+        using var request = new HttpRequestMessage(HttpMethod.Post, EndpointUrl);
         request.Headers.Add("Authorization", $"Bearer {apiKey}");
         request.Content = JsonBody(new
         {

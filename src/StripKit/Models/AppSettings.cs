@@ -17,4 +17,10 @@ public sealed class AppSettings
     /// <summary>Per-provider model id overrides keyed by provider name (e.g. "Claude" → a model id).
     /// Empty ⇒ the provider's built-in default. Lets a user pin a specific model without code changes.</summary>
     public Dictionary<string, string> GenerateModels { get; set; } = new();
+
+    /// <summary>Base URL for the OpenAI-compatible custom provider — anything that speaks the OpenAI
+    /// chat-completions wire format with Bearer auth (e.g. https://openrouter.ai/api/v1, or
+    /// http://localhost:11434/v1 for Ollama, or an LM Studio server). Used only when the Custom provider
+    /// is selected; the key still lives in the secret store.</summary>
+    public string? GenerateCustomBaseUrl { get; set; }
 }

@@ -60,6 +60,7 @@ public partial class GenerateViewModel : ViewModelBase
         _model = ModelPrefFor(_selectedProvider);
         _suggestedModels = _generation.ModelsFor(_selectedProvider);
         _keyStatus = _hasKey ? "Key saved (loaded)." : "No key stored for this provider.";
+        _customBaseUrl = _settings.Settings.GenerateCustomBaseUrl ?? "";
 
         // The matching-set picker: a sensible default spread (knob + fader + button + meter ticked).
         foreach (var (type, label, on) in new[]
@@ -101,7 +102,21 @@ public partial class GenerateViewModel : ViewModelBase
     }
 
     // ---- provider / key / model ----
-    [ObservableProperty] private AiProvider _selectedProvider;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCustomProvider))]
+    private AiProvider _selectedProvider;
+
+    /// <summary>True when the OpenAI-compatible Custom provider is selected — gates the base-URL field.</summary>
+    public bool IsCustomProvider => SelectedProvider == AiProvider.Custom;
+
+    /// <summary>Base URL for the Custom provider, persisted to settings (the key stays in the secret store).</summary>
+    [ObservableProperty] private string _customBaseUrl = "";
+
+    partial void OnCustomBaseUrlChanged(string value)
+    {
+        _settings.Settings.GenerateCustomBaseUrl = value;
+        _settings.Save();
+    }
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
