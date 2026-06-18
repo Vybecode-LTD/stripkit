@@ -267,6 +267,49 @@ public class GenerateViewModelTests
     }
 
     [Fact]
+    public async Task A_structurally_weak_knob_auto_retries_once()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            // First take: a knob body with no pointer (won't animate). Second: a proper body + pointer.
+            const string noPointer =
+                """<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100"><g id="body"><circle cx="50" cy="50" r="40" fill="#333"/></g></svg>""";
+            gen.GenerateAsync(Arg.Any<GenerationRequest>(), Arg.Any<AiProvider>(), Arg.Any<string>(),
+                              Arg.Any<string>(), Arg.Any<CancellationToken>())
+               .Returns(GenerationResult.Ok(noPointer), GenerationResult.Ok(LayeredKnobSvg));
+            vm.ApiKey = "sk-test";
+            vm.GenerateControlType = ComponentType.RotaryKnob;
+
+            await vm.GenerateCommand.ExecuteAsync(null);
+
+            await gen.Received(2).GenerateAsync(Arg.Any<GenerationRequest>(), Arg.Any<AiProvider>(), Arg.Any<string>(),
+                                                Arg.Any<string>(), Arg.Any<CancellationToken>());
+            vm.HasResult.Should().BeTrue();
+            vm.GeneratedSvg.Should().Contain("pointer", "the good second take is kept");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task A_well_formed_knob_does_not_retry()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubReply(gen, GenerationResult.Ok(LayeredKnobSvg));
+            vm.ApiKey = "sk-test";
+            vm.GenerateControlType = ComponentType.RotaryKnob;
+
+            await vm.GenerateCommand.ExecuteAsync(null);
+
+            await gen.Received(1).GenerateAsync(Arg.Any<GenerationRequest>(), Arg.Any<AiProvider>(), Arg.Any<string>(),
+                                                Arg.Any<string>(), Arg.Any<CancellationToken>());
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
     public async Task Refine_is_gated_then_updates_the_current_result()
     {
         var (vm, gen, _, temps) = Build();

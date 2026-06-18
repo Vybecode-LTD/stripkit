@@ -20,6 +20,10 @@ public interface IAssetGenerationService
     /// <summary>The suggested model ids for a provider (shown in the model dropdown).</summary>
     IReadOnlyList<string> ModelsFor(AiProvider provider);
 
+    /// <summary>Builds the exact (system, user) prompt a request would send, so the UI can show the
+    /// user what goes to the model. Pure — no network.</summary>
+    (string System, string User) BuildPrompts(GenerationRequest request);
+
     /// <summary>Generates one control SVG. Never throws for expected failures — returns a
     /// <see cref="GenerationResult"/> carrying either the sanitized SVG or a user-facing error.
     /// Cancellation (via <paramref name="ct"/>) propagates as <see cref="OperationCanceledException"/>.</summary>

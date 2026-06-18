@@ -26,6 +26,9 @@ public sealed class AssetGenerationService : IAssetGenerationService
     public IReadOnlyList<string> ModelsFor(AiProvider provider) =>
         _providers.TryGetValue(provider, out var p) ? p.SuggestedModels : Array.Empty<string>();
 
+    public (string System, string User) BuildPrompts(GenerationRequest request) =>
+        (BuildSystemPrompt(request), BuildUserPrompt(request));
+
     public Task<GenerationResult> GenerateAsync(GenerationRequest request, AiProvider provider, string apiKey, string model, CancellationToken ct) =>
         RunAsync(request, BuildUserPrompt(request), provider, apiKey, model, ct);
 

@@ -151,6 +151,15 @@
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,8,0,8"
                                Text="Each Generate is a new attempt — regenerate until you like it. Your key stays encrypted on this PC." />
 
+                    <Expander Header="Prompt to be sent" Margin="0,0,0,4">
+                        <Border Classes="tile" Padding="2">
+                            <ScrollViewer MaxHeight="180" HorizontalScrollBarVisibility="Auto">
+                                <TextBox Text="{Binding PromptPreview}" IsReadOnly="True" AcceptsReturn="True"
+                                         TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                            </ScrollViewer>
+                        </Border>
+                    </Expander>
+
                     <!-- Matching set -->
                     <controls:SectionHeader Text="MATCHING SET" />
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,0,0,6"

@@ -100,6 +100,17 @@ public class AssetGenerationServiceTests
     }
 
     [Fact]
+    public void BuildPrompts_returns_the_system_and_user_prompts_for_a_request()
+    {
+        var svc = new AssetGenerationService([new FakeProvider(AiProvider.Claude, () => LayeredKnob)]);
+
+        var (system, user) = svc.BuildPrompts(new GenerationRequest { ComponentType = ComponentType.RotaryKnob, AccentColor = "#123456" });
+
+        system.Should().Contain("id=\"body\"").And.Contain("id=\"pointer\"");
+        user.Should().Contain("#123456");
+    }
+
+    [Fact]
     public async Task A_meter_prompt_asks_for_off_on_groups_spanning_the_full_height()
     {
         var fake = new FakeProvider(AiProvider.Claude, () => LayeredMeter);

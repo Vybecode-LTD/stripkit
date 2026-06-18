@@ -16,6 +16,17 @@
   the Create tab, and export a latching toggle binding.
 
 ### Added
+- **Variations grid.** "Generate variations" produces several takes (2/4/6/8) of the selected control
+  at once, in a pick-the-best grid (same Use-in-Create / Save / Regenerate per item as the set).
+- **Custom AI endpoint.** A new "Custom" provider points the Generate tab at any OpenAI-compatible
+  chat-completions endpoint with Bearer auth — OpenRouter, a local Ollama / LM Studio server, etc.
+- **Refine.** Revise the current result with a plain-language instruction ("thicker pointer, warmer
+  accent") — sends the SVG back keeping the same structure.
+- **Match a reference image.** "Describe a reference image…" runs a screenshot through a vision model
+  and folds the style description into Extra direction (Claude / OpenAI / Gemini / compatible).
+- **Auto-retry + show-the-prompt.** A structurally weak first take (knob with no pointer; button /
+  toggle / meter missing a state) auto-regenerates once; a "Prompt to be sent" expander shows the exact
+  system + user prompt.
 - **Matching-set generator.** Pick the controls you want (knob / fader / slider / meter / button /
   toggle) and **Generate set** produces the whole family in one go — every control generated
   concurrently from the *same* style, colours, effects and avoid-list, so they look like a set. Each

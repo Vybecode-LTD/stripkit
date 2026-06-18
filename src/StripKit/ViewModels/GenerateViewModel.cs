@@ -186,6 +186,36 @@ public partial class GenerateViewModel : ViewModelBase
     /// <summary>True when the meter control type is selected — gates the meter-only options (orientation).</summary>
     public bool IsMeterType => GenerateControlType == ComponentType.Meter;
 
+    /// <summary>The exact system + user prompt the current settings would send — for the "show the
+    /// prompt" expander. Recomputed whenever a prompt-shaping input changes (see OnPropertyChanged).</summary>
+    public string PromptPreview
+    {
+        get
+        {
+            var req = BuildBaseRequest() with
+            {
+                ComponentType = GenerateControlType,
+                Layered = AssetGenerationService.IsLayeredType(GenerateControlType),
+            };
+            var (system, user) = _generation.BuildPrompts(req);
+            return $"SYSTEM PROMPT\n{system}\n\nUSER PROMPT\n{user}";
+        }
+    }
+
+    private static readonly HashSet<string> PromptShapingProps =
+    [
+        nameof(GenerateControlType), nameof(Style), nameof(StyleNotes), nameof(Avoid),
+        nameof(AccentColorHex), nameof(BodyColorHex), nameof(CanvasSize), nameof(MeterHorizontal),
+        nameof(HasDropShadow), nameof(HasOuterGlow), nameof(HasBevel), nameof(HasMetallicSheen),
+    ];
+
+    protected override void OnPropertyChanged(System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        base.OnPropertyChanged(e);
+        if (e.PropertyName is not null && PromptShapingProps.Contains(e.PropertyName))
+            OnPropertyChanged(nameof(PromptPreview));
+    }
+
     // ---- matching set ----
 
     /// <summary>The control types offered in the matching-set picker (checkable; populated in the ctor).</summary>
@@ -262,27 +292,38 @@ public partial class GenerateViewModel : ViewModelBase
                 Layered = AssetGenerationService.IsLayeredType(GenerateControlType),
             };
 
-            var result = await _generation.GenerateAsync(request, SelectedProvider, ApiKey, model, ct);
-            LastRawResponse = result.RawResponse;
-
-            if (!result.Success)
+            // Up to two attempts: if the first result is structurally weak (a knob with no rotating
+            // pointer, or a button/toggle/meter missing its second state) auto-regenerate once before
+            // surfacing it — a common weak-model miss the user would otherwise hit Regenerate on.
+            GenerationResult result = null!;
+            GeneratedPreview? preview = null;
+            for (int attempt = 1; attempt <= 2; attempt++)
             {
-                StatusMessage = result.Error ?? "Generation failed.";
-                return;
-            }
+                result = await _generation.GenerateAsync(request, SelectedProvider, ApiKey, model, ct);
+                LastRawResponse = result.RawResponse;
+                if (!result.Success)
+                {
+                    StatusMessage = result.Error ?? "Generation failed.";
+                    return;
+                }
 
-            // Validate + preview OFF the UI thread: write the temp SVG, import it through the SAME
-            // pipeline the Create tab uses (so a preview here guarantees Create can import it), and
-            // composite the at-rest bitmap — all CPU-bound, so the UI thread only assigns the result.
-            var preview = await Task.Run(() => BuildPreview(result.Svg!), ct);
-            if (preview is null)
-            {
-                StatusMessage = "The model returned an SVG, but its layers couldn't be read. Try Regenerate.";
-                return;
+                // Validate + preview OFF the UI thread: write the temp SVG, import it through the SAME
+                // pipeline the Create tab uses (so a preview here guarantees Create can import it), and
+                // composite the at-rest bitmap — all CPU-bound, so the UI thread only assigns the result.
+                preview = await Task.Run(() => BuildPreview(result.Svg!), ct);
+                if (preview is null)
+                {
+                    StatusMessage = "The model returned an SVG, but its layers couldn't be read. Try Regenerate.";
+                    return;
+                }
+
+                if (attempt == 2 || !IsWeakStructure(GenerateControlType, preview.RotateCount, preview.FrameCount))
+                    break;
+                StatusMessage = "The first take was missing its moving part — regenerating once…";
             }
 
             GeneratedSvg = result.Svg;
-            _lastSvgPath = preview.Path;
+            _lastSvgPath = preview!.Path;
             _lastControlType = GenerateControlType;
             PreviewImage = preview.Image;   // best-effort — a result stands even if preview can't render
             HasResult = true;
@@ -358,6 +399,15 @@ public partial class GenerateViewModel : ViewModelBase
             "Generated a horizontal slider cap. Use in Create to build the filmstrip, or Save the SVG.",
         _ =>
             $"Generated a {layerCount}-layer control. Use in Create to build the filmstrip, or Save the SVG.",
+    };
+
+    /// <summary>Whether a freshly-imported result won't actually animate — a knob with no rotating
+    /// pointer, or a button/toggle/meter missing its second state — and so is worth one auto-retry.</summary>
+    private static bool IsWeakStructure(ComponentType type, int rotate, int frames) => type switch
+    {
+        ComponentType.RotaryKnob => rotate == 0,
+        ComponentType.Button or ComponentType.Toggle or ComponentType.Meter => frames < 2,
+        _ => false,
     };
 
     private bool CanUseInCreate() => HasResult && _lastSvgPath is not null;
