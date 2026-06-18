@@ -155,7 +155,13 @@ public partial class GenerateViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefineCommand))]
     private bool _isGenerating;
+
+    /// <summary>Plain-language change for "Refine" (e.g. "thicker pointer, warmer accent").</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RefineCommand))]
+    private string _refineInstruction = "";
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasPreview))]
@@ -167,6 +173,7 @@ public partial class GenerateViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(UseInCreateCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveSvgCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RefineCommand))]
     private bool _hasResult;
 
     [ObservableProperty] private string _statusMessage =
@@ -376,6 +383,65 @@ public partial class GenerateViewModel : ViewModelBase
         catch (Exception ex)
         {
             StatusMessage = $"Couldn't save: {ex.Message}";
+        }
+    }
+
+    private bool CanRefine() => HasResult && !IsGenerating && !string.IsNullOrWhiteSpace(RefineInstruction) && GeneratedSvg is not null;
+
+    [RelayCommand(CanExecute = nameof(CanRefine))]
+    private async Task RefineAsync()
+    {
+        if (GeneratedSvg is null) return;
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        IsGenerating = true;
+        try
+        {
+            var model = (Model ?? "").Trim();
+            var req = BuildBaseRequest() with
+            {
+                ComponentType = _lastControlType,
+                Layered = AssetGenerationService.IsLayeredType(_lastControlType),
+            };
+            StatusMessage = "Refining the current control…";
+
+            var result = await _generation.RefineAsync(req, GeneratedSvg, RefineInstruction, SelectedProvider, ApiKey, model, ct);
+            LastRawResponse = result.RawResponse;
+            if (!result.Success)
+            {
+                StatusMessage = result.Error ?? "Refine failed.";
+                return;
+            }
+
+            var preview = await Task.Run(() => BuildPreview(result.Svg!), ct);
+            if (preview is null)
+            {
+                StatusMessage = "The revised SVG couldn't be read. Try rephrasing the change.";
+                return;
+            }
+
+            GeneratedSvg = result.Svg;
+            _lastSvgPath = preview.Path;
+            PreviewImage = preview.Image;
+            HasResult = true;
+            RefineInstruction = "";
+            StatusMessage = "Refined — Use in Create, Save, or refine again.";
+        }
+        catch (OperationCanceledException)
+        {
+            StatusMessage = "Refine cancelled.";
+        }
+        catch (Exception ex)
+        {
+            LastRawResponse = string.IsNullOrEmpty(LastRawResponse) ? ex.ToString() : $"{LastRawResponse}\n\n{ex}";
+            StatusMessage = $"Refine failed: {ex.Message}";
+        }
+        finally
+        {
+            IsGenerating = false;
         }
     }
 

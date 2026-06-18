@@ -182,6 +182,32 @@ public class AssetGenerationServiceTests
     }
 
     [Fact]
+    public async Task RefineAsync_hands_the_current_svg_and_the_instruction_to_the_model()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+
+        var result = await svc.RefineAsync(new GenerationRequest { ComponentType = ComponentType.RotaryKnob },
+            "<svg id=\"old\"/>", "make the pointer thicker", AiProvider.Claude, "KEY", "", default);
+
+        result.Success.Should().BeTrue(result.Error);
+        fake.LastUser.Should().Contain("<svg id=\"old\"/>", "the current SVG is handed back for revision");
+        fake.LastUser.Should().Contain("make the pointer thicker", "the instruction drives the change");
+    }
+
+    [Fact]
+    public async Task RefineAsync_requires_an_instruction()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+
+        var result = await svc.RefineAsync(new GenerationRequest(), "<svg/>", "   ", AiProvider.Claude, "KEY", "", default);
+
+        result.Success.Should().BeFalse();
+        result.Error.Should().Contain("change");
+    }
+
+    [Fact]
     public async Task A_toggle_prompt_asks_for_off_on_switch_groups()
     {
         var fake = new FakeProvider(AiProvider.Claude, () => LayeredToggle);

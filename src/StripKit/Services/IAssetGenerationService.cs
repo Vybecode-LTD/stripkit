@@ -25,6 +25,12 @@ public interface IAssetGenerationService
     /// Cancellation (via <paramref name="ct"/>) propagates as <see cref="OperationCanceledException"/>.</summary>
     Task<GenerationResult> GenerateAsync(GenerationRequest request, AiProvider provider, string apiKey, string model, CancellationToken ct);
 
+    /// <summary>Revises an existing SVG: sends the current art plus a plain-language change instruction
+    /// back to the model and returns the cleaned, revised SVG. Same failure/cancellation contract as
+    /// <see cref="GenerateAsync"/>.</summary>
+    Task<GenerationResult> RefineAsync(GenerationRequest request, string currentSvg, string instruction,
+                                       AiProvider provider, string apiKey, string model, CancellationToken ct);
+
     /// <summary>Generates a matching SET of controls — every type in <paramref name="types"/> with the
     /// SAME style inputs from <paramref name="baseRequest"/> (style, colours, effects, notes), run
     /// concurrently so the family stays visually consistent. Each returned item carries its own

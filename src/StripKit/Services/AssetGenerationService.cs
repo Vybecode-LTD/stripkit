@@ -26,7 +26,24 @@ public sealed class AssetGenerationService : IAssetGenerationService
     public IReadOnlyList<string> ModelsFor(AiProvider provider) =>
         _providers.TryGetValue(provider, out var p) ? p.SuggestedModels : Array.Empty<string>();
 
-    public async Task<GenerationResult> GenerateAsync(GenerationRequest request, AiProvider provider, string apiKey, string model, CancellationToken ct)
+    public Task<GenerationResult> GenerateAsync(GenerationRequest request, AiProvider provider, string apiKey, string model, CancellationToken ct) =>
+        RunAsync(request, BuildUserPrompt(request), provider, apiKey, model, ct);
+
+    public Task<GenerationResult> RefineAsync(GenerationRequest request, string currentSvg, string instruction,
+                                              AiProvider provider, string apiKey, string model, CancellationToken ct)
+    {
+        if (string.IsNullOrWhiteSpace(instruction))
+            return Task.FromResult(GenerationResult.Fail("Describe the change you want first."));
+        if (string.IsNullOrWhiteSpace(currentSvg))
+            return Task.FromResult(GenerationResult.Fail("There is no current SVG to refine."));
+        return RunAsync(request, BuildRefineUserPrompt(request, currentSvg, instruction), provider, apiKey, model, ct);
+    }
+
+    /// <summary>Shared call core: validate inputs, send the (system + user) prompts to the provider, and
+    /// reduce the reply to a clean SVG. The system prompt encodes the per-type structure; only the user
+    /// prompt differs between a fresh generate and a refine.</summary>
+    private async Task<GenerationResult> RunAsync(GenerationRequest request, string userPrompt,
+                                                  AiProvider provider, string apiKey, string model, CancellationToken ct)
     {
         if (!_providers.TryGetValue(provider, out var impl))
             return GenerationResult.Fail($"{provider} is not available.");
@@ -38,7 +55,7 @@ public sealed class AssetGenerationService : IAssetGenerationService
         string raw;
         try
         {
-            raw = await impl.CompleteAsync(BuildSystemPrompt(request), BuildUserPrompt(request), apiKey, useModel, ct);
+            raw = await impl.CompleteAsync(BuildSystemPrompt(request), userPrompt, apiKey, useModel, ct);
         }
         catch (GenerationException ge)
         {
@@ -55,7 +72,7 @@ public sealed class AssetGenerationService : IAssetGenerationService
 
         if (!SvgSanitizer.TryClean(raw, out var svg, out var error))
             return GenerationResult.Fail(
-                $"{error} The model may have added commentary or returned non-SVG — try Regenerate or a stronger model.",
+                $"{error} The model may have added commentary or returned non-SVG — try again or a stronger model.",
                 raw);
 
         return GenerationResult.Ok(svg, raw);
@@ -223,6 +240,19 @@ public sealed class AssetGenerationService : IAssetGenerationService
         else
             sb.AppendLine("Return the SVG with the drawing inside a single <g id=\"body\"> group.");
 
+        return sb.ToString();
+    }
+
+    /// <summary>The user prompt for a refine: hand the model the current SVG and the change to make,
+    /// telling it to keep the same structure/composition and return the complete revised SVG.</summary>
+    private static string BuildRefineUserPrompt(GenerationRequest r, string currentSvg, string instruction)
+    {
+        var sb = new StringBuilder();
+        sb.AppendLine($"Here is the current {ControlNoun(r.ComponentType)} SVG:");
+        sb.AppendLine(currentSvg.Trim());
+        sb.AppendLine();
+        sb.AppendLine($"Revise it with this change: {instruction.Trim()}.");
+        sb.AppendLine("Keep the same top-level group structure and the same overall composition — change only what the instruction asks. Return the COMPLETE revised SVG document only, no commentary.");
         return sb.ToString();
     }
 

@@ -266,6 +266,33 @@ public class GenerateViewModelTests
         finally { Cleanup(temps); }
     }
 
+    [Fact]
+    public async Task Refine_is_gated_then_updates_the_current_result()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubReply(gen, GenerationResult.Ok(LayeredKnobSvg));
+            vm.ApiKey = "sk-test";
+            await vm.GenerateCommand.ExecuteAsync(null);
+            vm.HasResult.Should().BeTrue(vm.StatusMessage);
+
+            vm.RefineCommand.CanExecute(null).Should().BeFalse("no instruction yet");
+
+            gen.RefineAsync(Arg.Any<GenerationRequest>(), Arg.Any<string>(), Arg.Any<string>(),
+                            Arg.Any<AiProvider>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+               .Returns(GenerationResult.Ok(LayeredKnobSvg));
+            vm.RefineInstruction = "thicker pointer";
+            vm.RefineCommand.CanExecute(null).Should().BeTrue();
+
+            await vm.RefineCommand.ExecuteAsync(null);
+
+            vm.HasResult.Should().BeTrue();
+            vm.RefineInstruction.Should().BeEmpty("cleared after a successful refine");
+        }
+        finally { Cleanup(temps); }
+    }
+
     // ---- matching set ----
 
     [Fact]

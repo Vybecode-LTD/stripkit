@@ -250,6 +250,13 @@
                         <Button Grid.Column="4" Content="Copy SVG" Click="OnCopySvg" IsEnabled="{Binding HasResult}" />
                     </Grid>
 
+                    <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding HasResult}">
+                        <TextBox Grid.Column="0" Text="{Binding RefineInstruction}"
+                                 Watermark="describe a change, e.g. thicker pointer, warmer accent"
+                                 ToolTip.Tip="Send the current SVG back to the model with this change — keeps the same structure, tweaks what you ask." />
+                        <Button Grid.Column="2" Content="Refine" Command="{Binding RefineCommand}" />
+                    </Grid>
+
                     <Button Content="Save set…" Classes="accent" HorizontalAlignment="Left" MinWidth="140"
                             IsVisible="{Binding HasSetResults}"
                             ToolTip.Tip="Save every generated control in the set to a folder as SVGs."
