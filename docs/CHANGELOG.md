@@ -1,66 +1,58 @@
 # CHANGELOG — StripKit
 
-> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
 ## [Unreleased]
 
+The biggest Generate-tab release yet: a full AI-generation workflow, plus meters and on/off toggles
+as first-class controls — and a security fix for SVG import.
+
 ### Website
-- **Generate meters too.** The Generate tab can now create **meters** (alongside knobs, faders,
-  sliders and buttons) — it produces an unlit + fully-lit pair and "Use in Create" wires them up so
-  the meter fills as the value rises.
-- **On/off toggle switches.** A new **Toggle** control type — generate switch-style on/off art,
-  import an off/on SVG/PSD straight into a toggle (auto-detected from the layer names), build one in
-  the Create tab, and export a latching toggle binding.
+- **Design a whole control set from one prompt.** The new **matching-set generator** makes a
+  consistent family — knob, fader, slider, meter, button, toggle — in a single click, all sharing your
+  style, colours and effects. A head start on a complete plugin skin.
+- **More ways to get the art you want.** **Variations** (several takes at once, pick the best),
+  **Refine** ("thicker pointer, warmer accent"), **Match a reference image** (describe a screenshot you
+  like), a **seeds library** of reusable style presets, and an **"avoid"** box.
+- **Use your own AI service.** A new **Custom** provider points StripKit at any OpenAI-compatible
+  endpoint — OpenRouter, or a local **Ollama / LM Studio** server — alongside Claude, OpenAI and Gemini.
+- **Generate meters and toggles too.** Meters (vertical *or* horizontal) and on/off toggle switches now
+  generate, import, and export just like knobs and buttons.
 
 ### Added
-- **Prompt seeds library.** Reusable named style bundles on the Generate tab — apply a built-in seed
-  (Vital/Serum modern, Vintage hardware, Minimal flat, Skeuomorphic metal, Neon glow) to prefill the
-  style/colours/effects, tweak, and save your own (persisted, deletable).
-- **Variations grid.** "Generate variations" produces several takes (2/4/6/8) of the selected control
-  at once, in a pick-the-best grid (same Use-in-Create / Save / Regenerate per item as the set).
-- **Custom AI endpoint.** A new "Custom" provider points the Generate tab at any OpenAI-compatible
-  chat-completions endpoint with Bearer auth — OpenRouter, a local Ollama / LM Studio server, etc.
-- **Refine.** Revise the current result with a plain-language instruction ("thicker pointer, warmer
-  accent") — sends the SVG back keeping the same structure.
-- **Match a reference image.** "Describe a reference image…" runs a screenshot through a vision model
-  and folds the style description into Extra direction (Claude / OpenAI / Gemini / compatible).
-- **Auto-retry + show-the-prompt.** A structurally weak first take (knob with no pointer; button /
-  toggle / meter missing a state) auto-regenerates once; a "Prompt to be sent" expander shows the exact
-  system + user prompt.
-- **Matching-set generator.** Pick the controls you want (knob / fader / slider / meter / button /
-  toggle) and **Generate set** produces the whole family in one go — every control generated
-  concurrently from the *same* style, colours, effects and avoid-list, so they look like a set. Each
-  result has its own preview with **Use in Create**, **Save**, and **Regenerate**; **Save set…** writes
-  them all to a folder. A head start on a full, consistent skin from a single prompt.
-- **"Avoid" field.** A free-text negative-direction box ("no text, no numbers, no photo-realism")
-  folded into every generation — single or set.
-- **Toggle control type.** A first-class on/off toggle, distinct from the (momentary/multi-state)
-  Button: rendered via the same discrete state-frame path, generated with a switch/rocker-style prompt
-  (`off`/`on` groups), code-exported as a latching toggle (JUCE `setClickingTogglesState`, iPlug2
-  `IBSwitchControl`), and mapped as `"toggle"` in `skin.json`. The Create tab lists it, the file
-  picker auto-detects off/on art as a toggle, and the Generate→Create handoff honours it.
-
-### Added
-- **Meter generation.** The Generate tab offers **Meter** as a control type. The prompt asks for a
-  tall portrait SVG with an unlit `<g id="off">` group and a fully-lit `<g id="on">` group spanning
-  the full height; the **Use in Create** handoff adopts `off` → meter background (drawn full) and
-  `on` → source (revealed up to the value), and squares the frame to the canvas. No renderer change —
-  it reuses the existing layered-meter reveal path.
-- **Horizontal meters.** A "Horizontal meter" option (shown when Meter is selected) generates a wide
-  landscape off/on pair; the handoff infers the fill direction from the art's aspect (wide → left→right,
-  tall → bottom→top), so hand-imported meters orient correctly too.
-- **Input-size guards.** `ImageLoadService` now rejects a decompression-bomb image (peeks the header
-  via `SKCodec`, caps at 64 MP); `LayeredImportService` caps raw SVG text (20 MB) and PSD canvas
-  (64 MP) before allocating.
+- **Matching-set generator.** Pick the control types and **Generate set** produces the whole family at
+  once — every control generated concurrently from the *same* style/colours/effects/avoid-list, in a
+  results grid with per-item **Use in Create**, **Save**, **Regenerate**, plus **Save set…** to a folder.
+- **Variations grid.** Generate several takes (2/4/6/8) of the selected control at once and pick the best.
+- **Refine.** Revise the current result with a plain-language instruction; the SVG goes back to the
+  model keeping its structure.
+- **Reference-image match (vision).** "Describe a reference image…" runs a screenshot through a vision
+  model (Claude / OpenAI / Gemini / compatible) and folds the style description into Extra direction.
+- **Prompt seeds library.** Reusable named style bundles — 5 built-ins (Vital/Serum modern, Vintage
+  hardware, Minimal flat, Skeuomorphic metal, Neon glow); save and reuse your own.
+- **Custom AI endpoint.** A "Custom" provider for any OpenAI-compatible chat-completions endpoint
+  (OpenRouter / Ollama / LM Studio) with Bearer auth and a saved base URL.
+- **"Avoid" field**, **auto-retry** on a structurally weak first take (knob with no pointer; button /
+  toggle / meter missing a state), and a **"Prompt to be sent"** expander showing the exact prompt.
+- **Toggle control type.** A first-class on/off toggle — distinct from the button — that generates
+  (switch-style off/on art), imports (auto-detected from off/on layer names), builds in the Create tab,
+  and code-exports a latching toggle (JUCE `setClickingTogglesState`, iPlug2 `IBSwitchControl`).
+- **Meter generation + horizontal meters.** The Generate tab makes meters as an unlit `off` + fully-lit
+  `on` pair (the handoff wires `off` → background, `on` → the revealed source); a "Horizontal meter"
+  option produces a wide left→right meter, with the fill direction inferred from the art's aspect.
 
 ### Fixed
 - **SVG file-import hardening (BUG-010).** A crafted `.svg` opened via the layered-file picker could
   trigger a "billion-laughs" entity-expansion DoS — the BUG-009 hardening ran *after* Svg.Skia had
   already parsed the raw text. `SafeXml.Parse` now runs first, so a DTD is rejected before the
   renderer's parser ever sees it (the AI-reply path was never affected).
+- **Input-size guards.** Decompression-bomb images are rejected on load (header dimensions peeked via
+  `SKCodec`, capped at 64 MP); imported SVG text is capped at 20 MB and PSD canvases at 64 MP.
+- **Control-type manifest mapping.** Buttons and toggles now map to `"button"` / `"toggle"` in
+  `skin.json` instead of silently falling through to `"knob"`.
 
 ## [1.2.2] — 2026-06-14
 
