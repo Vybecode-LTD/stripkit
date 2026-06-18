@@ -106,6 +106,8 @@ public partial class GenerateViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GenerateCommand))]
     [NotifyCanExecuteChangedFor(nameof(SaveKeyCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GenerateSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GenerateVariationsCommand))]
     private string _apiKey;
 
     [ObservableProperty] private string _model;
@@ -170,8 +172,13 @@ public partial class GenerateViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(GenerateSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GenerateVariationsCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelSetCommand))]
     private bool _isGeneratingSet;
+
+    /// <summary>How many takes "Generate variations" produces of the selected control.</summary>
+    public int[] VariationCounts { get; } = [2, 4, 6, 8];
+    [ObservableProperty] private int _variationCount = 4;
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveSetCommand))]
@@ -419,6 +426,60 @@ public partial class GenerateViewModel : ViewModelBase
         }
     }
 
+    private bool CanGenerateVariations() => !IsGeneratingSet && !string.IsNullOrWhiteSpace(ApiKey);
+
+    [RelayCommand(CanExecute = nameof(CanGenerateVariations))]
+    private async Task GenerateVariationsAsync()
+    {
+        _setCts?.Cancel();
+        _setCts?.Dispose();
+        _setCts = new CancellationTokenSource();
+        var ct = _setCts.Token;
+
+        IsGeneratingSet = true;
+        ClearSetResults();
+        _setRun++;
+        try
+        {
+            var model = (Model ?? "").Trim();
+            _settings.Settings.GenerateProvider = SelectedProvider;
+            (_settings.Settings.GenerateModels ??= new())[SelectedProvider.ToString()] = model;
+            _settings.Save();
+
+            var type = GenerateControlType;
+            var req = BuildBaseRequest() with { ComponentType = type, Layered = AssetGenerationService.IsLayeredType(type) };
+            SetStatus = $"Generating {VariationCount} {Humanize(type).ToLowerInvariant()} variations…";
+
+            var results = await _generation.GenerateVariationsAsync(req, VariationCount, SelectedProvider, ApiKey, model, ct);
+
+            var built = await Task.Run(() =>
+            {
+                var list = new List<GeneratedSetResult>(results.Count);
+                for (int i = 0; i < results.Count; i++)
+                    list.Add(BuildSetResult(new GenerationSetItem(type, results[i]), i, $"{Humanize(type)} #{i + 1}"));
+                return list;
+            }, ct);
+
+            foreach (var r in built) SetResults.Add(r);
+            HasSetResults = SetResults.Count > 0;
+
+            int ok = built.Count(r => r.IsSuccess);
+            SetStatus = $"Generated {ok}/{built.Count} variations — pick one with Use in Create, or Regenerate any.";
+        }
+        catch (OperationCanceledException)
+        {
+            SetStatus = "Variations cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SetStatus = $"Variations failed: {ex.Message}";
+        }
+        finally
+        {
+            IsGeneratingSet = false;
+        }
+    }
+
     private bool CanCancelSet() => IsGeneratingSet;
 
     [RelayCommand(CanExecute = nameof(CanCancelSet))]
@@ -511,9 +572,9 @@ public partial class GenerateViewModel : ViewModelBase
     /// <summary>Turns one generated set item into a bindable result: writes the SVG to its own temp file,
     /// imports it (validating the layer structure), and composites an at-rest preview. Pure CPU work —
     /// call it inside a <see cref="Task.Run(Action)"/>.</summary>
-    private GeneratedSetResult BuildSetResult(GenerationSetItem item, int index)
+    private GeneratedSetResult BuildSetResult(GenerationSetItem item, int index, string? labelOverride = null)
     {
-        var label = Humanize(item.ComponentType);
+        var label = labelOverride ?? Humanize(item.ComponentType);
         if (!item.Result.Success)
             return new GeneratedSetResult
             {

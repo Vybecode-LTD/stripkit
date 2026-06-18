@@ -76,6 +76,18 @@ public sealed class AssetGenerationService : IAssetGenerationService
         return await Task.WhenAll(tasks);
     }
 
+    public async Task<IReadOnlyList<GenerationResult>> GenerateVariationsAsync(
+        GenerationRequest request, int count, AiProvider provider, string apiKey, string model, CancellationToken ct)
+    {
+        // Several independent takes of the same request, concurrently — temperature/randomness in the
+        // provider makes each distinct. The shared HttpClient handles the parallel requests.
+        count = Math.Clamp(count, 1, 12);
+        var tasks = Enumerable.Range(0, count)
+            .Select(_ => GenerateAsync(request, provider, apiKey, model, ct))
+            .ToList();
+        return await Task.WhenAll(tasks);
+    }
+
     /// <summary>True for the control types whose generated art is a layered group structure
     /// (knob = body+pointer; button/toggle/meter = off/on). Faders/sliders are a single flat cap.</summary>
     internal static bool IsLayeredType(ComponentType t) =>

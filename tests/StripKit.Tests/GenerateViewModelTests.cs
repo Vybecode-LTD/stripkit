@@ -63,6 +63,17 @@ public class GenerateViewModelTests
                return Task.FromResult(items);
            });
 
+    // Stubs GenerateVariationsAsync to return `count` successful takes carrying the given SVG.
+    static void StubVariations(IAssetGenerationService gen, string svg) =>
+        gen.GenerateVariationsAsync(Arg.Any<GenerationRequest>(), Arg.Any<int>(),
+                                    Arg.Any<AiProvider>(), Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+           .Returns(ci =>
+           {
+               int count = ci.ArgAt<int>(1);
+               IReadOnlyList<GenerationResult> r = Enumerable.Range(0, count).Select(_ => GenerationResult.Ok(svg)).ToList();
+               return Task.FromResult(r);
+           });
+
     [Fact]
     public void Generate_is_gated_on_a_present_api_key()
     {
@@ -313,6 +324,27 @@ public class GenerateViewModelTests
 
             handedPath.Should().Be(knob.SvgPath).And.NotBeNull();
             handedType.Should().Be(ComponentType.RotaryKnob, "each set member hands off as its own type");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task Generate_variations_fills_the_grid_with_takes_of_the_selected_type()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubVariations(gen, LayeredKnobSvg);
+            vm.ApiKey = "sk-test";
+            vm.GenerateControlType = ComponentType.RotaryKnob;
+            vm.VariationCount = 4;
+
+            await vm.GenerateVariationsCommand.ExecuteAsync(null);
+
+            vm.SetResults.Should().HaveCount(4);
+            vm.SetResults.Should().OnlyContain(r => r.ComponentType == ComponentType.RotaryKnob);
+            vm.SetResults.Select(r => r.Label).Should().Contain("Knob #1").And.Contain("Knob #4");
+            vm.HasSetResults.Should().BeTrue();
         }
         finally { Cleanup(temps); }
     }

@@ -33,4 +33,10 @@ public interface IAssetGenerationService
     /// fader/slider = a single cap).</summary>
     Task<IReadOnlyList<GenerationSetItem>> GenerateSetAsync(GenerationRequest baseRequest, IReadOnlyList<ComponentType> types,
                                                             AiProvider provider, string apiKey, string model, CancellationToken ct);
+
+    /// <summary>Generates several independent takes of the SAME control (the same <paramref name="request"/>)
+    /// concurrently, so the user can pick the best. Each result carries its own success/error; one
+    /// failure does not sink the rest. Cancellation propagates.</summary>
+    Task<IReadOnlyList<GenerationResult>> GenerateVariationsAsync(GenerationRequest request, int count,
+                                                                 AiProvider provider, string apiKey, string model, CancellationToken ct);
 }

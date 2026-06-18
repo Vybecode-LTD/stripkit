@@ -129,6 +129,15 @@
                     </Grid>
                     <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsGenerating}" Margin="0,8,0,0" />
 
+                    <Grid ColumnDefinitions="*,8,Auto" Margin="0,6,0,0">
+                        <Button Grid.Column="0" Content="Generate variations" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Generate several takes of the selected control at once, then pick your favourite."
+                                Command="{Binding GenerateVariationsCommand}" />
+                        <ComboBox Grid.Column="2" MinWidth="64"
+                                  ItemsSource="{Binding VariationCounts}" SelectedItem="{Binding VariationCount}"
+                                  ToolTip.Tip="How many takes to generate." />
+                    </Grid>
+
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,8,0,8"
                                Text="Each Generate is a new attempt — regenerate until you like it. Your key stays encrypted on this PC." />
 

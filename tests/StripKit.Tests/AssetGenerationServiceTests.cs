@@ -169,6 +169,19 @@ public class AssetGenerationServiceTests
     }
 
     [Fact]
+    public async Task GenerateVariationsAsync_returns_the_requested_number_of_takes()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredKnob);
+        var svc = new AssetGenerationService([fake]);
+
+        var results = await svc.GenerateVariationsAsync(new GenerationRequest { ComponentType = ComponentType.RotaryKnob },
+                                                        5, AiProvider.Claude, "KEY", "", default);
+
+        results.Should().HaveCount(5);
+        results.Should().OnlyContain(r => r.Success);
+    }
+
+    [Fact]
     public async Task A_toggle_prompt_asks_for_off_on_switch_groups()
     {
         var fake = new FakeProvider(AiProvider.Claude, () => LayeredToggle);
