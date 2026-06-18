@@ -1,8 +1,44 @@
 # AUDIT-LOG — StripKit
 
-> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-06-18 — v1.3.0: AI-generation program + meters/toggles + security hardening + full reconcile
+
+**Type:** Audit-driven fix + large feature wave + release + documentation reconciliation.
+
+**Scope:** Began as a codebase scan that surfaced a security defect (BUG-010), then grew into the
+v1.3.0 feature wave (meters & toggles in Generate, and the full AI-generation program), followed by a
+reconcile of every managed doc from 1.2.2 → **1.3.0 / 2026-06-18** and the release.
+
+### Ground truth verified (against the codebase)
+- Suite **216 green**, build 0/0 (was 172 at v1.2.2).
+- `ComponentType` has six members incl. **Toggle**; the renderer + `FilmstripEngine.cs` route Toggle
+  through the Button state-frame path.
+- `AiProvider` has **Custom**; `CustomOpenAiProvider` subclasses `OpenAiProvider` overriding only the
+  endpoint URL (from `AppSettings.GenerateCustomBaseUrl`); registered in `App.axaml.cs` DI.
+- `IAssetGenerationService` exposes `GenerateAsync` / `GenerateSetAsync` / `GenerateVariationsAsync` /
+  `RefineAsync` / `DescribeReferenceAsync` / `BuildPrompts`; `IAssetGenerationProvider` adds
+  `DescribeImageAsync` (vision) implemented per provider.
+- `LayeredImportService.ImportSvg` runs `SafeXml.Parse` before `Svg.Skia.FromSvg` (BUG-010); input-size
+  caps present in `ImageLoadService` (SKCodec / 64 MP) and `LayeredImportService` (20 MB SVG / 64 MP PSD).
+- `GenerationSeedLibrary.BuiltIn` has 5 seeds; `AppSettings` has `GenerateSeeds` + `GenerateCustomBaseUrl`.
+- New tests present: `ToggleRenderTests`, `ImageLoadServiceTests`, `CustomOpenAiProviderTests`, `VisionProviderTests`.
+
+### Commits this wave
+`940b60f` BUG-010 (DTD before Svg.Skia) · `97fb22d` input-size caps + FilmstripEngine version comment ·
+`c9ca3ef` persist the prior orphaned v1.2.2 doc reconcile · `d846686` meter generation · `72dcc46`
+horizontal meters · `c0a60af` Toggle type · `5d07923` matching-set + avoid · `bfcbba5` variations ·
+`ef13091` custom endpoint · `70cedce` refine · `b4dd7e1` vision reference · `6e3f800` auto-retry +
+show-prompt · `f3c0f4a` prompt seeds library · + the doc reconcile + release commits.
+
+### Reconciliation
+Stamped CLAUDE.md, ARCHITECTURE, SOURCE_MAP, ROADMAP, KICKOFF, TESTING, BUGS, CHANGELOG, AUDIT-LOG to
+**1.3.0 / 2026-06-18**; brought the Generate-tab descriptions, the six component types, the test
+inventory (216), and the new files current. BUG-010 logged in BUGS.md.
 
 ---
 

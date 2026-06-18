@@ -1,6 +1,6 @@
 # KICKOFF — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 >
 > **Authoritative current state: `docs/HANDOFF.md` + `CLAUDE.md`.** This paste-in prompt can
 > lag a release — trust those two for "where things stand" and "the next task."
@@ -16,12 +16,14 @@
 
 You are picking up **StripKit**, a shipped C#/Avalonia 11 desktop tool that turns
 transparent PNGs into animated control filmstrips — rotary knobs (incl. **layered
-base + pointer**), vertical faders, horizontal sliders, meters, and **buttons** (discrete
-on/off state frames). It is a **five-tab** app — **Create** (make a strip), **Import**
-(re-slice / re-stack / **resample**), **Batch** (a whole folder), **Skin** (assemble a
-multi-control `skin.json`), and **Generate** (AI-generate layered control art from your own
-OpenAI / Gemini / Claude key, then hand it to Create) — and can also emit ready-to-paste
-loader code (JUCE / CSS-HTML / iPlug2 / HISE).
+base + pointer**), vertical faders, horizontal sliders, meters (incl. **horizontal**), and
+**buttons / toggles** (discrete on/off state frames). It is a **five-tab** app — **Create**
+(make a strip), **Import** (re-slice / re-stack / **resample**), **Batch** (a whole folder),
+**Skin** (assemble a multi-control `skin.json`), and **Generate** (AI-generate layered control
+art from your own OpenAI / Gemini / Claude key — or an **OpenAI-compatible custom endpoint**
+(OpenRouter / Ollama / LM Studio) — then hand it to Create; the tab also does **matching sets**,
+**variations grids**, **refine**, **reference-image / vision match**, and a **prompt seeds
+library**) — and can also emit ready-to-paste loader code (JUCE / CSS-HTML / iPlug2 / HISE).
 
 **Before doing anything, read `CLAUDE.md`, `docs/SOURCE_MAP.md`, and
 `docs/ARCHITECTURE.md` in full**, then `docs/HANDOFF.md` for the current state and
@@ -32,22 +34,24 @@ plus the globally-installed skills named in `CLAUDE.md`.
 
 ### Current state — shipped product, not a scaffold
 
-The planned roadmap (Phases 0–8) is **complete**, and **v1.2.0 has shipped** (signed, the latest
-public GitHub Release); **v1.2.1 is staged on the working tree** (its fixes sit under
-`## [Unreleased]` in `docs/CHANGELOG.md`). Done: ✅ verify · ✅ drag-and-drop · ✅ importer (Import
+The planned roadmap (Phases 0–8) is **complete**, and **v1.3.0 has shipped** (signed, the latest
+public GitHub Release). Done: ✅ verify · ✅ drag-and-drop · ✅ importer (Import
 tab, incl. **frame-count resampling**) · ✅ manifest export · ✅ golden-image tests · ✅ batch (Batch
-tab, incl. **meter settings + layered/backdrop toggle**) · ✅ meter · ✅ packaging (Inno Setup +
-release pipeline) · ✅ landing-page website · ✅ **value-arc / fill-ring** · ✅ **code / component
-export** (JUCE/CSS/iPlug2/HISE) · ✅ **Skin tab** (multi-control `skin.json`) · ✅ ★ **layer-aware
-knob — all 3 steps** (base + pointer + **auto-extract** + **layered PSD/SVG import**) · ✅
-**Getting Started tutorial** (per-tab, auto-open first run) · ✅ **Generate tab** (AI SVG art,
-DPAPI-encrypted keys) · ✅ **buttons + all-control-type generation** (`ComponentType.Button` +
-`LayerBehavior.Frame`). `dotnet build` is 0/0 and `dotnet test` is **171/171 green**. Establish
-that baseline first:
+tab, incl. **meter settings + layered/backdrop toggle**) · ✅ meter (incl. **horizontal**) ·
+✅ packaging (Inno Setup + release pipeline) · ✅ landing-page website · ✅ **value-arc / fill-ring** ·
+✅ **code / component export** (JUCE/CSS/iPlug2/HISE) · ✅ **Skin tab** (multi-control `skin.json`) ·
+✅ ★ **layer-aware knob — all 3 steps** (base + pointer + **auto-extract** + **layered PSD/SVG
+import**) · ✅ **Getting Started tutorial** (per-tab, auto-open first run) · ✅ **Generate tab** (AI
+SVG art, DPAPI-encrypted keys) · ✅ **all-control-type generation** (`ComponentType.Button` +
+`ComponentType.Toggle` + `LayerBehavior.Frame`; knob/fader/slider/button/toggle/meter) · ✅ **the
+full AI-generation program** (matching sets, variations grid, refine, reference-image / vision
+match, prompt seeds library, "avoid" field, auto-retry, show-the-prompt, **OpenAI-compatible custom
+endpoint**) · ✅ **input hardening** (BUG-010 SVG billion-laughs DoS fixed + PNG/SVG/PSD size caps).
+`dotnet build` is 0/0 and `dotnet test` is **216/216 green**. Establish that baseline first:
 
 ```bash
 dotnet build StripKit.sln -c Debug   # expect 0/0
-dotnet test                          # expect 171/171
+dotnet test                          # expect 216/216
 ```
 
 If red, fix that before anything else.
@@ -94,22 +98,24 @@ recovered in `b55380f`).
 
 ### Open work — next feature + maintenance
 
-**Primary next task: ship v1.2.1** — its fixes are staged under `## [Unreleased]` (Generate→Create
-handoff honours the generated control type; untrusted-SVG XML parse hardened via `SafeXml`;
-`BindingPlugins.DataValidators.RemoveAt(0)` + a Generate structure warning). Run the pipeline above.
-
-Then (see `docs/ROADMAP.md` + `docs/HANDOFF.md`):
+v1.3.0 is **shipped**; there is no release in flight. Pick up from the backlog (see `docs/ROADMAP.md`
++ `docs/HANDOFF.md`):
 - **Website "Getting started" how-to guide** at `stripkit.pro/getting-started/` (P2) — the in-app
   tutorial's web mirror (separate `StripKit-Website` repo).
-- **Generate: fader / slider / meter polish** — all five control types are Generate targets now
-  (meters generate as an off/on pair → background + revealed source), but the linear/meter generation
-  paths want a live eyeball + prompt tuning (knob is the proven path).
+- **Generate: fader / slider / meter live-eyeball + prompt-tuning pass** — all six control types are
+  Generate targets now (meters generate as an off/on pair → background + revealed source, incl.
+  horizontal), but the linear/meter generation paths still want a live eyeball + prompt tuning with a
+  real API key (knob is the proven path).
 - **More code-export targets** — React / Web Component, Unity / Godot (extend `CodeTarget`
   + a generator + tests; `CodeSnippetService` is built to grow).
 - **Translate / opacity-ramp layer behaviours** — a *renderer* increment (touches
   `SkiaFilmstripRenderer` + the `FilmstripEngine.cs` mirror), unlocking faders/fades for layered import.
-- **`actions/checkout@v4 → v5`** in both workflows (CI warns on Node-20 deprecation).
+- **Seeds → matching set → auto-assemble a Skin** end-to-end flow — chain the prompt-seeds library +
+  matching-set generator into the Skin tab so one prompt yields a ready `skin.json`.
+- **Azure OpenAI auth (`api-key` header)** for the OpenAI-compatible custom endpoint.
 - **Meter peak-hold / stereo** (P3).
+- **Decide on the untracked strays** — `docs/PRESS-RELEASE.md`, `press/`, `.claude/launch.json`
+  (commit, ignore, or remove).
 
 ### Already-resolved decisions
 
@@ -119,7 +125,9 @@ Then (see `docs/ROADMAP.md` + `docs/HANDOFF.md`):
   default + continuous toggle.
 - Layered import: **both SVG + PSD** (Svg.Skia / MIT + Magick.NET-Q8 / Apache-2.0), Static/Rotate/Frame
   behaviours, auto-guess by name + manual override.
-- Generate: **all three providers** behind one interface, **layered** output, **DPAPI-encrypted** keys,
-  **all four control types** (knob/fader/slider/button).
+- Generate: **all three providers** behind one interface (plus an **OpenAI-compatible custom
+  endpoint** — OpenRouter / Ollama / LM Studio), **layered** output, **DPAPI-encrypted** keys, **all
+  six control types** (knob/fader/slider/button/toggle/meter), and the full generation program
+  (matching sets, variations, refine, reference-image / vision, prompt seeds).
 - Packaging: **Inno Setup** + a CI release pipeline + website download (Velopack was removed);
   **code-signed** via Azure Trusted Signing.

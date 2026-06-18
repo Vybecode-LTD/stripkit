@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (172 tests)
+dotnet test                                      # whole suite (216 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **172 passed / 0 failed / 0 skipped** (~1.0 s).
+Current status: **216 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,30 +45,50 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (172)
+## Test inventory (216)
 
-### Generate tab (AI SVG generation) — 28 + integration
-The networked, non-deterministic feature is covered without ever hitting a network:
-- `SvgSanitizerTests.cs` — 6: carve the SVG out of a fenced/chatty reply; strip
+### Generate tab (AI SVG generation) — 72 + integration
+The networked, non-deterministic feature is covered without ever hitting a network: every AI
+feature is unit-tested with a mocked `IAssetGenerationService` + a *real* importer + a fake
+provider/`HttpMessageHandler` (no real network, no real keys). Vision payloads are verified by
+capturing the outgoing request body's shape.
+- `SvgSanitizerTests.cs` — 8: carve the SVG out of a fenced/chatty reply; strip
   script/`<image>`/`<foreignObject>`/event-handlers/off-document `href`; keep local `#id`
   refs; reject non-SVG and malformed XML (incl. a DTD — `SafeXml` prohibits it).
 - `SecretStoreTests.cs` — 4: per-provider set/get round-trip, persistence across instances,
   blank-clears / clear-removes, and that the on-disk file never contains the plaintext key.
-- `AssetGenerationProviderTests.cs` — 5: each provider against a fake `HttpMessageHandler` —
+- `AssetGenerationProviderTests.cs` — 12: each provider against a fake `HttpMessageHandler` —
   the right URL, auth header, and body go out and the right field parses back; a 401 becomes a
   friendly `GenerationException` carrying the API's message; identity + default model.
-- `AssetGenerationServiceTests.cs` — 6: a chatty reply reduces to a clean SVG that round-trips
+- `AssetGenerationServiceTests.cs` — 20: a chatty reply reduces to a clean SVG that round-trips
   the real importer as tagged body/pointer layers; the prompt encodes the conventions + model
-  fallback; failure paths (no SVG, provider error, missing key); provider display order.
-- `GenerateViewModelTests.cs` — 6: key gating, per-provider key save/reload, the success path
+  fallback; **meter** and **toggle** prompts (off/on groups, switch vs push, full-height/-width),
+  a **horizontal meter** (landscape canvas, left-to-right), the **avoid** field folded into the
+  user prompt, `BuildPrompts`, the body-colour + effect flags in the prompt; the multi-control
+  `GenerateSetAsync` (one result per type, in order, **with a per-item failure isolated**),
+  `GenerateVariationsAsync` (N takes), `RefineAsync` (current SVG + instruction handed back; an
+  empty instruction is rejected), `DescribeReferenceAsync` (vision description; fails cleanly
+  without a key); failure paths (no SVG, provider error, missing key); provider display order.
+- `CustomOpenAiProviderTests.cs` — 3: the OpenAI-compatible **custom endpoint** — a bare base URL
+  is normalised to `…/chat/completions` (a full path is left as-is), Bearer auth, and a missing
+  base URL fails with a friendly `GenerationException`. Only the network is faked.
+- `VisionProviderTests.cs` — 3: per-provider **vision** request shape — Claude sends a base64
+  `image` block, OpenAI an `image_url` data URI, Gemini `inline_data` — and each reads the text
+  description back. The outgoing request body is captured and asserted.
+- `GenerateViewModelTests.cs` — 21: key gating, per-provider key save/reload, the success path
   (import-validated + Create handoff fires with a real temp SVG), the two failure paths, and that
   **a custom/delisted model id (not in the suggestions) is sent verbatim** rather than dropped to a
-  suggestion (`A_custom_model_id_not_in_the_suggestions_is_honored` — the editable `AutoCompleteBox`
-  model field, +1 this wave).
+  suggestion (the editable `AutoCompleteBox` model field); the colour/effect/control-type fields
+  reaching the `GenerationRequest`; **meter** and **toggle** requested as layered off/on pairs; the
+  **auto-retry** of a structurally-weak knob (a no-pointer take retried once; a well-formed knob is
+  not); **refine** (gated on an instruction, then updates the result); **prompt seeds** (built-in
+  library, apply, save/persist/reload/delete, built-ins are read-only); the **matching set**
+  (gated on a key + ≥1 type, one result per included type, per-item Use-in-Create handoff) and
+  **variations** (the grid fills with N takes of the selected type).
 - `GenerateViewTests.cs` — 1: headless realization of `GenerateView` (compiled bindings,
   design tokens, the reveal binding, the colour-swatch buttons, the `AutoCompleteBox` model field,
   and the `StringConverters` usage all load at runtime).
-- `GenerateIntegrationTests.cs` — the end-to-end Generate→import path per control type: a
+- `GenerateIntegrationTests.cs` — 2: the end-to-end Generate→import path per control type: a
   generated knob round-trips as body/pointer layers, a generated **button** maps its `off`/`on`
   groups to `LayerBehavior.Frame` state layers, and the Generate→Create handoff carries the
   generated control type (no longer hard-forced to `RotaryKnob`).
@@ -113,6 +133,19 @@ off-only frame shows the off layer, the on frame shows the on layer, a shared St
 on both) and end-to-end via `GenerateIntegrationTests` (a generated button's `off`/`on` groups
 become Frame layers). The path is also mirrored in `FilmstripEngine.cs`.
 
+### `ToggleRenderTests.cs` — 1 (toggle state-frame renderer)
+A **Toggle** is its own `ComponentType` but renders exactly like a 2-state Button — it reuses the
+Button state-frame path, so the renderer goldens are unchanged.
+- `Frame_0_shows_the_off_state_and_frame_1_shows_the_on_state` — pixel-logic: the off
+  (dark) `Frame` layer shows only on frame 0 and the on (lit) layer only on frame 1.
+
+### `ImageLoadServiceTests.cs` — 3 (concrete PNG decode path)
+The real `ImageLoadService` decode used across the app: it peeks header dimensions via `SKCodec`
+and guards against a decompression-bomb (huge dimensions) before decoding.
+- `Decodes_a_valid_png_at_its_real_dimensions` (a control-art PNG decodes to its real size).
+- `Returns_null_for_a_missing_file`.
+- `Returns_null_for_non_image_content` (a file with no decodable header).
+
 ### `PointerExtractorTests.cs` — 3 (auto-pointer extraction, pure SkiaSharp)
 Splitting a flat knob into a symmetric base + the indicator via the radial-symmetry residual.
 - `Extract_splits_a_flat_knob_into_a_symmetric_body_and_the_indicator` (the white indicator
@@ -121,7 +154,7 @@ Splitting a flat knob into a symmetric base + the indicator via the radial-symme
 - `Extract_returns_null_for_a_missing_image`.
 - `A_plain_symmetric_disc_yields_an_essentially_empty_pointer` (nothing to extract).
 
-### `LayeredImportServiceTests.cs` — 8 (layered PSD/SVG import, ★ #3 step 3)
+### `LayeredImportServiceTests.cs` — 10 (layered PSD/SVG import, ★ #3 step 3)
 Parsing a real layered source into the renderer's layer stack. Fixtures are synthesized in memory
 (an SVG string; a PSD written by Magick.NET) so no binary assets live in the repo.
 - SVG: groups → named, behaviour-guessed layers; layers isolated + registered on the canvas; a
@@ -133,9 +166,15 @@ Parsing a real layered source into the renderer's layer stack. Fixtures are synt
 - SVG parsing goes through `SafeXml` — a DTD-bearing document is rejected as malformed (no entity
   expansion).
 
-### `LayeredImportViewModelTests.cs` — 4 (the Create-tab import command)
+### `LayeredImportViewModelTests.cs` — 11 (the Create-tab import command + the type-aware handoff)
 - Importing an SVG populates tagged rows (body=Static, pointer=Rotate), forces the knob type,
   squares the frame, and gates the UI (`ShowLoadHint` off, `ExportCommand` enabled).
+- The **type-aware Generate→Create handoff** (`ImportLayeredFromPathAsync(path, type)`): a button
+  arrives as a **Button** with off/on `Frame` state frames; a **toggle** arrives as its own type
+  (`IsStateFrames`, off/on Frame layers, frame count 2); an off/on file via the **picker
+  auto-detects a toggle**; a **meter** routes `off`→background, `on`→source (a meter is a
+  source+background pair, not a layer stack) and reads orientation from the art's **aspect**
+  (tall → fill Up, wide → LeftToRight); a fader/slider **cap flattens to a single source** (Theory).
 - Loading a base layer clears an active import (the two layered modes are mutually exclusive).
 - Clearing the import drops the layers + preview.
 - Exporting feeds the rows to the renderer as `Layers` + index-matched `layerArt`, and a per-layer
@@ -155,7 +194,7 @@ corrupt file (settings are best-effort and never crash the app).
 - Next advances and finishes on the last step (label becomes "Done"); Back is disabled on step 1.
 - Step 1 offers the sample and "Load sample knob" raises `LoadSampleRequested`.
 
-### `LoadPathTests.cs` — 12 (`MainWindowViewModel`, NSubstitute)
+### `LoadPathTests.cs` — 13 (`MainWindowViewModel`, NSubstitute)
 The shared Create-tab load path (used by both the button and drag-drop), the knob-alignment
 auto-centring it performs on load, the layered base/pointer slots, the auto-extraction, and the
 tutorial's sample-knob load (`IAssetService` → `LoadSourceFromPath`).
@@ -181,13 +220,15 @@ Unit tests for `ContentAnalysis.DetectContentCenter`, which backs the alignment 
 - `Fully_transparent_falls_back_to_half`.
 - `Null_bitmap_falls_back_to_half`.
 
-### `AlignmentRenderTests.cs` — 2 (renderer, content-centre pivot)
+### `AlignmentRenderTests.cs` — 3 (renderer, content-centre pivot)
 Proves the alignment fix: pivoting on the detected content centre keeps an off-centre
 knob spinning in place instead of orbiting.
 - `Pivoting_on_content_centre_keeps_an_offcenter_knob_spinning_in_place` — content
   centre stays on the frame centre across the sweep.
+- `Centering_on_content_places_an_offcenter_knob_at_the_frame_centre` — the centred knob
+  is genuinely positioned at the frame centre (not just spun in place off to one side).
 - `Without_centering_the_offcenter_knob_orbits` — sanity guard: the (0.5, 0.5) default
-  orbits, so the test above genuinely exercises the fix.
+  orbits, so the tests above genuinely exercise the fix.
 
 ### `DropZoneViewTests.cs` — 1 (`[AvaloniaFact]`, headless)
 - `Preview_border_opts_into_file_drops` — builds `MainWindow`, asserts
@@ -226,13 +267,16 @@ The Skin tab's multi-control manifest builder.
 - `Export_builds_a_manifest_with_every_control_and_the_globals` (all controls + skin metadata
   reach `BuildManifest`; the file is written as `<name>.skin.json`).
 
-### `CodeSnippetServiceTests.cs` — 15 (code/component export)
+### `CodeSnippetServiceTests.cs` — 18 (code/component export)
 Per-target loader-code generation (`CodeSnippetService`), all pure string assertions.
 - JUCE: knob → a rotary `LookAndFeel`; fader → a linear `LookAndFeel`; meter → a
-  `Component` with `setLevel`; the source rect follows the stack axis.
+  `Component` with `setLevel`; **toggle** → a latching `juce::Button`
+  (`setClickingTogglesState(true)`, `getToggleState() ? 1 : 0`) and a button/toggle differ
+  only in the class name; the source rect follows the stack axis.
 - CSS/HTML: a `<style>`+`<script>` sprite with a value setter; the axis and the HiDPI
   `@media` block follow the inputs.
-- iPlug2: knob → `IBKnobControl`; fader → `IBSliderControl` with the right `EDirection`.
+- iPlug2: knob → `IBKnobControl`; fader → `IBSliderControl` with the right `EDirection`;
+  **toggle** → `IBSwitchControl`.
 - HISE: a `ScriptPanel` paint routine (`loadImage` + `setPaintRoutine`).
 - Identifiers are sanitised; `FileName` maps each target (Theory, 4 rows); `SaveAsync`
   writes the snippet to disk matching `Generate`.
@@ -296,12 +340,17 @@ without rendering). `[AvaloniaFact]` tests run on the headless UI thread.
 - **Preview rendering through `ToAvaloniaBitmap` is not asserted** in VM tests (it
   needs a UI platform; tests force the render/extract to throw so the swallowed
   preview path is skipped and load *state* is asserted). The importer's extraction is
-  pixel-tested directly. (The Generate tab's preview build moved off-thread into
-  `BuildPreview` in v1.2.2 — still a UI-platform concern, so the VM tests assert the
-  generated SVG / handoff state rather than the rendered bitmap.)
-- **Live AI generation is never hit.** The providers are tested against a fake
-  `HttpMessageHandler`; a real key + a real model call is a manual smoke test (and the
-  Generate fader/slider/meter output paths want a live eyeball — knob is the proven path).
+  pixel-tested directly. The Generate tab's preview build runs off-thread in
+  `BuildPreview` — still a UI-platform concern, so the Avalonia preview bitmap can't
+  render under a plain unit test (best-effort null) and the VM tests assert the generated
+  SVG / handoff state rather than the rendered bitmap.
+- **Live AI generation is never hit.** Every AI feature is exercised through a mocked
+  `IAssetGenerationService` + a *real* importer + a fake provider/`HttpMessageHandler`
+  (vision payloads verified by capturing the outgoing request body shape) — but a real key
+  + a real model call is never made, so it stays a manual smoke test. The new meter/toggle
+  and AI-generated art **quality** can't be judged by the suite (the renderer goldens are
+  unchanged because Toggle reuses Button's path; the AI reply is faked), so the
+  meter/toggle/AI art output still wants a manual eyeball — knob is the longest-proven path.
 - **No coverage threshold is enforced** yet (coverlet `6.0.4` is wired; a gate can be
   added with a CI step).
 - **`FilmstripEngine.cs`** (the standalone portable renderer) is not under test — it

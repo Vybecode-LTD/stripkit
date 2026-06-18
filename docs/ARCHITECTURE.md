@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 >
 > The deep, file-and-flow reference for how the **StripKit desktop app** is built.
 > `docs/SOURCE_MAP.md` says *where* things live; this says *how and why* they work.
@@ -13,12 +13,14 @@
 
 StripKit turns a single transparent PNG into an animated **control filmstrip**
 (sprite sheet) for audio-plugin GUIs — rotary knobs, vertical faders, horizontal
-sliders, and **meters** — and the reverse: it **imports** an existing strip, detects
-its layout, and extracts/re-stacks it. It can also emit a **`skin.json` manifest**
+sliders, **meters**, **buttons**, and **toggles** — and the reverse: it **imports** an existing
+strip, detects its layout, and extracts/re-stacks it. It can also emit a **`skin.json` manifest**
 that binds a strip to a plugin parameter for a data-driven skinning engine / JUCE
 `LookAndFeel`, and it can render a **whole folder** of sources in one batch run. When you have no
-source art at all, it can **generate** one with your own OpenAI / Gemini / Claude key — a layered
-knob SVG that flows straight into the same pipeline (§11).
+source art at all, it can **generate** one with your own OpenAI / Gemini / Claude / OpenAI-compatible
+key — a layered control SVG (knob, button, toggle, fader/slider cap, or meter) that flows straight
+into the same pipeline; it can also generate a **matching set** or **variations**, **refine** an
+existing SVG, and **match a reference image** (§11).
 
 The output PNG is consumed by a filmstrip loader that shows **one frame per parameter
 value** (frame 0 = minimum, frame N−1 = maximum).
@@ -84,7 +86,7 @@ owns a `Window` for the storage pickers).
 
 | File | Purpose |
 |------|---------|
-| `ComponentType.cs` | enum `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`, `Button` (discrete on/off state frames). |
+| `ComponentType.cs` | enum `RotaryKnob`, `VerticalFader`, `HorizontalSlider`, `Meter`, `Button` (discrete on/off state frames), `Toggle` (an on/off switch — distinct control, but rendered via the same discrete state-frame path as `Button`). |
 | `StackDirection.cs` | enum `Vertical`, `Horizontal`. |
 | `MeterFillDirection.cs` | enum `Up`, `Down`, `LeftToRight`, `RightToLeft` (meter fill axis). |
 | `FrameTransform.cs` | `readonly record struct`: per-frame placement in **1× frame units** — `TranslateX/Y`, `DrawWidth/Height`, `RotateDegrees`, `PivotX/Y`. The renderer multiplies these by the working pixel scale. |
@@ -93,7 +95,7 @@ owns a `Window` for the storage pickers).
 | `SkinManifest.cs` | `SkinManifest` / `ManifestControl` / `ManifestBounds` records — the `skin.json` schema (see §9). |
 | `BatchModels.cs` | `BatchOptions`, `BatchProgress`, `BatchItemResult`, `BatchResult` — batch run inputs / progress / outcome (see §8). |
 | `CodeModels.cs` | `CodeTarget` enum + `CodeSnippetRequest` record — inputs for the code-export service (§9.1). |
-| `RenderLayer.cs` | `LayerBehavior` enum (`Static`, `Rotate`, `Frame`) + `RenderLayer` (behaviour + a normalized per-layer pivot) — the layered-knob / button model (§5.6, §5.7). `Frame` = shown only on the frame whose index matches the layer's index (button off/on state art). Skia-free; the layer's bitmap is passed alongside to the renderer. |
+| `RenderLayer.cs` | `LayerBehavior` enum (`Static`, `Rotate`, `Frame`) + `RenderLayer` (behaviour + a normalized per-layer pivot) — the layered-knob / button / toggle model (§5.6, §5.7). `Frame` = shown only on the frame whose index matches the layer's index (button/toggle off/on state art). Skia-free; the layer's bitmap is passed alongside to the renderer. |
 
 #### 3.1.1 `FilmstripSettings` fields (the render contract)
 
@@ -113,20 +115,20 @@ owns a `Window` for the storage pickers).
 | `IFilmstripRenderer` / `SkiaFilmstripRenderer` | **the heart**: `ComputeTransform`, `RenderFrame`, `RenderStrip` (+ private `RenderMeterFrame`). | No |
 | `ContentAnalysis` (static) | `DetectContentCenter` — pixel analysis backing the alignment tools (§7). | No |
 | `PointerExtractor` (static) | `Extract` — splits a flat knob into a base + pointer via the radial-symmetry residual (§6.7). Returns a `PointerExtractionResult` (base, pointer, confidence). | No |
-| `ILayeredImportService` / `LayeredImportService` | `Import` — parse a layered `.svg` (Svg.Skia) / `.psd`/`.psb` (Magick.NET) into named, behaviour-tagged, canvas-registered layers (§6.8). Returns a `LayeredImportResult` (`ImportedLayer[]` + canvas size). | No |
+| `ILayeredImportService` / `LayeredImportService` | `Import` — parse a layered `.svg` (Svg.Skia) / `.psd`/`.psb` (Magick.NET) into named, behaviour-tagged, canvas-registered layers (§6.8). Returns a `LayeredImportResult` (`ImportedLayer[]` + canvas size). Hardened: `SafeXml.Parse` runs **before** `Svg.Skia.FromSvg` (BUG-010), and inputs are capped (SVG text ≤ 20 MB, PSD canvas ≤ 64 MP) so a malicious file can't exhaust memory. | No |
 | `IFilmstripImporter` / `FilmstripImporter` | `Detect` (layout from dimensions), `ExtractFrame`, `Restack`, `Resample`. | No |
 | `IManifestService` / `ManifestService` | `BuildSingleControl`, `Serialize`, `SaveAsync`. | No |
 | `ICodeSnippetService` / `CodeSnippetService` | `Generate` / `FileName` / `SaveAsync` — emit JUCE / CSS / iPlug2 / HISE loader code (§9.1). | No |
 | `IBatchProcessor` / `BatchProcessor` | render a folder of sources → many strips off-thread, with progress + cancel (§8). | No |
-| `IImageLoadService` / `ImageLoadService` | decode a file → `SKBitmap` (premultiplied RGBA); returns null on a missing/undecodable file. | No |
+| `IImageLoadService` / `ImageLoadService` | decode a file → `SKBitmap` (premultiplied RGBA); returns null on a missing/undecodable file. Peeks the header dimensions via `SKCodec` first and **rejects > 64 MP** (≈ 8192×8192) so a decompression-bomb image can't allocate gigabytes before decode. | No |
 | `IExportService` / `ExportService` | encode an `SKBitmap` → PNG file (creates the directory). | No |
 | `IFileDialogService` / `FileDialogService` | open-image / save-PNG / save-SVG / open-folder / open-layered pickers via `IStorageProvider`. Holds the `Owner` window. | **Yes** |
 | `ISettingsService` / `SettingsService` | load/save the small `AppSettings` JSON (`%APPDATA%/StripKit/settings.json`) — the first-run "seen tutorial" flag + the Generate tab's last provider/model prefs. Best-effort (defaults on missing/corrupt). | No |
 | `IAssetService` / `AssetService` | extract a bundled avares asset (the tutorial's sample knob) to a temp file path. | **Yes** |
 | `IAssetGenerationService` / `AssetGenerationService` | the **Generate** tab orchestrator (§11): build the prompt → dispatch → sanitize → `GenerationResult`. Networked. | No |
-| `IAssetGenerationProvider` + `ClaudeProvider` / `OpenAiProvider` / `GeminiProvider` | one AI service each (URL + auth + body + parse), over a shared `HttpClient`; non-2xx → `GenerationException` (§11). | No |
+| `IAssetGenerationProvider` + `ClaudeProvider` / `OpenAiProvider` / `GeminiProvider` / `CustomOpenAiProvider` | one AI service each (URL + auth + body + parse), over a shared `HttpClient`; non-2xx → `GenerationException`. Each also implements `DescribeImageAsync` for reference-image vision (Claude image block / OpenAI `image_url` data URI / Gemini `inline_data`; `CustomOpenAiProvider` inherits OpenAI's). `CustomOpenAiProvider` subclasses `OpenAiProvider`, overriding only the endpoint URL to hit any OpenAI-compatible chat-completions server (`AppSettings.GenerateCustomBaseUrl`) (§11). | No |
 | `SvgSanitizer` (static) | carve the `<svg>` out of a chatty reply + strip script / `<image>` / `<foreignObject>` / `on*` / off-document `href` (§11). Parses via `SafeXml`. | No |
-| `SafeXml` (static) | hardened `XDocument` parse for **untrusted** SVG (`DtdProcessing.Prohibit`, no resolver, `MaxCharactersFromEntities = 0`) — closes entity-expansion DoS / external-entity. Used by `SvgSanitizer` + `LayeredImportService`. | No |
+| `SafeXml` (static) | hardened `XDocument` parse for **untrusted** SVG (`DtdProcessing.Prohibit`, no resolver, `MaxCharactersFromEntities = 0`) — closes entity-expansion DoS / external-entity. Used by `SvgSanitizer` + `LayeredImportService` (run **before** `Svg.Skia.FromSvg` — BUG-010, §11). | No |
 | `ISecretStore` / `DpapiSecretStore` | per-provider API keys encrypted at rest via Windows DPAPI → `%APPDATA%/StripKit/secrets.dat` (§11). | No |
 
 ### 3.3 `Helpers/`
@@ -152,8 +154,10 @@ A small artistic flourish used throughout the sidebars.
 - `SkinViewModel` (+ `SkinControlEntry`) — the **Skin** tab (§9.2): a multi-control
   `skin.json` builder. `SkinControlEntry` is the mutable, observable per-control row the list
   and detail editor bind to (mapped to the immutable `ManifestControl` record on export).
-- `GenerateViewModel` — the **Generate** tab (§11): provider/key/model + the async cancellable
-  generate, an off-thread preview-by-importing, and the `UseInCreateRequested` handoff to Create.
+- `GenerateViewModel` — the **Generate** tab (§11): provider/key/model/base-URL + control type +
+  the async cancellable generate, an off-thread preview-by-importing, and the `UseInCreateRequested`
+  handoff to Create. Also drives the **matching-set** generator, the **variations** grid, **refine**,
+  **reference-image match**, and the **prompt-seeds** library.
 - `TutorialViewModel` — the Getting Started overlay (§6.9); a per-screen walkthrough incl. Generate.
 
 All are `partial` (CommunityToolkit source generators require it) and use
@@ -175,10 +179,12 @@ type, not a control/visual. Logic, files, and domain state stay out of code-behi
   skin metadata fields + controls list on the left, a per-control detail editor + export on
   the right; markup-only code-behind.
 - `GenerateView.axaml(.cs)` — the Generate tab `UserControl` (`x:DataType` = `GenerateViewModel`):
-  provider/key/model + style/accent/size on the left, the SVG preview + Use-in-Create / Save / Copy
-  + raw-response expander on the right. The model picker is an `AutoCompleteBox` (free text +
-  suggestions); provider + control-type + style stay `ComboBox`es. Code-behind: clipboard copy +
-  the colour-picker flyout handlers.
+  provider/key/model (+ a base-URL field shown only for the Custom provider) + control type +
+  style/accent/size + "avoid" field on the left, the SVG preview + Use-in-Create / Save / Copy +
+  raw-response / show-the-prompt expanders + the matching-set / variations result grids on the right.
+  The model picker is an `AutoCompleteBox` (free text + suggestions); provider + control-type + style
+  stay `ComboBox`es. Code-behind: clipboard copy + the colour-picker flyout handlers.
+  `ViewModels/GenerateSetModels.cs` holds the grid view types (`SetTypeOption`, `GeneratedSetResult`).
 
 All bindings are compiled (`x:DataType` on every view; `AvaloniaUseCompiledBindingsByDefault`).
 
@@ -367,6 +373,23 @@ unchanged (the loader still just shows frames). Mirrored in `FilmstripEngine.cs`
 layer-aware steps (auto-pointer extraction from flat art, then layered PSD/SVG import) reuse
 this same `Layers` model and slot UI.
 
+### 5.7 Discrete state frames — buttons & toggles (`RenderButtonLayers`)
+
+`ComponentType.Button` and `ComponentType.Toggle` share **one** render path: discrete
+**state frames** rather than a continuous transform. A button is typically 2 frames
+(off / on) but can carry more states (hover, pressed, disabled); a toggle is an on/off
+switch — 2 frames. Both are surfaced as **distinct** control types (different generated
+art and a different code-export binding — see §9.1 and §11) but render identically.
+
+- **Composition (`RenderButtonLayers`).** For a button/toggle with a non-empty `Layers` +
+  `layerArt`, `RenderFrame` calls `RenderButtonLayers` instead of the single-source draw.
+  Each layer is contain-fit and centred in the cell (no rotation, no translation): a
+  `Static` layer is drawn on **every** frame, and a `Frame` layer is drawn **only** on the
+  frame whose index matches its position in the stack — so the off-state art shows on
+  frame 0, the on-state on frame 1, and so on. There is no interpolation between frames.
+- **Mirrored in `FilmstripEngine.cs`** (§14): the Button/Toggle case routes to the same
+  `RenderButtonLayers` state-frame path in the standalone engine.
+
 ---
 
 ## 6. The Create tab (`MainWindowViewModel`)
@@ -396,7 +419,10 @@ colour hex via `ParseArgb` (`SKColor.TryParse` → packed ARGB, or a fallback).
 with no source); vertical fader → 40×128; horizontal slider → 128×32; meter → 48×160 (a
 tall vertical meter the user widens for horizontal fills).
 
-**Derived/state properties:** `IsRotary`/`IsLinear`/`IsMeter` (drive panel visibility);
+**Derived/state properties:** `IsRotary`/`IsLinear`/`IsMeter`/`IsButton`/`IsToggle` (drive panel
+visibility), plus `IsStateFrames = IsButton || IsToggle` — button and toggle share the discrete
+state-frame render + Create logic (off/on layers), so the state-frame UI and the layer-building
+branch on `IsStateFrames` rather than on `Button` alone;
 `ShowLoadHint = !HasSource && !IsMeter` (a procedural meter previews with no source);
 `SourcePixelWidth`/`SourcePixelHeight` (the loaded source's pixel size — the alignment
 overlay maps the crosshair onto the drawn art with these). `[NotifyCanExecuteChangedFor]`
@@ -656,7 +682,7 @@ LED segments drawn over it (`BatchProcessor` routes the loaded bitmap to the `so
 `ManifestService.BuildSingleControl(settings, assetName, asset2xName, controlId, parameterId)`
 maps a `FilmstripSettings` + export filenames to a one-control `SkinManifest`:
 
-- `type` ← `ComponentType` (`knob`/`vfader`/`hslider`/`meter`, via `MapType`).
+- `type` ← `ComponentType` (`knob`/`vfader`/`hslider`/`meter`/`button`/`toggle`, via `MapType`).
 - `asset`/`asset2x` ← bare file names (the manifest is written next to the PNG, so paths
   are relative). `asset2x` is null (and omitted on serialize) when no @2x was exported.
 - `frames`, `frameWidth`, `frameHeight`, `stack` (`"vertical"`/`"horizontal"`) ← settings.
@@ -682,11 +708,14 @@ the thin `SaveAsync(target, request, directory)`. Input is a `CodeSnippetRequest
 (component type, frame count/size, stack, asset/`@2x` file names, control id, parameter id).
 
 - **Targets (`CodeTarget`).** `Juce` — a `LookAndFeel_V4` filmstrip `Slider` (`drawRotarySlider`
-  for a knob, `drawLinearSlider` for a fader/slider) or a meter `Component` with `setLevel`;
+  for a knob, `drawLinearSlider` for a fader/slider), a meter `Component` with `setLevel`, or a
+  filmstrip `juce::Button` for a **button/toggle** (a latching toggle via `setClickingTogglesState(true)`
+  + `getToggleState()` frame select; drive from `isButtonDown` for a momentary button);
   `Css` — a self-contained HTML/`<style>`/`<script>` sprite driven by `background-position` + a
-  0..1 value setter; `IPlug2` — `IBKnobControl` / `IBSliderControl` / `IBitmapControl` with
-  `LoadBitmap(nStates, framesAreHorizontal)`; `Hise` — a `ScriptPanel` with a filmstrip paint
-  routine. The four files use extensions `.juce.h` / `.html` / `.iplug2.cpp` / `.hise.js`.
+  0..1 value setter; `IPlug2` — `IBKnobControl` / `IBSliderControl` / `IBitmapControl`, or an
+  `IBSwitchControl` for a **button/toggle**, with `LoadBitmap(nStates, framesAreHorizontal)`;
+  `Hise` — a `ScriptPanel` with a filmstrip paint routine. The four files use extensions
+  `.juce.h` / `.html` / `.iplug2.cpp` / `.hise.js`.
 - **The universal rule.** Every snippet selects the frame with
   `frame = clamp(round(value·(N−1)), 0, N−1)` and reads the source cell from the stack axis
   (`frame·frameH` down a vertical strip, `frame·frameW` along a horizontal one) — the same
@@ -785,13 +814,21 @@ are the child VMs exposed by `MainWindowViewModel` and resolved via DI (see §11
 ## 11. The Generate tab (`GenerateViewModel` + `AssetGenerationService`)
 
 The newest tab **generates** source art instead of importing it: it uses the **user's own** OpenAI /
-Gemini / Claude API key to produce a **layered control SVG**, which feeds the *same* layered-import
-pipeline as §6.8 — so there is **no renderer change** and nothing is mirrored into
-`FilmstripEngine.cs`. It is also the only **networked, non-deterministic** part of the app, so it
-brings the first secret (an API key) and the first HTTP I/O.
+Gemini / Claude / OpenAI-compatible API key to produce a **layered control SVG**, which feeds the
+*same* layered-import pipeline as §6.8 — so there is **no renderer change** and nothing is mirrored
+into `FilmstripEngine.cs`. It is also the only **networked, non-deterministic** part of the app, so
+it brings the first secret (an API key) and the first HTTP I/O.
+
+**Providers.** Four `IAssetGenerationProvider`s sit behind `AiProvider` (`Claude` / `OpenAI` /
+`Gemini` / `Custom`): `ClaudeProvider`, `OpenAiProvider`, `GeminiProvider`, and `CustomOpenAiProvider`
+— which **subclasses `OpenAiProvider`** and overrides only the endpoint URL to call **any
+OpenAI-compatible chat-completions server** at a user-supplied base URL (`AppSettings.GenerateCustomBaseUrl`
+— e.g. OpenRouter, Ollama at `http://localhost:11434/v1`, or LM Studio). The base-URL field is shown
+only when the Custom provider is selected.
 
 **Flow.** `GenerateViewModel.GenerateAsync` → `IAssetGenerationService.GenerateAsync(request,
-provider, key, model, ct)`:
+provider, key, model, ct)` (a thin wrapper over the shared `RunAsync` core that all the generation
+modes below share):
 
 1. **Prompt.** `AssetGenerationService` builds a StripKit-aware prompt — a square `viewBox`, ~10%
    transparent rotation margin, a static `<g id="body">` plus a separate `<g id="pointer">` drawn at
@@ -829,16 +866,37 @@ Windows DPAPI (`ProtectedData`, CurrentUser) in `%APPDATA%/StripKit/secrets.dat`
 per-provider model override persist in `AppSettings` (never the key). DI: the providers, the service,
 and the secret store are singletons (with the `HttpClient`); `GenerateViewModel` is transient.
 
-**All four control types (v1.2.0+).** The `GenerationRequest` carries the component type, and the prompt is
+**All six control types (v1.3.0).** The `GenerationRequest` carries the component type, and the prompt is
 **type-aware**: a **knob** asks for `<g id="body">` + `<g id="pointer">`; a **button** asks for `<g id="off">` +
-`<g id="on">`; a **fader/slider** asks for a single `<g id="body">` cap/handle shape. The importer's name hints
-map each on import (`pointer`->Rotate, `off`/`on`->Frame, else Static), and the **Use-in-Create handoff honours
-the generated type** (v1.2.1): knob -> the body+pointer `Layers` stack; button -> `off`/`on` as `LayerBehavior.Frame`
-state layers; fader/slider -> flattened to the single source the linear renderer expects. (Before v1.2.1 the handoff
-hard-forced `RotaryKnob`, so generated faders/sliders rotated and buttons stacked both states.) **Meters** are also a
-Generate target now: a tall portrait `off`/`on` pair (unlit + fully-lit, full height) whose handoff adopts `off` ->
-the meter background and `on` -> the source the renderer reveals up to the value (continuous vertical fill, no renderer
-change). The fader/slider/meter output paths still want a live eyeball + prompt tuning — knob is the proven path.
+`<g id="on">`; a **toggle** asks for off/on switch/rocker art; a **fader/slider** asks for a single `<g id="body">`
+cap/handle shape; a **meter** asks for an unlit `<g id="off">` + a fully-lit `<g id="on">` pair (**vertical or
+horizontal** — the orientation is inferred from the generated art's aspect). The importer's name hints map each on
+import (`pointer`->Rotate, `off`/`on`->Frame, else Static), and the **Use-in-Create handoff honours the generated
+type** (v1.2.1): knob -> the body+pointer `Layers` stack; button/toggle -> `off`/`on` as `LayerBehavior.Frame`
+state layers; fader/slider -> flattened to the single source the linear renderer expects; **meter** -> `off`
+becomes the meter background (drawn full) and `on` becomes the source the renderer reveals up to the value
+(reusing the existing layered-meter reveal path — no renderer change). (Before v1.2.1 the handoff hard-forced
+`RotaryKnob`, so generated faders/sliders rotated and buttons stacked both states.) The fader/slider/meter output
+paths still want a live eyeball + prompt tuning — knob is the proven path.
+
+**Beyond one control (v1.3.0).** The tab now generates more than a single SVG, all sharing the `RunAsync` core:
+
+- **Matching set.** Pick which control types to generate, and `IAssetGenerationService.GenerateSetAsync(baseRequest,
+  types, …)` produces the whole family **concurrently** from **one shared style** → an `IReadOnlyList<GenerationSetItem>`
+  (each a `ComponentType` + its `GenerationResult`). The UI shows a results grid with per-item Use-in-Create / Save /
+  Regenerate, plus Save-set-to-folder — a head start toward a full Skin.
+- **Variations.** `GenerateVariationsAsync(request, count, …)` runs N concurrent takes (2 / 4 / 6 / 8) of one control,
+  shown in a grid to pick from.
+- **Refine.** `RefineAsync(request, currentSvg, instruction, …)` revises the current SVG from a plain-language
+  instruction.
+- **Reference-image match (vision).** Each provider implements `IAssetGenerationProvider.DescribeImageAsync` (Claude
+  image block / OpenAI `image_url` data URI / Gemini `inline_data`; Custom inherits OpenAI's); `DescribeReferenceAsync`
+  turns a dropped reference image into a `ReferenceDescription` whose style text is folded into the **Extra-direction**
+  box, so the next generation matches the look.
+- **Prompt seeds.** `GenerationSeed` + `GenerationSeedLibrary` (5 built-ins) are named style bundles; user seeds persist
+  in `AppSettings.GenerateSeeds`.
+- **Quality knobs.** `GenerationRequest.Avoid` (an "avoid" field), an **auto-retry** once on a structurally weak first
+  take, and a **show-the-prompt** expander backed by `IAssetGenerationService.BuildPrompts`.
 
 ---
 
@@ -896,13 +954,14 @@ not part of the build** (it lives outside `src/` and no project compiles it) —
 so the engine can be dropped into a CLI, a build step, a web backend, or another app
 unchanged.
 
-It contains exactly the **render math**: the `ComponentType` (incl. `Button`), `MeterFillDirection`,
+It contains exactly the **render math**: the `ComponentType` (incl. `Button` and `Toggle`), `MeterFillDirection`,
 `StackDirection`, and `LayerBehavior` (incl. `Frame`) enums; the `FrameTransform` struct and the `RenderLayer`
 class; `FilmstripSettings` (including the `SourceCenterX/Y` alignment fields, the meter fields,
 the value-arc fields, and the `Layers` list with its deep `Clone`); and `IFilmstripRenderer` +
 `SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`, `RenderStrip`, the full
 `RenderMeterFrame` procedural/layered path, `RenderValueArc`, the `RenderLayers`
-base+pointer path, and the `RenderButtonLayers` button state-frame path). It does **not** include the
+base+pointer path, and the `RenderButtonLayers` button/toggle state-frame path — the renderer's
+`Button` case also handles `Toggle`). It does **not** include the
 app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 `BatchProcessor`, the I/O services, or any view-model/view — by design.
 
@@ -912,7 +971,7 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 > supersampling, meter fill, alignment, layers), update this file to match (or it silently
 > drifts). As of this audit the two are in sync — the alignment `SourceCenterX/Y` pivot, the
 > meter path, the `RenderValueArc` value-arc path (with its arc fields), the `RenderLayers`
-> base+pointer path, and the `RenderButtonLayers` button state-frame path (with the `RenderLayer` /
+> base+pointer path, and the `RenderButtonLayers` button/toggle state-frame path (with the `RenderLayer` /
 > `LayerBehavior` Static/Rotate/Frame types and the `Layers` field) are
 > all present here.
 
@@ -983,17 +1042,23 @@ meter renders (`MeterRenderTests`), value-arc renders (`ValueArcRenderTests` —
 baselines incl. gradient+glow, plus pixel-logic for the lit-sweep growth and the off /
 non-knob no-ops), layered-knob renders (`LayeredKnobRenderTests` — base+pointer golden
 baselines plus pixel-logic for the rotating pointer / static body, the empty-layers fallback,
-the pointer pivot, and the non-knob no-op), code-snippet generation (`CodeSnippetServiceTests` — per-target control
-class / draw method, the frame math, stack-axis source, identifier sanitisation, file names,
-`SaveAsync`), `ContentAnalysisTests`, importer engine + VM
-(`FilmstripImporterTests`, `ImporterViewModelTests`), manifest mapping/JSON-Schema
-(`ManifestServiceTests`), batch processor + VM (`BatchProcessorTests`, `BatchViewModelTests`),
-the Generate-tab pipeline (`SvgSanitizerTests`, `SecretStoreTests`, `AssetGenerationProviderTests`,
-`AssetGenerationServiceTests`, `GenerateViewModelTests` — incl. the editable/delisted-model test,
-`GenerateViewTests`, `GenerateIntegrationTests`), the Create-tab load path (`LoadPathTests`), and a
-headless `DropZoneViewTests` (a synthetic OS drag gesture isn't constructable headlessly, so drop is
-covered by the VM load-path + `AllowDrop`-wiring assertions). `TestAppBuilder`/`TestImages`/`ImageAssert`
-are the harness. See `docs/TESTING.md` for the methodology and the current count.
+the pointer pivot, and the non-knob no-op), button/toggle state-frame renders (`ToggleRenderTests`),
+layered import (`LayeredImportServiceTests`, `LayeredImportRenderTests`, `LayeredImportViewModelTests` —
+incl. the BUG-010 `SafeXml`-before-`FromSvg` hardening + the SVG/PSD size caps), image-load caps
+(`ImageLoadServiceTests` — the > 64 MP rejection), code-snippet generation (`CodeSnippetServiceTests` —
+per-target control class / draw method incl. the button/toggle latching binding, the frame math,
+stack-axis source, identifier sanitisation, file names, `SaveAsync`), `ContentAnalysisTests`,
+`PointerExtractorTests`, importer engine + VM (`FilmstripImporterTests`, `ImporterViewModelTests`),
+manifest mapping/JSON-Schema (`ManifestServiceTests`), the Skin tab (`SkinViewModelTests`), batch
+processor + VM (`BatchProcessorTests`, `BatchViewModelTests`), tutorial + settings
+(`TutorialViewModelTests`, `SettingsServiceTests`), the Generate-tab pipeline (`SvgSanitizerTests`,
+`SecretStoreTests`, `AssetGenerationProviderTests`, `CustomOpenAiProviderTests`, `VisionProviderTests`
+— the per-provider `DescribeImageAsync`, `AssetGenerationServiceTests` — incl. set / variations /
+refine, `GenerateViewModelTests` — incl. the editable/delisted-model test, `GenerateViewTests`,
+`GenerateIntegrationTests`), the Create-tab load path (`LoadPathTests`), and a headless
+`DropZoneViewTests` (a synthetic OS drag gesture isn't constructable headlessly, so drop is
+covered by the VM load-path + `AllowDrop`-wiring assertions). `TestAppBuilder`/`TestImages`/`ImageAssert`/
+`TestFakes` are the harness. **216 green.** See `docs/TESTING.md` for the methodology and the current count.
 
 ---
 

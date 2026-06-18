@@ -1,6 +1,6 @@
 # ROADMAP — StripKit
 
-> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and several
@@ -58,6 +58,18 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   (array→hashtable). CI future-proofing: `actions/checkout@v4→v5` + `actions/setup-dotnet@v4→v5`
   (Node 24) and `coverlet.collector 6.0.2→6.0.4`. New portable skill
   `release-source-integrity-guard`. Suite **171→172**.
+- **v1.3.0** (2026-06-18, shipped) — **the AI-generation wave + meters + toggles.** **Generate-tab
+  meters** (an off/on layered pair → background + revealed source) plus **horizontal meters**
+  (orientation inferred from the art aspect). New first-class **`ComponentType.Toggle`** — an on/off
+  toggle across generate / import / create / code-export, distinct from Button but sharing its
+  state-frame render path. The full **AI-generation program** on the Generate tab: a **matching-set
+  generator** (one prompt → a consistent control family), a **variations grid** (N takes of one
+  control), **refine** (revise the current SVG by instruction), **reference-image match / vision**
+  ("describe this screenshot"), a **prompt seeds library** (built-in + saved style bundles), an
+  **"avoid" field**, **auto-retry** on weak structure, **show-the-prompt**, and an
+  **OpenAI-compatible custom endpoint** (OpenRouter / Ollama / LM Studio). Security/hardening:
+  **BUG-010** (SVG file-import billion-laughs DoS) fixed + input-size caps (PNG / SVG / PSD). Suite
+  **172→216**.
 
 ---
 
@@ -154,11 +166,22 @@ highest-leverage bets across all groups; pursue them first.
   (`ISecretStore`); preview-by-importing + "Use in Create" handoff. App-only; +27 tests. *(v1.2.2:
   the model field is now an **editable `AutoCompleteBox`** — type a custom/just-released id — and
   the preview builds off the UI thread.)*
-- ✅ **Generate: all control types** (v1.2.0) — the Generate tab now produces **knob / fader /
-  slider / button** art (was knob-only): the "WHAT TO MAKE" combo drives a type-aware prompt
-  (knob → `body`+`pointer`, button → `off`+`on`, fader/slider → a single `body` cap), and the
-  handoff (v1.2.1) maps each to the right renderer path. *(Meters remain a future Generate target;
-  fader/slider/meter output paths still want a live eyeball.)*
+- ✅ **Generate: all control types** (v1.2.0 → v1.3.0) — the Generate tab now produces **knob /
+  fader / slider / button / toggle / meter** art (was knob-only): the "WHAT TO MAKE" combo drives a
+  type-aware prompt (knob → `body`+`pointer`, button/toggle → `off`+`on`, fader/slider → a single
+  `body` cap, **meter → an off/on layered pair → background + revealed source**, incl. **horizontal
+  meters** inferred from art aspect), and the handoff (v1.2.1) maps each to the right renderer path.
+  *(v1.3.0 also added the full AI-generation program — see "AI generation: matching sets, variations,
+  refine, vision, seeds" below.)* *(fader/slider/meter output paths still want a live eyeball + prompt
+  tuning with a real API key — knob is the proven path.)*
+- ✅ **AI generation: matching sets, variations, refine, vision, seeds** (v1.3.0) — the Generate tab
+  grew a full generation program: a **matching-set generator** (one prompt → a consistent family of
+  controls), a **variations grid** (N takes of one control), **refine** (revise the current SVG by
+  instruction), **reference-image match / vision** ("describe this screenshot"), a **prompt seeds
+  library** (built-in + saved style bundles), an **"avoid" field**, **auto-retry** on weak structure,
+  **show-the-prompt**, and an **OpenAI-compatible custom endpoint** (OpenRouter / Ollama / LM Studio).
+  App-only. *(Next: a "seeds → matching set → auto-assemble a Skin" end-to-end flow (P2); Azure
+  OpenAI auth — api-key header — for the custom endpoint (P3).)*
 - 🔄 **Code / component export** — every export can also emit ready-to-paste loader
   code for the target framework. **Shipped 2026-06-04: JUCE** (`LookAndFeel` filmstrip
   `Slider` / meter `Component`), **CSS/HTML** (`background-position` sprite + value setter),
@@ -239,13 +262,15 @@ highest-leverage bets across all groups; pursue them first.
 
 ### New control types
 
-- ✅ **Boolean trigger components** (v1.2.0) — buttons / toggles with discrete on/off (and
+- ✅ **Boolean trigger components** (v1.2.0 → v1.3.0) — buttons / toggles with discrete on/off (and
   hover / pressed / disabled) states, rendered as discrete-state filmstrips from layered art.
   New `ComponentType.Button` + `LayerBehavior.Frame` (a `Frame` layer shows only on its matching
   frame index; index 0 = off, 1 = on); a **BUTTON STATES** Create-tab section; the importer
   auto-tags `off`/`on` groups as `Frame`; the renderer's `RenderButtonLayers` path (mirrored in
-  `FilmstripEngine.cs`); and Generate can produce the off/on SVG. *(Future: momentary vs latching
-  semantics + multi-state selectors are a loader/manifest concern, not a render one.)*
+  `FilmstripEngine.cs`); and Generate can produce the off/on SVG. **v1.3.0** added a first-class
+  **`ComponentType.Toggle`** — a dedicated on/off toggle across generate / import / create /
+  code-export, distinct from Button but sharing its state-frame render path. *(Future: momentary vs
+  latching semantics + multi-state selectors are a loader/manifest concern, not a render one.)*
 - ⏳ **Meter peak-hold / stereo** — peak-hold indicators, dual / stereo meters, dB
   segment spacing, and per-segment colour ramps. **(P3)** *(carryover — deferred
   from Phase 6.)*

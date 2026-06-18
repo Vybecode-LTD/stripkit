@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 1.2.2 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -31,13 +31,14 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
   SkiaSharp 3.119.2. `Avalonia.Controls.ColorPicker` 11.3.0 (Generate colour swatches).
 - Layered-source import (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) + **Magick.NET-Q8-x64**
   14.13.1 (Apache-2.0, PSD/PSB layers). Both permissive; not in `FilmstripEngine.cs`.
-- AI SVG generation (Generate tab, app-only): OpenAI / Gemini / Claude via their text APIs over a
-  shared `HttpClient`; user API keys encrypted at rest with **System.Security.Cryptography.ProtectedData**
-  9.0.0 (Windows DPAPI). Not in `FilmstripEngine.cs`.
+- AI SVG generation (Generate tab, app-only): OpenAI / Gemini / Claude — plus any **OpenAI-compatible
+  custom endpoint** (`AiProvider.Custom`: OpenRouter / Ollama / LM Studio) — over a shared `HttpClient`,
+  incl. **vision** (`DescribeImageAsync`) for reference-image matching; user API keys encrypted at rest
+  with **System.Security.Cryptography.ProtectedData** 9.0.0 (Windows DPAPI). Not in `FilmstripEngine.cs`.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **172 green.**
+  6.0.4). **216 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -238,6 +239,37 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-06-18 (v1.3.0 — AI-generation program + meters/toggles + security hardening; full reconcile +
+  release)** — A large feature wave, shipped end-to-end. **(1) Security/quality fixes:** **BUG-010** —
+  the SVG file-import path ran `SafeXml.Parse` *after* `Svg.Skia.FromSvg`, so a billion-laughs entity
+  bomb opened via the layered-file picker was expanded first (local DoS); reordered the gate to the top
+  (`940b60f`). Input-size caps (`97fb22d`): `ImageLoadService` peeks header dims via `SKCodec` (rejects
+  >64 MP), `LayeredImportService` caps SVG text (20 MB) + PSD canvas (64 MP). `ManifestService` /
+  `SkinViewModel` `MapType` now map Button→"button", Toggle→"toggle" (were silently "knob"). **(2)
+  Meters in Generate** (`d846686`, `72dcc46`): the Generate tab now produces meters — an unlit `off` +
+  fully-lit `on` pair; the handoff adopts `off`→meter background, `on`→the source the renderer reveals
+  up to the value; **vertical or horizontal** (fill direction inferred from the art's aspect). No
+  renderer change. **(3) `ComponentType.Toggle`** (`c0a60af`): a first-class on/off toggle, distinct
+  from Button but sharing its discrete state-frame render path (mirrored in `FilmstripEngine.cs`);
+  generate / layered-import (auto-detected from off/on names) / create / code-export (JUCE latching
+  toggle, iPlug2 `IBSwitchControl`) all honour it. **(4) The full AI-generation program** —
+  **matching-set generator** (`5d07923`: one prompt → a whole family of controls, generated
+  concurrently from one shared style, `GenerateSetAsync`); **variations grid** (`bfcbba5`:
+  `GenerateVariationsAsync`); **OpenAI-compatible custom endpoint** (`ef13091`: `AiProvider.Custom` /
+  `CustomOpenAiProvider` for OpenRouter / Ollama / LM Studio); **refine** (`70cedce`: revise the current
+  SVG by instruction, `RefineAsync`); **reference-image match / vision** (`b4dd7e1`: per-provider
+  `DescribeImageAsync` → `DescribeReferenceAsync` folds a style description into the prompt); **auto-retry
+  on a weak first take + show-the-prompt** (`6e3f800`); **"avoid" field** (part of `5d07923`); and the
+  **prompt seeds library** (`f3c0f4a`: `GenerationSeed`/`GenerationSeedLibrary`, 5 built-ins + user
+  saves). New files: `Services/CustomOpenAiProvider.cs`, `ViewModels/GenerateSetModels.cs`; new tests
+  `ToggleRenderTests` / `ImageLoadServiceTests` / `CustomOpenAiProviderTests` / `VisionProviderTests`.
+  **Suite 172→216 green, build 0/0.** **(5) Full doc reconcile** — every managed doc stamped 1.3.0 /
+  2026-06-18 (ARCHITECTURE/SOURCE_MAP/ROADMAP/KICKOFF/TESTING/BUGS/AUDIT-LOG/CHANGELOG). **(6) Released
+  v1.3.0** — signed installer via the standard pipeline; see `docs/HANDOFF.md` for the release outcome.
+  Untracked strays (still not ours): `docs/PRESS-RELEASE.md`, `press/`, `.claude/launch.json`.
+  **Next:** website P2 getting-started guide; a live-eyeball pass on the fader/slider/meter Generate
+  output with a real key; seeds→matching-set→Skin auto-assembly; more code-export targets.
 
 - **2026-06-14 (v1.2.2 polish wave shipped + full doc reconcile)** — A small quality + tooling
   release, shipped end-to-end. **(1) Generate-tab polish** (`cdc466e`): the model picker is now an
