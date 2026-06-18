@@ -67,8 +67,19 @@ public sealed class LayeredImportService : ILayeredImportService
     {
         var text = File.ReadAllText(path);
 
+        // Hardened parse FIRST — before the text ever reaches Svg.Skia. The file picker accepts
+        // arbitrary user SVG with no sanitizer pass, and Svg.Skia's underlying svg-net parser
+        // processes DTDs by default (DtdProcessing.Parse, no entity-character cap), so handing it the
+        // raw text would expand a "billion-laughs" entity bomb before any of our checks ran. Gating
+        // here means a DTD / entity payload is rejected up front — the throw is caught by Import() and
+        // surfaced as "no usable layers"; svg-net never sees it. Legitimate control art carries no
+        // DTD, so this never fires on the happy path (and the raw text below is then DTD-free).
+        var doc = SafeXml.Parse(text);
+        var root = doc.Root;
+        if (root is null) return null;
+
         // Render the whole document once to fix the canonical canvas box + coordinate origin, so
-        // each isolated layer lands in exactly the same place.
+        // each isolated layer lands in exactly the same place. Safe now that the DTD gate passed.
         using var full = new SvgSkia();
         full.FromSvg(text);
         if (full.Picture is null) return null;
@@ -80,12 +91,6 @@ public sealed class LayeredImportService : ILayeredImportService
         if (edge > MaxCanvasEdge) scale = MaxCanvasEdge / edge;
         int canvasW = Math.Max(1, (int)Math.Round(cull.Width * scale));
         int canvasH = Math.Max(1, (int)Math.Round(cull.Height * scale));
-
-        // Hardened parse (the file picker accepts arbitrary user SVG with no sanitizer pass): DTDs are
-        // prohibited so a malicious document can't probe the filesystem or expand entities to exhaust memory.
-        var doc = SafeXml.Parse(text);
-        var root = doc.Root;
-        if (root is null) return null;
 
         // Root-level <defs>/<style>/<symbol> are cloned into each per-layer document so url(#id)
         // references (gradients, filters, clip paths) still resolve once a group is isolated.

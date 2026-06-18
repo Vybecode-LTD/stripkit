@@ -194,6 +194,59 @@ public class LayeredImportServiceTests
     }
 
     [Fact]
+    public void Svg_import_rejects_a_doctype_entity_bomb_without_expanding_it()
+    {
+        // "Billion laughs": a tiny DTD whose nested entities would expand to ~1e9 characters if a
+        // parser processed it. Svg.Skia's underlying svg-net parser uses DtdProcessing.Parse with no
+        // entity-character cap, and the file picker feeds it arbitrary user SVG — so the import MUST
+        // reject the document at the hardened SafeXml gate BEFORE the text reaches Svg.Skia, returning
+        // null quickly rather than expanding the entities (which would hang / exhaust memory). The
+        // string itself is tiny; only its expansion is huge, so this is safe to keep in the suite.
+        const string bomb =
+            "<?xml version=\"1.0\"?>" +
+            "<!DOCTYPE svg [" +
+            "<!ENTITY a \"AAAAAAAAAA\">" +
+            "<!ENTITY b \"&a;&a;&a;&a;&a;&a;&a;&a;&a;&a;\">" +
+            "<!ENTITY c \"&b;&b;&b;&b;&b;&b;&b;&b;&b;&b;\">" +
+            "<!ENTITY d \"&c;&c;&c;&c;&c;&c;&c;&c;&c;&c;\">" +
+            "<!ENTITY e \"&d;&d;&d;&d;&d;&d;&d;&d;&d;&d;\">" +
+            "<!ENTITY f \"&e;&e;&e;&e;&e;&e;&e;&e;&e;&e;\">" +
+            "<!ENTITY g \"&f;&f;&f;&f;&f;&f;&f;&f;&f;&f;\">" +
+            "<!ENTITY h \"&g;&g;&g;&g;&g;&g;&g;&g;&g;&g;\">" +
+            "<!ENTITY i \"&h;&h;&h;&h;&h;&h;&h;&h;&h;&h;\">" +
+            "]>" +
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\"><text>&i;</text></svg>";
+
+        var path = WriteTemp(bomb, ".svg");
+        try
+        {
+            var sw = System.Diagnostics.Stopwatch.StartNew();
+            var result = _import.Import(path);
+            sw.Stop();
+
+            result.Should().BeNull("a DTD-bearing SVG is rejected at the hardened parse gate, not handed to the renderer");
+            sw.Elapsed.Should().BeLessThan(TimeSpan.FromSeconds(5), "the entity bomb must be rejected up front, never expanded");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void Svg_import_does_not_resolve_an_external_entity()
+    {
+        // External-entity / SSRF: a SYSTEM entity pointing at a local file. Like the bomb above, the
+        // DTD must be rejected at the gate so the path is never opened and no file content leaks into
+        // the rasterized art.
+        const string xxe =
+            "<?xml version=\"1.0\"?>" +
+            "<!DOCTYPE svg [<!ENTITY x SYSTEM \"file:///etc/passwd\">]>" +
+            "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"64\" height=\"64\" viewBox=\"0 0 64 64\"><text>&x;</text></svg>";
+
+        var path = WriteTemp(xxe, ".svg");
+        try { _import.Import(path).Should().BeNull("an external-entity DTD is rejected, never resolved"); }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public void Import_returns_null_for_an_unreadable_or_unsupported_file()
     {
         _import.Import("C:\\does\\not\\exist.svg").Should().BeNull();

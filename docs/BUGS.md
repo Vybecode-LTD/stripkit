@@ -1,8 +1,8 @@
 # BUGS — StripKit
 
-> Version 1.2.1 · last-updated 2026-06-14 · last-audit 2026-06-14
+> Version 1.2.2 · last-updated 2026-06-18 · last-audit 2026-06-18
 
-**Open bugs: 0.** **Resolved: 9.**
+**Open bugs: 0.** **Resolved: 10.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -12,7 +12,9 @@ forward (they corrupted published docs / blocked the release pipeline, not the a
 binary). BUG-005/006/007 were **code-quality defects** found by audit and fixed in
 commit `0aaa257` (resource leaks and a silent product gap). BUG-008/009 were
 **Generate-tab defects** found in the 2026-06-14 audit of the shipped v1.2.0 and fixed
-forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
+forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing). BUG-010 was a
+**2026-06-18 audit** finding: the BUG-009 hardening was applied to the SVG file-import path but ran
+*after* Svg.Skia had already parsed the raw text, leaving the entity-expansion DoS reachable there.
 
 ---
 
@@ -158,8 +160,32 @@ forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
   `DtdProcessing.Prohibit`, `XmlResolver = null`, `MaxCharactersFromEntities = 0`. Applied in
   **both** callers. A DTD now throws `XmlException`, which both callers already treat as "malformed
   SVG"; legitimate generated control art carries no DTD, so the happy path is unaffected.
-- **Regression guard:** `SvgSanitizerTests` / `LayeredImportServiceTests` reject a DTD-bearing
-  document as malformed (so the prohibition is asserted, not just present).
+- **Regression guard:** `SvgSanitizerTests` rejects a DTD-bearing document as malformed (so the
+  prohibition is asserted, not just present). *(The matching `LayeredImportServiceTests` guard was
+  not actually added until BUG-010 below — this line over-claimed it at the time.)*
+
+### BUG-010 — billion-laughs DoS reachable via the SVG file-import path (BUG-009 hardening bypassed) ✅
+- **Severity:** Medium (security — local entity-expansion denial-of-service: a crafted `.svg` opened
+  via the layered-file picker could hang / exhaust memory. External-entity / SSRF was **not** reachable
+  — `svg-net` defaults `ResolveExternalXmlEntites = ExternalType.None` — so this was DoS only).
+- **Component:** `src/StripKit/Services/LayeredImportService.cs` (`ImportSvg`).
+- **Reported / Fixed:** 2026-06-18 (audit).
+- **Symptom:** BUG-009 added `SafeXml.Parse` (DTDs prohibited) to the SVG file-import path, but in
+  `ImportSvg` it ran **after** `SvgSkia.FromSvg(text)` had already parsed the **raw** untrusted text.
+  Svg.Skia builds its model with the `svg-net/SVG` library, which defaults to `DtdProcessing.Parse`
+  with no `MaxCharactersFromEntities` cap — so a "billion-laughs" entity bomb was fully expanded
+  inside `FromSvg` before `SafeXml` ever rejected it. The AI-reply path was unaffected (its SVG is
+  re-serialized DTD-free by `SvgSanitizer` before it reaches the importer); only the **file picker**
+  (arbitrary user SVG) was exposed.
+- **Root cause:** parse ordering — the hardened gate ran second. The documented guarantee ("applied
+  to both `SvgSanitizer` and the layered-file import picker") was only half-true for the importer.
+- **Fix (2026-06-18):** moved `SafeXml.Parse(text)` to the **top** of `ImportSvg`, before
+  `SvgSkia.FromSvg`. A DTD now throws at the gate (caught by `Import()` → "no usable layers"), so the
+  raw text only reaches Svg.Skia once it is known DTD-free. Reorder only — no re-serialization, no new
+  dependency, byte-identical output for legitimate (DTD-free) SVG.
+- **Regression guard:** `LayeredImportServiceTests.Svg_import_rejects_a_doctype_entity_bomb_without_expanding_it`
+  (a 1e9-expansion bomb must return null in < 5 s) +
+  `Svg_import_does_not_resolve_an_external_entity`. Suite 172 → **174 green**.
 
 ---
 
@@ -178,7 +204,12 @@ forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
   omitted from the "Release v1.2.0" commit (which staged only version files + the installer), so the
   `v1.2.0` tag could not rebuild its own installer. The source was committed retroactively
   (`b55380f`, 2026-06-14), matching the shipped binary, before the v1.2.1 fixes. Process guard: commit
-  feature work **before** running the release script (which stages only version files by design).
+  feature work **before** running the release script (which stages only version files by design). As
+  of **v1.2.2** this guard is **enforced, not just documented** — `Invoke-Release.ps1` aborts the
+  release if the tracked working tree has uncommitted source (untracked strays allowed; `-AllowDirty`
+  overrides). *(The same v1.2.2 tooling pass also fixed the Stage-3 website-changelog splat — a
+  trailing `-Push` mis-bound under array splatting; switched to hashtable splatting — a build-script
+  fix, not a tracked app bug.)*
 - Known *limitations* (not bugs) live in `docs/ROADMAP.md` / `docs/ARCHITECTURE.md`:
   importer detection is a dimension-based guess (editable + verified). The **Skin tab** does
   multi-control `skin.json` (the Create-tab export still emits a single control). Auto-pointer
