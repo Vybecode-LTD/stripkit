@@ -136,7 +136,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ---- combo box choices ----
     public ComponentType[] ComponentTypes { get; } =
-        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter, ComponentType.Button];
+        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter, ComponentType.Button, ComponentType.Toggle];
 
     public StackDirection[] StackDirections { get; } =
         [StackDirection.Vertical, StackDirection.Horizontal];
@@ -162,7 +162,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ---- component / frames ----
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsLinear), nameof(IsMeter), nameof(IsButton), nameof(ShowLoadHint))]
+    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsLinear), nameof(IsMeter), nameof(IsButton), nameof(IsToggle), nameof(IsStateFrames), nameof(ShowLoadHint))]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private ComponentType _componentType = ComponentType.RotaryKnob;
 
@@ -261,6 +261,11 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsLinear => ComponentType is ComponentType.VerticalFader or ComponentType.HorizontalSlider;
     public bool IsMeter => ComponentType == ComponentType.Meter;
     public bool IsButton => ComponentType == ComponentType.Button;
+    public bool IsToggle => ComponentType == ComponentType.Toggle;
+
+    /// <summary>Button and Toggle share the discrete state-frame render + Create logic (off/on layers),
+    /// so the state-frame UI and layer-building branch on this rather than on Button alone.</summary>
+    public bool IsStateFrames => IsButton || IsToggle;
 
     /// <summary>The "load a source" overlay shows only when there is nothing to preview;
     /// a procedural meter renders without a source, and a layered knob or button previews
@@ -307,6 +312,8 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(IsLinear):
             case nameof(IsMeter):
             case nameof(IsButton):
+            case nameof(IsToggle):
+            case nameof(IsStateFrames):
             case nameof(ShowLoadHint):
             case nameof(IsPlaying):
             case nameof(SelectedTabIndex):
@@ -395,8 +402,9 @@ public partial class MainWindowViewModel : ViewModelBase
                 break;
 
             case ComponentType.Button:
-                // Square by default; 2 frames covers off/on. The user can add more frames for
-                // hover, pressed, or disabled states.
+            case ComponentType.Toggle:
+                // Square by default; 2 frames covers off/on. A button can add more frames for
+                // hover, pressed, or disabled states; a toggle stays at off/on.
                 FrameWidth = 80;
                 FrameHeight = 80;
                 _suspendRefresh = false;
@@ -456,9 +464,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     PivotY = SourceCenterY,
                 });
         }
-        else if (IsButton && HasImportedLayers)
+        else if (IsStateFrames && HasImportedLayers)
         {
-            // Button state layers: each layer maps to one frame index (off=0, on=1, …).
+            // Button/toggle state layers: each layer maps to one frame index (off=0, on=1, …).
             // Pivot is irrelevant here (no rotation) but we set it defensively.
             foreach (var row in ImportedLayers)
                 settings.Layers.Add(new RenderLayer { Behavior = row.Behavior, PivotX = 0.5, PivotY = 0.5 });
@@ -482,7 +490,7 @@ public partial class MainWindowViewModel : ViewModelBase
     /// stack in order, or the base body + pointer, or null when not layered.</summary>
     private IReadOnlyList<SKBitmap>? BuildLayerArt()
     {
-        if (IsImportedKnob || (IsButton && HasImportedLayers))
+        if (IsImportedKnob || (IsStateFrames && HasImportedLayers))
             return ImportedLayers.Select(r => r.Art).ToList();
         if (!IsLayeredKnob) return null;
         var art = new List<SKBitmap> { _baseLayer! };
@@ -844,6 +852,15 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        // The file picker passes no explicit type, so infer one: honour an already-selected Button/
+        // Toggle; otherwise two+ off/on state groups (a toggle SVG) become a Toggle, and anything else
+        // is a layered knob (body + pointer). An explicit asType (the Generate handoff) always wins.
+        var resolvedType = asType
+            ?? (IsStateFrames ? ComponentType
+                : LooksLikeStateFrames(result) ? ComponentType.Toggle
+                : ComponentType.RotaryKnob);
+        bool stateFrames = resolvedType is ComponentType.Button or ComponentType.Toggle;
+
         DiscardBasePointer();       // the import replaces the base/pointer slots
         DiscardImportedLayers();    // dispose any previous import
 
@@ -860,10 +877,10 @@ public partial class MainWindowViewModel : ViewModelBase
         int rotateCount = result.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Rotate);
 
         _suspendRefresh = true;
-        if (asType == ComponentType.Button)
+        if (stateFrames)
         {
             // Discrete state frames (off/on, …): one frame per layer, no rotation axis, keep the canvas size.
-            ComponentType = ComponentType.Button;
+            ComponentType = resolvedType;
             FrameWidth = result.CanvasWidth;
             FrameHeight = result.CanvasHeight;
             FrameCount = Math.Max(2, ImportedLayers.Count);
@@ -882,14 +899,20 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         _suspendRefresh = false;
 
-        StatusMessage = asType == ComponentType.Button
-            ? $"Imported {ImportedLayers.Count} button state layer(s) from {Path.GetFileName(path)} "
+        string stateNoun = resolvedType == ComponentType.Toggle ? "toggle" : "button";
+        StatusMessage = stateFrames
+            ? $"Imported {ImportedLayers.Count} {stateNoun} state layer(s) from {Path.GetFileName(path)} "
               + "(frame 0 = off, frame 1 = on). Scrub to check each state."
             : $"Imported {result.Layers.Count} layers from {Path.GetFileName(path)} "
               + $"({rotateCount} set to rotate). Verify each layer's behaviour and scrub to check the sweep.";
         UpdateReadouts();
         RefreshPreview();
     }
+
+    /// <summary>True when an imported file looks like discrete on/off state art (≥2 layers tagged
+    /// Frame — e.g. groups named off/on), so the file picker adopts it as a Toggle rather than a knob.</summary>
+    private static bool LooksLikeStateFrames(LayeredImportResult result) =>
+        result.Layers.Count >= 2 && result.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Frame) >= 2;
 
     /// <summary>Flattens an imported layer stack into one bitmap and adopts it as the single source for
     /// a linear control (a generated fader/slider cap). The linear renderer translates a source image —

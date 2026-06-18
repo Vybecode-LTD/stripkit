@@ -11,6 +11,16 @@
 - **Generate meters too.** The Generate tab can now create **meters** (alongside knobs, faders,
   sliders and buttons) — it produces an unlit + fully-lit pair and "Use in Create" wires them up so
   the meter fills as the value rises.
+- **On/off toggle switches.** A new **Toggle** control type — generate switch-style on/off art,
+  import an off/on SVG/PSD straight into a toggle (auto-detected from the layer names), build one in
+  the Create tab, and export a latching toggle binding.
+
+### Added
+- **Toggle control type.** A first-class on/off toggle, distinct from the (momentary/multi-state)
+  Button: rendered via the same discrete state-frame path, generated with a switch/rocker-style prompt
+  (`off`/`on` groups), code-exported as a latching toggle (JUCE `setClickingTogglesState`, iPlug2
+  `IBSwitchControl`), and mapped as `"toggle"` in `skin.json`. The Create tab lists it, the file
+  picker auto-detects off/on art as a toggle, and the Generate→Create handoff honours it.
 
 ### Added
 - **Meter generation.** The Generate tab offers **Meter** as a control type. The prompt asks for a

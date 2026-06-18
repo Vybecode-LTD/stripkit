@@ -221,6 +221,28 @@ public class GenerateViewModelTests
     }
 
     [Fact]
+    public async Task A_toggle_is_requested_as_a_layered_off_on_pair()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            GenerationRequest? captured = null;
+            gen.GenerateAsync(Arg.Do<GenerationRequest>(r => captured = r), Arg.Any<AiProvider>(),
+                              Arg.Any<string>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+               .Returns(GenerationResult.Fail("stop here"));
+            vm.ApiKey = "sk-test";
+            vm.GenerateControlType = ComponentType.Toggle;
+
+            await vm.GenerateCommand.ExecuteAsync(null);
+
+            captured.Should().NotBeNull();
+            captured!.ComponentType.Should().Be(ComponentType.Toggle);
+            captured.Layered.Should().BeTrue("a toggle is layered (off/on groups)");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
     public async Task A_failed_generation_shows_the_error_and_produces_no_result()
     {
         var (vm, gen, _, temps) = Build();

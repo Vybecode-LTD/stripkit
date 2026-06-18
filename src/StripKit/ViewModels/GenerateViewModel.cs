@@ -28,6 +28,9 @@ public partial class GenerateViewModel : ViewModelBase
     private string? _lastSvgPath;          // the temp SVG of the current result (handed to Create)
     private ComponentType _lastControlType; // the control type that produced the current result
     private int _genCount;
+    // Per-instance tag so concurrent generations (a second app window, or parallel tests) never collide
+    // on the same temp file name.
+    private readonly string _sessionTag = Guid.NewGuid().ToString("N")[..8];
 
     public GenerateViewModel(IAssetGenerationService generation, ISecretStore secrets,
                              ISettingsService settings, ILayeredImportService layeredImport,
@@ -66,7 +69,7 @@ public partial class GenerateViewModel : ViewModelBase
     /// <summary>The control types the AI can generate art for. Meters are generated as a layered
     /// off/on pair (the unlit + fully-lit meter) — the renderer reveals the lit art up to the value.</summary>
     public ComponentType[] GenerateComponentTypes { get; } =
-        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter, ComponentType.Button];
+        [ComponentType.RotaryKnob, ComponentType.VerticalFader, ComponentType.HorizontalSlider, ComponentType.Meter, ComponentType.Button, ComponentType.Toggle];
 
     private IReadOnlyList<string> _suggestedModels = Array.Empty<string>();
     public IReadOnlyList<string> SuggestedModels
@@ -181,7 +184,7 @@ public partial class GenerateViewModel : ViewModelBase
             var request = new GenerationRequest
             {
                 ComponentType = GenerateControlType,
-                Layered = GenerateControlType is ComponentType.RotaryKnob or ComponentType.Button or ComponentType.Meter,
+                Layered = GenerateControlType is ComponentType.RotaryKnob or ComponentType.Button or ComponentType.Toggle or ComponentType.Meter,
                 Style = Style,
                 StyleNotes = StyleNotes,
                 AccentColor = AccentColorHex,
@@ -276,6 +279,10 @@ public partial class GenerateViewModel : ViewModelBase
             $"Generated button art, but only {frames} on/off state layer(s) were found (expected off + on). Try Regenerate.",
         ComponentType.Button =>
             $"Generated a button with {frames} state layers (off / on). Use in Create to build the filmstrip, or Save the SVG.",
+        ComponentType.Toggle when frames < 2 =>
+            $"Generated toggle art, but only {frames} on/off state layer(s) were found (expected off + on). Try Regenerate.",
+        ComponentType.Toggle =>
+            $"Generated an on/off toggle with {frames} state layers. Use in Create to build the filmstrip, or Save the SVG.",
         ComponentType.Meter when layerCount < 2 =>
             $"Generated meter art, but only {layerCount} layer(s) were found (expected an off + on group). Try Regenerate.",
         ComponentType.Meter =>
@@ -345,7 +352,7 @@ public partial class GenerateViewModel : ViewModelBase
         var dir = Path.Combine(Path.GetTempPath(), "StripKit");
         Directory.CreateDirectory(dir);
         TryDelete(_lastSvgPath);
-        var path = Path.Combine(dir, $"generated-{++_genCount}.svg");
+        var path = Path.Combine(dir, $"generated-{_sessionTag}-{++_genCount}.svg");
         File.WriteAllText(path, svg);
         return path;
     }

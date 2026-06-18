@@ -56,8 +56,10 @@ public enum ComponentType
     VerticalFader,
     HorizontalSlider,
     Meter,
-    /// <summary>Discrete-state toggle button: each frame = one state (off / on / …).</summary>
+    /// <summary>Discrete-state button: each frame = one state (off / on / …).</summary>
     Button,
+    /// <summary>On/off toggle switch — 2 frames (off / on), rendered like a 2-state Button.</summary>
+    Toggle,
 }
 
 /// <summary>The direction a meter fills as its value rises from 0 to 1.</summary>
@@ -295,8 +297,9 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                 return new FrameTransform(0f, 0f, fw, fh, 0f, fw / 2f, fh / 2f);
 
             case ComponentType.Button:
+            case ComponentType.Toggle:
             {
-                // Buttons render discrete state art per frame (no movement). Center-fit the source.
+                // Buttons/toggles render discrete state art per frame (no movement). Center-fit the source.
                 var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
                 float drawX = (fw - drawW) / 2f;
                 float drawY = (fh - drawH) / 2f;
@@ -349,7 +352,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             if (settings.ShowValueArc)
                 RenderValueArc(canvas, settings, arcTf, frameIndex, px, workW, workH);
         }
-        else if (settings.ComponentType == ComponentType.Button
+        else if ((settings.ComponentType == ComponentType.Button || settings.ComponentType == ComponentType.Toggle)
                  && settings.Layers.Count > 0 && layerArt is { Count: > 0 })
         {
             RenderButtonLayers(canvas, settings, layerArt, frameIndex, px);

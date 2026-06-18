@@ -92,12 +92,13 @@ public sealed class AssetGenerationService : IAssetGenerationService
             sb.AppendLine("    <g id=\"pointer\"> ONLY the moving indicator (a line, notch, triangle or dot) drawn pointing straight UP toward 12 o'clock from the centre </g>");
             sb.AppendLine("  The body never moves. The pointer is rotated programmatically about the centre to show the value, so draw it AT REST (12 o'clock) and bake NO rotation into it.");
         }
-        else if (r.ComponentType == ComponentType.Button)
+        else if (r.ComponentType is ComponentType.Button or ComponentType.Toggle)
         {
+            string noun = r.ComponentType == ComponentType.Toggle ? "switch" : "button";
             sb.AppendLine("- Structure the drawing as EXACTLY two top-level groups, in this order:");
-            sb.AppendLine("    <g id=\"off\"> the button in its OFF / inactive state — dim, unlit, or depressed </g>");
-            sb.AppendLine("    <g id=\"on\"> the button in its ON / active state — glowing, lit, or raised </g>");
-            sb.AppendLine("  Draw the complete button artwork in both groups; only one group is shown at a time depending on the parameter value.");
+            sb.AppendLine($"    <g id=\"off\"> the {noun} in its OFF / inactive state — dim, unlit, or depressed </g>");
+            sb.AppendLine($"    <g id=\"on\"> the {noun} in its ON / active state — glowing, lit, or raised </g>");
+            sb.AppendLine($"  Draw the complete {noun} artwork in both groups; only one group is shown at a time depending on the parameter value.");
         }
         else
         {
@@ -178,7 +179,7 @@ public sealed class AssetGenerationService : IAssetGenerationService
 
         if (r.Layered && r.ComponentType == ComponentType.RotaryKnob)
             sb.AppendLine("Return the SVG with a static <g id=\"body\"> and a separate <g id=\"pointer\"> pointing straight up.");
-        else if (r.ComponentType == ComponentType.Button)
+        else if (r.ComponentType is ComponentType.Button or ComponentType.Toggle)
             sb.AppendLine("Return the SVG with an <g id=\"off\"> group for the inactive state and a <g id=\"on\"> group for the active/lit state.");
         else if (r.ComponentType == ComponentType.Meter)
             sb.AppendLine(r.MeterHorizontal
@@ -206,7 +207,8 @@ public sealed class AssetGenerationService : IAssetGenerationService
         ComponentType.VerticalFader => "vertical fader thumb (the cap that slides up and down — just the cap, not the track)",
         ComponentType.HorizontalSlider => "horizontal slider thumb (the handle that slides left to right — just the handle, not the track)",
         ComponentType.Meter => "vertical level meter (LED-segment or continuous-bar style)",
-        ComponentType.Button => "push-button toggle",
+        ComponentType.Button => "push button",
+        ComponentType.Toggle => "on/off toggle switch (a rocker or slide switch)",
         _ => "rotary knob",
     };
 }

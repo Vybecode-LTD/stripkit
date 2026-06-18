@@ -109,6 +109,32 @@ public class CodeSnippetServiceTests
             .Should().Contain("new IBSliderControl(bounds, filterCutoffBitmap, kFilterCutoff, EDirection::Horizontal)");
     }
 
+    [Fact]
+    public void IPlug2_toggle_emits_an_IBSwitchControl()
+    {
+        _svc.Generate(CodeTarget.IPlug2, Req(ComponentType.Toggle))
+            .Should().Contain("new IBSwitchControl(bounds, filterCutoffBitmap, kFilterCutoff)");
+    }
+
+    // ---- Button / Toggle ----
+
+    [Fact]
+    public void Juce_toggle_emits_a_latching_toggle_button()
+    {
+        var code = _svc.Generate(CodeTarget.Juce, Req(ComponentType.Toggle));
+        code.Should().Contain("class FilterCutoffToggle : public juce::Button");
+        code.Should().Contain("setClickingTogglesState (true)");
+        code.Should().Contain("getToggleState() ? 1 : 0");
+        code.Should().NotContain("drawRotarySlider");
+    }
+
+    [Fact]
+    public void Juce_button_and_toggle_differ_only_in_the_class_name()
+    {
+        _svc.Generate(CodeTarget.Juce, Req(ComponentType.Button)).Should().Contain("class FilterCutoffButton : public juce::Button");
+        _svc.Generate(CodeTarget.Juce, Req(ComponentType.Toggle)).Should().Contain("class FilterCutoffToggle : public juce::Button");
+    }
+
     // ---- HISE ----
 
     [Fact]

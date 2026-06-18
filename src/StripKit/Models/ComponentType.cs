@@ -13,8 +13,13 @@ public enum ComponentType
     HorizontalSlider,
     Meter,
 
-    /// <summary>A discrete-state button / toggle: typically 2 frames (off / on), or more for
+    /// <summary>A discrete-state button: typically 2 frames (off / on), or more for
     /// hover, pressed, and disabled states. Each frame renders the art for that state; no
     /// position transform is applied.</summary>
     Button,
+
+    /// <summary>An on/off toggle switch — 2 frames (off / on). Rendered exactly like a 2-state
+    /// <see cref="Button"/> (the discrete state-frame path), but surfaced as its own control:
+    /// switch/rocker-style generated art and a latching (boolean) code-export binding.</summary>
+    Toggle,
 }

@@ -93,8 +93,9 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                 return new FrameTransform(0f, 0f, fw, fh, 0f, fw / 2f, fh / 2f);
 
             case ComponentType.Button:
+            case ComponentType.Toggle:
             {
-                // Buttons render discrete state art per frame (no movement).
+                // Buttons/toggles render discrete state art per frame (no movement).
                 // Center-fit the source in the frame cell — same as a static knob body.
                 var (drawW, drawH) = Contain(source.Width, source.Height, fw, fh);
                 float drawX = (fw - drawW) / 2f;
@@ -150,10 +151,10 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             if (settings.ShowValueArc)
                 RenderValueArc(canvas, settings, arcTf, frameIndex, px, workW, workH);
         }
-        else if (settings.ComponentType == ComponentType.Button
+        else if ((settings.ComponentType == ComponentType.Button || settings.ComponentType == ComponentType.Toggle)
                  && settings.Layers.Count > 0 && layerArt is { Count: > 0 })
         {
-            // Button: each layer is either Static (all frames) or Frame-indexed (off / on / etc.).
+            // Button/toggle: each layer is either Static (all frames) or Frame-indexed (off / on / etc.).
             RenderButtonLayers(canvas, settings, layerArt, frameIndex, px);
         }
         else

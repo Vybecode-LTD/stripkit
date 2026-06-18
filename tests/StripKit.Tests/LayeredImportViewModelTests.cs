@@ -131,6 +131,46 @@ public class LayeredImportViewModelTests
     }
 
     [Fact]
+    public async Task Importing_as_a_toggle_honors_the_type_and_builds_state_frames()
+    {
+        // A generated toggle arrives as off/on groups and must land as a Toggle (its own type) with
+        // discrete state frames, exactly like a 2-state button.
+        var (vm, _, _, _) = Build();
+        var path = WriteTempSvg(ButtonSvg);
+        try
+        {
+            await vm.ImportLayeredFromPathAsync(path, ComponentType.Toggle);
+
+            vm.ComponentType.Should().Be(ComponentType.Toggle, "the handoff honors the generated type");
+            vm.IsToggle.Should().BeTrue();
+            vm.IsStateFrames.Should().BeTrue("a toggle uses the state-frame path");
+            vm.ImportedLayers.Should().HaveCount(2);
+            vm.ImportedLayers.Should().OnlyContain(r => r.Behavior == LayerBehavior.Frame, "off/on are discrete state frames");
+            vm.FrameCount.Should().Be(2, "one frame per state layer");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task Importing_an_off_on_file_via_the_picker_auto_detects_a_toggle()
+    {
+        // From the file picker (no explicit type) an off/on SVG should be recognised as a toggle
+        // rather than mis-loaded as a knob.
+        var (vm, dialogs, _, _) = Build();
+        var path = WriteTempSvg(ButtonSvg);
+        dialogs.OpenLayeredFileAsync().Returns(path);
+        try
+        {
+            await vm.ImportLayeredFileCommand.ExecuteAsync(null);
+
+            vm.ComponentType.Should().Be(ComponentType.Toggle, "off/on layers auto-detect as a toggle");
+            vm.ImportedLayers.Should().HaveCount(2);
+            vm.HasImportedLayers.Should().BeTrue();
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
     public async Task Importing_as_a_meter_routes_off_to_background_and_on_to_source()
     {
         // A generated meter arrives as off/on groups; the handoff must adopt them as the meter's

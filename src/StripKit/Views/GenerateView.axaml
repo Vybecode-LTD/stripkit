@@ -53,7 +53,7 @@
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding GenerateComponentTypes}"
                               SelectedItem="{Binding GenerateControlType}"
-                              ToolTip.Tip="What kind of control to generate. Knobs, buttons and meters produce layered SVGs (knob = body+pointer, button/meter = off+on); faders and sliders produce a single cap/handle shape." />
+                              ToolTip.Tip="What kind of control to generate. Knobs, buttons, toggles and meters produce layered SVGs (knob = body+pointer; button/toggle/meter = off+on); faders and sliders produce a single cap/handle shape." />
 
                     <CheckBox Content="Horizontal meter (fills left → right)"
                               IsChecked="{Binding MeterHorizontal}"

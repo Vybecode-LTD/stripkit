@@ -73,6 +73,8 @@ public sealed class ManifestService : IManifestService
         ComponentType.VerticalFader => "vfader",
         ComponentType.HorizontalSlider => "hslider",
         ComponentType.Meter => "meter",
+        ComponentType.Button => "button",
+        ComponentType.Toggle => "toggle",
         _ => "knob",
     };
 }

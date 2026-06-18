@@ -43,6 +43,14 @@ public class AssetGenerationServiceTests
         </svg>
         """;
 
+    const string LayeredToggle =
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">
+          <g id="off"><rect x="10" y="35" width="80" height="30" rx="15" fill="#333"/></g>
+          <g id="on"><rect x="10" y="35" width="80" height="30" rx="15" fill="#0f0"/></g>
+        </svg>
+        """;
+
     [Fact]
     public async Task A_chatty_reply_is_reduced_to_a_clean_importable_layered_svg()
     {
@@ -113,6 +121,21 @@ public class AssetGenerationServiceTests
         fake.LastSystem.Should().Contain("full width", "a horizontal meter spans the width, not the height");
         fake.LastSystem.Should().Contain("LEFT", "low values sit at the left for a horizontal meter");
         fake.LastUser.Should().Contain("horizontal meter");
+    }
+
+    [Fact]
+    public async Task A_toggle_prompt_asks_for_off_on_switch_groups()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredToggle);
+        var svc = new AssetGenerationService([fake]);
+
+        var result = await svc.GenerateAsync(new GenerationRequest { ComponentType = ComponentType.Toggle },
+                                             AiProvider.Claude, "KEY", "", default);
+
+        result.Success.Should().BeTrue(result.Error);
+        fake.LastSystem.Should().Contain("id=\"off\"").And.Contain("id=\"on\"", "a toggle is an off/on pair");
+        fake.LastSystem.Should().Contain("switch", "a toggle is drawn as a switch, not a push button");
+        fake.LastUser.Should().Contain("toggle switch");
     }
 
     [Fact]

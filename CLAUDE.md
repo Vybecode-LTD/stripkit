@@ -80,12 +80,14 @@ website reads the live GitHub Release (auto-draft + refine `updates.json` via
 so **commit the feature work first** (the v1.2.0 source was once orphaned because it wasn't; the
 Stage-1 guard now enforces this).
 
-## Architecture (one idea, five component types) — full detail in `docs/ARCHITECTURE.md`
+## Architecture (one idea, six component types) — full detail in `docs/ARCHITECTURE.md`
 
 Every render is: *for each of N frames, place the source art inside a fixed frame
-cell under a per-frame transform, then stack the cells into one PNG.* The five
+cell under a per-frame transform, then stack the cells into one PNG.* The six
 component types are knob, vertical fader, horizontal slider, **meter**
-(progressive segment fill), and **button** (discrete state frames — off/on/…). The app is a
+(progressive segment fill), **button** (discrete state frames — off/on/…), and **toggle**
+(an on/off pair; rendered exactly like a 2-state button, with switch-style generated art and a
+latching code-export binding). The app is a
 `TabControl` with **five** tabs — **Create**
 (make a strip), **Import** (re-use / re-slice / resample one), **Batch** (a whole folder at
 once), **Skin** (assemble a multi-control `skin.json`), and **Generate** (AI-generate layered
@@ -96,7 +98,7 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
   `SkinManifest`/`ManifestControl`/`ManifestBounds`, `BatchModels`, `CodeModels`,
   `RenderLayer` (`LayerBehavior` {Static, Rotate, **Frame**} + per-layer pivot — the layered-knob /
   button stack), the `ComponentType` ({RotaryKnob, VerticalFader, HorizontalSlider, Meter,
-  **Button**}) / `StackDirection` / `MeterFillDirection` enums.
+  **Button**, **Toggle**}) / `StackDirection` / `MeterFillDirection` enums.
 - `Services/SkiaFilmstripRenderer.cs` — **the heart.** `ComputeTransform` does the
   rotary/linear math; `RenderFrame` composites one frame with supersampling +
   Mitchell cubic resampling (meters fill segments via `RenderMeterFrame` — procedural
