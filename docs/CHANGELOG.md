@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.3.0] — 2026-06-18
 
 The biggest Generate-tab release yet: a full AI-generation workflow, plus meters and on/off toggles
 as first-class controls — and a security fix for SVG import.
