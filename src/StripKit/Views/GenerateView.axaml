@@ -53,7 +53,7 @@
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding GenerateComponentTypes}"
                               SelectedItem="{Binding GenerateControlType}"
-                              ToolTip.Tip="What kind of control to generate. Knobs and buttons produce layered SVGs; faders and sliders produce a single cap/handle shape." />
+                              ToolTip.Tip="What kind of control to generate. Knobs, buttons and meters produce layered SVGs (knob = body+pointer, button/meter = off+on); faders and sliders produce a single cap/handle shape." />
 
                     <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"

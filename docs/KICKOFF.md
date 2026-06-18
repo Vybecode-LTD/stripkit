@@ -101,9 +101,9 @@ handoff honours the generated control type; untrusted-SVG XML parse hardened via
 Then (see `docs/ROADMAP.md` + `docs/HANDOFF.md`):
 - **Website "Getting started" how-to guide** at `stripkit.pro/getting-started/` (P2) — the in-app
   tutorial's web mirror (separate `StripKit-Website` repo).
-- **Generate: fader / slider / meter polish** — the structure is type-aware, but the linear/meter
-  generation paths want a live eyeball + prompt tuning (knob is the proven path; meters aren't a
-  Generate target yet).
+- **Generate: fader / slider / meter polish** — all five control types are Generate targets now
+  (meters generate as an off/on pair → background + revealed source), but the linear/meter generation
+  paths want a live eyeball + prompt tuning (knob is the proven path).
 - **More code-export targets** — React / Web Component, Unity / Godot (extend `CodeTarget`
   + a generator + tests; `CodeSnippetService` is built to grow).
 - **Translate / opacity-ramp layer behaviours** — a *renderer* increment (touches

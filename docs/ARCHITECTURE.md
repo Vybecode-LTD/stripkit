@@ -835,8 +835,10 @@ and the secret store are singletons (with the `HttpClient`); `GenerateViewModel`
 map each on import (`pointer`->Rotate, `off`/`on`->Frame, else Static), and the **Use-in-Create handoff honours
 the generated type** (v1.2.1): knob -> the body+pointer `Layers` stack; button -> `off`/`on` as `LayerBehavior.Frame`
 state layers; fader/slider -> flattened to the single source the linear renderer expects. (Before v1.2.1 the handoff
-hard-forced `RotaryKnob`, so generated faders/sliders rotated and buttons stacked both states.) Meters are not yet a
-Generate target, and the fader/slider/meter output paths still want a live eyeball — knob is the proven path.
+hard-forced `RotaryKnob`, so generated faders/sliders rotated and buttons stacked both states.) **Meters** are also a
+Generate target now: a tall portrait `off`/`on` pair (unlit + fully-lit, full height) whose handoff adopts `off` ->
+the meter background and `on` -> the source the renderer reveals up to the value (continuous vertical fill, no renderer
+change). The fader/slider/meter output paths still want a live eyeball + prompt tuning — knob is the proven path.
 
 ---
 

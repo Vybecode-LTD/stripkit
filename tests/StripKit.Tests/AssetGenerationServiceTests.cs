@@ -35,6 +35,14 @@ public class AssetGenerationServiceTests
         </svg>
         """;
 
+    const string LayeredMeter =
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="160" viewBox="0 0 48 160">
+          <g id="off"><rect x="8" y="0" width="32" height="160" fill="#222"/></g>
+          <g id="on"><rect x="8" y="0" width="32" height="160" fill="#0f0"/></g>
+        </svg>
+        """;
+
     [Fact]
     public async Task A_chatty_reply_is_reduced_to_a_clean_importable_layered_svg()
     {
@@ -74,6 +82,23 @@ public class AssetGenerationServiceTests
         fake.LastSystem.Should().Contain("10%", "the ~10% rotation-margin convention is in the prompt");
         fake.LastSystem.Should().Contain("256", "the canvas size flows into the prompt");
         fake.LastUser.Should().Contain("#00FF00", "the accent colour flows into the prompt");
+    }
+
+    [Fact]
+    public async Task A_meter_prompt_asks_for_off_on_groups_spanning_the_full_height()
+    {
+        var fake = new FakeProvider(AiProvider.Claude, () => LayeredMeter);
+        var svc = new AssetGenerationService([fake]);
+
+        var result = await svc.GenerateAsync(new GenerationRequest { ComponentType = ComponentType.Meter },
+                                             AiProvider.Claude, "KEY", "", default);
+
+        result.Success.Should().BeTrue(result.Error);
+        fake.LastSystem.Should().Contain("id=\"off\"").And.Contain("id=\"on\"",
+            "a meter is generated as an unlit + lit pair");
+        fake.LastSystem.Should().Contain("full height",
+            "the reveal needs the meter to span the height with no vertical margin");
+        fake.LastUser.Should().Contain("meter");
     }
 
     [Fact]

@@ -110,8 +110,9 @@ Three audit findings against the shipped v1.2.0, fixed forward:
   `ContentAnalysis`, importer, manifest, batch, code-snippet, settings, asset, **the Generate providers /
   service / sanitizer / secret store**) are **not** in it — by design.
 - **Generate is layered-knob-first in structure but type-aware in output:** knob → body+pointer, button →
-  off/on Frame layers, fader/slider → a single `body` cap shape (flattened on handoff). Meters are not yet a
-  Generate target.
+  off/on Frame layers, fader/slider → a single `body` cap shape (flattened on handoff), meter → an off/on
+  pair adopted as background + revealed source (continuous vertical fill). All five control types are now
+  Generate targets; fader/slider/meter output still wants a live eyeball.
 - **Layered-import MVP boundaries** (ARCHITECTURE §6.8): top-level SVG groups = layers (no Figma single-root
   unwrap); PSD layer order follows the file (no reorder UI); behaviours limited to the rendered
   Static / Rotate / Frame.

@@ -39,6 +39,14 @@ public class LayeredImportViewModelTests
         </svg>
         """;
 
+    const string MeterSvg =
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="160" viewBox="0 0 48 160">
+          <g id="off"><rect x="8" y="0" width="32" height="160" fill="#222222"/></g>
+          <g id="on"><rect x="8" y="0" width="32" height="160" fill="#00ff00"/></g>
+        </svg>
+        """;
+
     static SKBitmap Bmp(int w, int h) => new(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
 
     static string WriteTempSvg(string svg)
@@ -110,6 +118,28 @@ public class LayeredImportViewModelTests
             vm.ImportedLayers.Should().HaveCount(2);
             vm.ImportedLayers.Should().OnlyContain(r => r.Behavior == LayerBehavior.Frame, "off/on are discrete state frames");
             vm.FrameCount.Should().Be(2, "one frame per state layer");
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public async Task Importing_as_a_meter_routes_off_to_background_and_on_to_source()
+    {
+        // A generated meter arrives as off/on groups; the handoff must adopt them as the meter's
+        // background (off, drawn full) + source (on, revealed up to the value) — the meter render path
+        // consumes a source + background, NOT the layer stack.
+        var (vm, _, _, _) = Build();
+        var path = WriteTempSvg(MeterSvg);
+        try
+        {
+            await vm.ImportLayeredFromPathAsync(path, ComponentType.Meter);
+
+            vm.ComponentType.Should().Be(ComponentType.Meter, "the handoff honors the generated type");
+            vm.IsMeter.Should().BeTrue();
+            vm.HasSource.Should().BeTrue("the on-state is adopted as the revealed source");
+            vm.HasBackground.Should().BeTrue("the off-state is adopted as the background");
+            vm.ContinuousFill.Should().BeTrue("generated meter art reveals smoothly, not in steps");
+            vm.HasImportedLayers.Should().BeFalse("a meter is a source+background pair, not a layer stack");
         }
         finally { File.Delete(path); }
     }

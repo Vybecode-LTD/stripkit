@@ -5,6 +5,29 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [Unreleased]
+
+### Website
+- **Generate meters too.** The Generate tab can now create **meters** (alongside knobs, faders,
+  sliders and buttons) — it produces an unlit + fully-lit pair and "Use in Create" wires them up so
+  the meter fills as the value rises.
+
+### Added
+- **Meter generation.** The Generate tab offers **Meter** as a control type. The prompt asks for a
+  tall portrait SVG with an unlit `<g id="off">` group and a fully-lit `<g id="on">` group spanning
+  the full height; the **Use in Create** handoff adopts `off` → meter background (drawn full) and
+  `on` → source (revealed up to the value), sets a continuous vertical (Up) fill, and squares the
+  frame to the canvas. No renderer change — it reuses the existing layered-meter reveal path.
+- **Input-size guards.** `ImageLoadService` now rejects a decompression-bomb image (peeks the header
+  via `SKCodec`, caps at 64 MP); `LayeredImportService` caps raw SVG text (20 MB) and PSD canvas
+  (64 MP) before allocating.
+
+### Fixed
+- **SVG file-import hardening (BUG-010).** A crafted `.svg` opened via the layered-file picker could
+  trigger a "billion-laughs" entity-expansion DoS — the BUG-009 hardening ran *after* Svg.Skia had
+  already parsed the raw text. `SafeXml.Parse` now runs first, so a DTD is rejected before the
+  renderer's parser ever sees it (the AI-reply path was never affected).
+
 ## [1.2.2] — 2026-06-14
 
 ### Website

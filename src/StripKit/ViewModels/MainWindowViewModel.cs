@@ -838,6 +838,12 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        if (asType == ComponentType.Meter)
+        {
+            AdoptMeterArt(result, path);
+            return;
+        }
+
         DiscardBasePointer();       // the import replaces the base/pointer slots
         DiscardImportedLayers();    // dispose any previous import
 
@@ -923,6 +929,63 @@ public partial class MainWindowViewModel : ViewModelBase
                       + $"from {Path.GetFileName(path)}. Scrub to see it travel, then Export.";
         UpdateReadouts();
         RefreshPreview();
+    }
+
+    /// <summary>Adopts a generated meter's layers as the meter's off/on art: the renderer draws the
+    /// off-state full (background) and reveals the on-state up to the value (source). Routes the layer
+    /// named "off" (or, failing a name, the first/bottom layer) to the background and "on" (or the
+    /// last/top layer) to the source; degrades to a source-only meter when only one layer is present.
+    /// The meter render path consumes a single source + background — not the layer stack — so this
+    /// routes a generated meter through the same path a hand-loaded on/off pair would take.</summary>
+    private void AdoptMeterArt(LayeredImportResult result, string path)
+    {
+        int w = result.CanvasWidth, h = result.CanvasHeight;
+
+        var on = result.Layers.FirstOrDefault(l => l.Name.Trim().Equals("on", StringComparison.OrdinalIgnoreCase))
+                 ?? result.Layers[^1];                              // last/top = lit, by convention
+        var off = result.Layers.FirstOrDefault(l => l.Name.Trim().Equals("off", StringComparison.OrdinalIgnoreCase))
+                  ?? (result.Layers.Count > 1 ? result.Layers[0] : null);   // first/bottom = unlit
+
+        var onArt = CopyCanvas(on.Art, w, h);
+        var offArt = off is not null && !ReferenceEquals(off, on) ? CopyCanvas(off.Art, w, h) : null;
+        foreach (var layer in result.Layers) layer.Art.Dispose();   // the copies are all we keep
+
+        DiscardBasePointer();
+        DiscardImportedLayers();
+        _source?.Dispose();
+        _background?.Dispose();
+        _source = onArt;            // on-state, revealed up to the value
+        _background = offArt;       // off-state, drawn full behind (null → procedural-less plain reveal)
+        _sourcePath = path;
+        HasSource = true;
+        HasBackground = offArt is not null;
+        SourceInfo = $"{Path.GetFileName(path)} — {w}×{h}px (generated meter, lit)";
+        BackgroundInfo = offArt is not null ? $"{Path.GetFileName(path)} — off-state" : "None.";
+
+        _suspendRefresh = true;
+        ComponentType = ComponentType.Meter;
+        FrameWidth = w;
+        FrameHeight = h;
+        ContinuousFill = true;                       // generated art reveals smoothly, not in steps
+        FillDirection = MeterFillDirection.Up;       // generated vertically: low bottom, high top
+        _suspendRefresh = false;
+
+        StatusMessage = offArt is not null
+            ? $"Imported a generated meter from {Path.GetFileName(path)} (off → background, on → fill). Scrub to see it fill, then Export."
+            : $"Imported a generated meter from {Path.GetFileName(path)}. Scrub to see it fill, then Export.";
+        UpdateReadouts();
+        RefreshPreview();
+    }
+
+    /// <summary>A canvas-sized RGBA copy of one imported layer's art (so we can keep it after the rest
+    /// of the import set is disposed).</summary>
+    private static SKBitmap CopyCanvas(SKBitmap src, int w, int h)
+    {
+        var copy = new SKBitmap(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
+        using var c = new SKCanvas(copy);
+        c.Clear(SKColors.Transparent);
+        c.DrawBitmap(src, 0, 0);
+        return copy;
     }
 
     [RelayCommand]
