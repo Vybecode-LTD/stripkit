@@ -10,23 +10,10 @@
         Width="1060" Height="740"
         MinWidth="940" MinHeight="620"
         FontFamily="Verdana, Segoe UI, Arial, sans-serif"
-        TransparencyLevelHint="AcrylicBlur"
-        Background="Transparent">
+        Background="{DynamicResource DepthBg}">
 
     <Panel>
-        <!-- Frosted acrylic base: real on Windows, FallbackColor elsewhere. -->
-        <ExperimentalAcrylicBorder Material="{DynamicResource ObsidianAcrylic}" />
-
-        <!-- Warm accent glow (top-right) — adds depth/atmosphere over the flat acrylic. -->
-        <Border IsHitTestVisible="False">
-            <Border.Background>
-                <RadialGradientBrush Center="86%,0%" GradientOrigin="86%,0%" RadiusX="80%" RadiusY="80%">
-                    <GradientStop Offset="0" Color="#33E8440A" />
-                    <GradientStop Offset="0.5" Color="#11E8440A" />
-                    <GradientStop Offset="1" Color="#00E8440A" />
-                </RadialGradientBrush>
-            </Border.Background>
-        </Border>
+        <!-- Solid Depth base (machined grey) — uniform across every tab. -->
 
         <TabControl SelectedIndex="{Binding SelectedTabIndex}">
 
@@ -45,9 +32,14 @@
 
                     <!-- Source -->
                     <controls:SectionHeader Text="SOURCE IMAGE" />
-                    <Button Content="Load source image…" HorizontalAlignment="Stretch"
+                    <Button HorizontalAlignment="Stretch"
                             ToolTip.Tip="Load a transparent PNG of your control (knob, fader, slider…). You can also drag &amp; drop it onto the preview."
-                            Command="{Binding OpenSourceCommand}" />
+                            Command="{Binding OpenSourceCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xE8E5;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                            <TextBlock Text="Load source image…" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
                     <TextBlock Classes="label" Text="{Binding SourceInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                     <!-- Component type -->
@@ -156,8 +148,13 @@
                                    Text="Optional. Load a static body and a separate pointer — only the pointer rotates, so the body stays crisp at any resolution. Leave empty to spin the single source image above as before." />
 
                         <!-- Import a real layered file (SVG/PSD) → N tagged layers (★ #3 step 3) -->
-                        <Button Content="Import layered file (SVG / PSD)…" HorizontalAlignment="Stretch" Margin="0,8,0,0"
-                                Command="{Binding ImportLayeredFileCommand}" />
+                        <Button HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                Command="{Binding ImportLayeredFileCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="&#xE8B5;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                                <TextBlock Text="Import layered file (SVG / PSD)…" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="Drop in a layered knob exported from Illustrator / Inkscape / Figma (.svg) or Photoshop (.psd). Each layer is listed below — set the body layers to Static and the indicator to Rotate. Replaces the manual base/pointer slots." />
 
@@ -259,8 +256,13 @@
                                    Text="A button/toggle filmstrip has one frame per UI state: frame 0 = off, frame 1 = on, frame 2 = pressed (optional), frame 3 = disabled (optional). A toggle is just the off/on pair. Set Frames above to the number of states you need." />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,6,0,0"
                                    Text="Import a layered SVG / PSD with groups named 'off' and 'on' (or 'state0', 'state1'…) — each group renders only on its matching frame. Use the Generate tab to create button/toggle art with your own AI key." />
-                        <Button Content="Import layered file (SVG / PSD)…" HorizontalAlignment="Stretch" Margin="0,8,0,0"
-                                Command="{Binding ImportLayeredFileCommand}" />
+                        <Button HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                                Command="{Binding ImportLayeredFileCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="&#xE8B5;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                                <TextBlock Text="Import layered file (SVG / PSD)…" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                         <StackPanel IsVisible="{Binding HasImportedLayers}" Spacing="2" Margin="0,6,0,0">
                             <TextBlock Classes="label" Text="{Binding ImportInfo}" TextWrapping="Wrap" />
                             <ItemsControl ItemsSource="{Binding ImportedLayers}" Margin="0,4,0,0">
@@ -410,24 +412,36 @@
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-                            <Button Content="◀" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
-                            <Button x:Name="PlayButton" Content="▶ Play" Click="OnPlayClick" Width="84" />
-                            <Button Content="▶" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
-                            <Button Content="Reset" Click="OnResetPreview" ToolTip.Tip="Reset to the centred start frame" />
+                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
+                            <Button x:Name="PlayButton" Click="OnPlayClick" Width="90" ToolTip.Tip="Play / stop the preview">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="PlayIcon" Text="&#xE768;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="PlayLabel" Text="Play" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
+                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40" ToolTip.Tip="Reset to the centred start frame" />
                         </StackPanel>
                         <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
                         <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right" />
+                                   Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right"
+                                   FontFamily="{StaticResource DepthMono}" />
                     </Grid>
 
-                    <TextBlock Text="{Binding StripDimensions}" Foreground="{DynamicResource Text3Brush}" FontSize="12" />
+                    <TextBlock Text="{Binding StripDimensions}" Foreground="{DynamicResource Text3Brush}" FontSize="12"
+                               FontFamily="{StaticResource DepthMono}" />
 
                     <Grid ColumnDefinitions="*,Auto">
                         <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
-                        <Button Grid.Column="1" Classes="accent" Content="Export filmstrip PNG" MinWidth="190"
+                        <Button Grid.Column="1" Classes="accent" MinWidth="190"
                                 ToolTip.Tip="Render and save the stacked PNG filmstrip (plus @2x and a skin.json manifest if those are ticked)."
-                                Command="{Binding ExportCommand}" />
+                                Command="{Binding ExportCommand}">
+                            <StackPanel Orientation="Horizontal" Spacing="8">
+                                <TextBlock Text="&#xE74E;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                                <TextBlock Text="Export filmstrip PNG" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -451,14 +465,24 @@
             <views:GenerateView DataContext="{Binding Generate}" />
         </TabItem>
 
+        <TabItem Header="Assemble">
+            <views:AssembleView DataContext="{Binding Assemble}" />
+        </TabItem>
+
         </TabControl>
 
         <!-- Header right side: app wordmark + a Help button + an About (?) button, across from the tabs. -->
         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal"
-                    Margin="0,18,18,0" Spacing="12">
-            <Image Source="/Assets/software_logo.png" Height="26" VerticalAlignment="Center"
-                   IsHitTestVisible="False" RenderOptions.BitmapInterpolationMode="HighQuality" />
-            <Button Content="Help" VerticalAlignment="Center"
+                    Height="34" Margin="0,0,18,0" Spacing="12">
+            <!-- Brandmark + wordmark: the VybeCode DSP pulse mark followed by "VYBECODE DSP". -->
+            <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center" IsHitTestVisible="False">
+                <Image Source="/Assets/vybecode-dsp-brandmark.png" Height="28" VerticalAlignment="Center"
+                       RenderOptions.BitmapInterpolationMode="HighQuality" />
+                <!-- Runs adjacent (no whitespace between them) so VYBECODE and DSP close up into
+                     one wordmark, kept two colours to differentiate. -->
+                <TextBlock VerticalAlignment="Center" FontSize="17" FontWeight="Bold" LetterSpacing="0.5"><Run Text="VYBECODE" Foreground="White" /><Run Text="DSP" Foreground="{StaticResource DepthEmber}" /></TextBlock>
+            </StackPanel>
+            <Button Content="Help" VerticalAlignment="Center" FontSize="10.5" Padding="8,4"
                     ToolTip.Tip="Open the Getting Started guide for the current tab"
                     Command="{Binding Tutorial.OpenCommand}"
                     CommandParameter="{Binding SelectedTabIndex}" />

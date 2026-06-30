@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -44,7 +44,10 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (216): renderer golden-image (with committed
+- `tests/StripKit.Tests/` — xUnit tests (244): the **Assemble tab** (frame-sequence assembler +
+  natural-sort comparer + probe + VM + golden + headless view — `NaturalFileNameComparerTests`,
+  `FrameSequenceAssemblerTests`, `FrameSequenceProbeTests`, `FrameSequenceViewModelTests`,
+  `FrameSequenceAssemblerGoldenTests`, `AssembleViewTests`), renderer golden-image (with committed
   `baselines/`), the Generate-tab pipeline (`SvgSanitizerTests`, `SecretStoreTests`,
   `AssetGenerationProviderTests` via a fake HTTP handler, `AssetGenerationServiceTests`,
   `GenerateViewModelTests`, `GenerateViewTests`, `GenerateIntegrationTests`, the custom OpenAI-compatible
@@ -108,6 +111,10 @@ does each thing live" companion.
   result), and `GenerationSeed` + `GenerationSeedLibrary` (a named style bundle + 5 built-in seeds).
   No deps.
 - `TutorialStep.cs` — one Getting Started step (title, body, optional tip, offers-sample flag).
+- `FrameSequenceModels.cs` — the **Assemble tab** data: `CellFit` enum (Strict / PadToLargest /
+  CropToSmallest — how to reconcile mismatched frame sizes), `FrameSequenceOptions` (direction, fit,
+  re-centre, optional resample target), `FrameSequenceResult` (the stacked strip + count/size/warnings),
+  and `SequenceProbe` (the non-decoding dimension report). No deps.
 
 ### `Services/` — the engine and I/O
 
@@ -137,10 +144,21 @@ does each thing live" companion.
   entity-expansion DoS ("billion laughs") + external-entity / SSRF. Used by `SvgSanitizer` and
   `LayeredImportService`. BCL only (`System.Xml`); app-only.
 - `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`, capping the decoded
-  dimensions via `SKCodec` first (a decompression-bomb guard against a hostile image).
-- `IFileDialogService.cs` / `FileDialogService.cs` — open-image / open-layered (SVG/PSD) /
-  save-PNG / **save-SVG** / open-folder pickers via Avalonia `StorageProvider`. The concrete class
-  holds the `Owner` window, set in `App.axaml.cs` after the window is created.
+  dimensions via `SKCodec` first (a decompression-bomb guard against a hostile image). `Probe` peeks
+  an image's header dimensions without decoding the pixels (used by the Assemble tab to report the
+  frame-size spread before a large assemble).
+- `IFileDialogService.cs` / `FileDialogService.cs` — open-image / **open-images (multi-select)** /
+  open-layered (SVG/PSD) / save-PNG / **save-SVG** / open-folder pickers via Avalonia `StorageProvider`.
+  The concrete class holds the `Owner` window, set in `App.axaml.cs` after the window is created.
+- `NaturalFileNameComparer.cs` — an `IComparer<string>` that orders file names numerically
+  (`frame_2` before `frame_10`), so a render folder sequences in render order even when the frames
+  aren't zero-padded. Used by the frame-sequence assembler's probe.
+- `IFrameSequenceAssembler.cs` / `FrameSequenceAssembler.cs` — the **Assemble tab** engine: `Probe`
+  natural-sorts candidate frame paths and reports their dimension spread (header-only); `Assemble`
+  packs already-decoded frames into one stacked strip (reconcile mismatched sizes per `CellFit`,
+  optional content re-centre, optional nearest-frame resample by delegating to `IFilmstripImporter`),
+  with an output-size safety cap. Pure SkiaSharp, no Avalonia dependency; changes no renderer math, so
+  **not** mirrored in `FilmstripEngine.cs`.
 - `ISettingsService.cs` / `SettingsService.cs` — load/save the small `AppSettings` JSON
   (`%APPDATA%/StripKit/settings.json`); the app's persisted state (the first-run "seen
   tutorial" flag + the Generate tab's last provider/model). Best-effort; constructor-injectable path
@@ -212,7 +230,7 @@ does each thing live" companion.
   bound properties to a `FilmstripSettings` (and appends the layered-knob `Layers`;
   `BuildLayerArt()` supplies the matching base/pointer bitmaps). See the
   `live-preview-render-loop` skill — this view model is a worked example of that pattern.
-  Exposes `Importer`, `Batch`, `Skin`, and `Generate` (the other tabs' view models); wires the
+  Exposes `Importer`, `Batch`, `Skin`, `Generate`, and `Assemble` (the other tabs' view models); wires the
   Generate tab's `UseInCreateRequested` event to jump to Create and import the generated SVG
   (`ImportLayeredFromPathAsync`, shared with the file picker) — **honouring the generated control
   type** (knob → body+pointer layers; button/toggle → off/on Frame layers; meter → background+source
@@ -255,15 +273,25 @@ does each thing live" companion.
   success flag). Bound by `GenerateViewModel`'s set/variation grids.
 - `TutorialViewModel.cs` — backs the Getting Started overlay: the step list, navigation
   (Next/Back/Skip), first-run auto-open via `ISettingsService`, and the `LoadSampleRequested`
-  event the host VM wires to the bundled sample knob. No Avalonia UI types.
+  event the host VM wires to the bundled sample knob. No Avalonia UI types. Now also carries the
+  **Assemble** screen walkthrough (`TutorialScreen.Assemble`, index 5).
+- `FrameSequenceViewModel.cs` — backs the **Assemble** tab: a `FrameItemRow` list (choose folder /
+  add files / drop, natural-sorted via the assembler's probe; reorder + remove), the assembly options
+  (component type, stack direction, `CellFit`, re-centre, optional resample target), the export options
+  (the Create-tab set: @2x, `skin.json` + parameter id, JUCE/CSS/iPlug2/HISE loader code), a scrubbed
+  on-demand frame preview, and the off-thread Assemble & export (stream-decode with progress + cancel →
+  `IFrameSequenceAssembler.Assemble` → save). Same funnel/threading shape as the Importer/Batch VMs;
+  no Avalonia UI types beyond the preview bitmap.
+- `FrameItemRow.cs` — the observable per-frame row the Assemble list binds to (path + 1-based
+  display position; renumbered by the VM on reorder/remove). Holds no bitmap — frames decode on demand.
 
 ### `Views/`
 
-- `MainWindow.axaml` — the UI, a `TabControl` with five tabs: **Create** (settings
+- `MainWindow.axaml` — the UI, a `TabControl` with six tabs: **Create** (settings
   panel + preview/scrub/play/export), **Import** (hosts `ImporterView`, bound to
   `MainWindowViewModel.Importer`), **Batch** (hosts `BatchView`, bound to `.Batch`),
-  **Skin** (hosts `SkinView`, bound to `.Skin`), and **Generate** (hosts `GenerateView`, bound to
-  `.Generate`). Compiled bindings.
+  **Skin** (hosts `SkinView`, bound to `.Skin`), **Generate** (hosts `GenerateView`, bound to
+  `.Generate`), and **Assemble** (hosts `AssembleView`, bound to `.Assemble`). Compiled bindings.
 - `MainWindow.axaml.cs` — minimal code-behind: the view-side auto-play
   `DispatcherTimer`, plus the Create preview's file drag-and-drop handlers (scoped
   to its drop border so they don't collide with the other tabs).
@@ -282,6 +310,11 @@ does each thing live" companion.
   `AutoCompleteBox`** (free text + suggestions); the provider + control-type + style pickers stay
   `ComboBox`es. Code-behind holds the clipboard copy + the colour-picker flyout handlers (the swatch
   buttons), like the Create tab's snippet copy.
+- `AssembleView.axaml(.cs)` — the Assemble tab's `UserControl` (`x:DataType` = `FrameSequenceViewModel`):
+  the frame list + assembly/export options (left), a scrubbed preview that doubles as a multi-file /
+  folder drop zone + progress + Assemble & export (right). Code-behind holds the drag-drop handlers
+  (expanding a dropped folder to its image files); the reorder-buttons `ItemsControl` uses classic
+  bindings so a row button can reach the parent VM's command.
 - `TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (`x:DataType` =
   `TutorialViewModel`): a non-blocking bottom-centre glass card over a click-through scrim,
   hosted as the top layer of `MainWindow`'s root `Panel`. Markup-only code-behind.

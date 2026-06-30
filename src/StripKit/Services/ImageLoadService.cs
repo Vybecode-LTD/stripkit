@@ -28,4 +28,20 @@ public sealed class ImageLoadService : IImageLoadService
 
         return SKBitmap.Decode(codec);
     }
+
+    public (int Width, int Height) Probe(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path))
+            return (0, 0);
+
+        using var stream = File.OpenRead(path);
+        using var codec = SKCodec.Create(stream, out _);
+        if (codec is null) return (0, 0);
+
+        var info = codec.Info;
+        if (info.Width <= 0 || info.Height <= 0 || (long)info.Width * info.Height > MaxPixels)
+            return (0, 0);
+
+        return (info.Width, info.Height);
+    }
 }

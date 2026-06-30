@@ -29,6 +29,7 @@ public partial class App : Application
         services.AddSingleton<IManifestService, ManifestService>();
         services.AddSingleton<ICodeSnippetService, CodeSnippetService>();
         services.AddSingleton<IBatchProcessor, BatchProcessor>();
+        services.AddSingleton<IFrameSequenceAssembler, FrameSequenceAssembler>();
         services.AddSingleton<IExportService, ExportService>();
         services.AddSingleton<ISettingsService, SettingsService>();
         services.AddSingleton<IAssetService, AssetService>();
@@ -49,6 +50,7 @@ public partial class App : Application
 
         services.AddTransient<ImporterViewModel>();
         services.AddTransient<BatchViewModel>();
+        services.AddTransient<FrameSequenceViewModel>();
         services.AddTransient<SkinViewModel>();
         services.AddTransient<GenerateViewModel>();
         services.AddTransient<TutorialViewModel>();

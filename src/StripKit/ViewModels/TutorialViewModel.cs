@@ -6,7 +6,7 @@ using StripKit.Services;
 namespace StripKit.ViewModels;
 
 /// <summary>The screens (tabs), in tab order, that each have their own tutorial.</summary>
-public enum TutorialScreen { Create = 0, Import = 1, Batch = 2, Skin = 3, Generate = 4 }
+public enum TutorialScreen { Create = 0, Import = 1, Batch = 2, Skin = 3, Generate = 4, Assemble = 5 }
 
 /// <summary>
 /// The re-openable "Getting Started" guided overlay. Each screen (Create / Import / Batch / Skin)
@@ -30,6 +30,7 @@ public partial class TutorialViewModel : ViewModelBase
             [TutorialScreen.Batch] = BuildBatchSteps(),
             [TutorialScreen.Skin] = BuildSkinSteps(),
             [TutorialScreen.Generate] = BuildGenerateSteps(),
+            [TutorialScreen.Assemble] = BuildAssembleSteps(),
         };
         _steps = _byScreen[TutorialScreen.Create];
     }
@@ -67,6 +68,7 @@ public partial class TutorialViewModel : ViewModelBase
         TutorialScreen.Batch => "Batch",
         TutorialScreen.Skin => "Skin",
         TutorialScreen.Generate => "Generate",
+        TutorialScreen.Assemble => "Assemble",
         _ => "",
     };
 
@@ -271,6 +273,34 @@ public partial class TutorialViewModel : ViewModelBase
                  + "the pointer rotates — then set the frame count and Export the filmstrip. Or Save the "
                  + "SVG to disk to reuse anywhere.",
             Tip = "Generated art is clean modern vector — great for synth-style controls.",
+        },
+    ];
+
+    private static IReadOnlyList<TutorialStep> BuildAssembleSteps() =>
+    [
+        new TutorialStep
+        {
+            Title = "Assemble · pre-rendered frames → filmstrip",
+            Body = "The Assemble tab stacks a folder of individually-rendered frames — for example a "
+                 + "path-traced PNG sequence from Blender, KeyShot, or Octane — into one filmstrip. Choose "
+                 + "a folder (or drop the frames onto the preview) and StripKit natural-sorts them into "
+                 + "render order.",
+            Tip = "Numbered frames like knob_0001.png … knob_0128.png are detected and ordered automatically.",
+        },
+        new TutorialStep
+        {
+            Title = "1 · Check the order & layout",
+            Body = "Scrub the preview to confirm the frames run from minimum to maximum. Pick the control "
+                 + "type and stack direction; if a stray frame is the wrong size, choose how to reconcile "
+                 + "it, and re-centre on content if your 3D object drifts between frames.",
+        },
+        new TutorialStep
+        {
+            Title = "2 · Resample & export",
+            Body = "Optionally re-time to a standard count (32 / 64 / 128) — render fewer expensive frames "
+                 + "and ship more. Then Assemble & export writes the stacked PNG, plus @2x, a skin.json, and "
+                 + "ready-to-paste loader code if ticked.",
+            Tip = "Render your sequence with the same sweep and frame count your runtime expects, so the last frame lands on the maximum.",
         },
     ];
 }

@@ -63,7 +63,8 @@ public partial class MainWindow : Window
         {
             _playTimer.Start();
             Vm.IsPlaying = true;
-            PlayButton.Content = "⏸ Stop";
+            PlayIcon.Text = "";   // pause glyph
+            PlayLabel.Text = "Stop";
         }
     }
 
@@ -72,7 +73,8 @@ public partial class MainWindow : Window
         if (!_playTimer.IsEnabled) return;
         _playTimer.Stop();
         if (Vm is not null) Vm.IsPlaying = false;
-        PlayButton.Content = "▶ Play";
+        PlayIcon.Text = "";   // play glyph
+        PlayLabel.Text = "Play";
     }
 
     private void OnStepBack(object? sender, RoutedEventArgs e) { StopPlay(); StepPreview(-1); }
@@ -218,6 +220,7 @@ public partial class MainWindow : Window
     {
         if (Vm is null || !Vm.ShowCenterGuide) return;
         e.Pointer.Capture(GuideCanvas);
+        Vm.SetCrosshairPlacing(true);   // hold the art still while dragging
         SetCenterFromPointer(e.GetPosition(GuideCanvas));
         e.Handled = true;
     }
@@ -229,7 +232,11 @@ public partial class MainWindow : Window
         SetCenterFromPointer(e.GetPosition(GuideCanvas));
     }
 
-    private void OnGuideReleased(object? sender, PointerReleasedEventArgs e) => e.Pointer.Capture(null);
+    private void OnGuideReleased(object? sender, PointerReleasedEventArgs e)
+    {
+        e.Pointer.Capture(null);
+        Vm?.SetCrosshairPlacing(false);   // release → orbit the chosen centre so playback shows it
+    }
 
     // A pointer drag sets the spin centre (normalized within the drawn art). The crosshair
     // follows the pointer immediately (cheap); the preview re-render is coalesced to one per

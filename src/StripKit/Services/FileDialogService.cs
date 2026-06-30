@@ -32,6 +32,25 @@ public sealed class FileDialogService : IFileDialogService
         return files.Count > 0 ? files[0].TryGetLocalPath() : null;
     }
 
+    public async Task<IReadOnlyList<string>> OpenImagesAsync()
+    {
+        if (Owner?.StorageProvider is not { } storage)
+            return [];
+
+        var files = await storage.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Add rendered frames",
+            AllowMultiple = true,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Images") { Patterns = ["*.png", "*.webp", "*.bmp", "*.jpg", "*.jpeg"] },
+                new FilePickerFileType("PNG image") { Patterns = ["*.png"] },
+            ],
+        });
+
+        return files.Select(f => f.TryGetLocalPath()).Where(p => p is not null).Cast<string>().ToList();
+    }
+
     public async Task<string?> OpenLayeredFileAsync()
     {
         if (Owner?.StorageProvider is not { } storage)

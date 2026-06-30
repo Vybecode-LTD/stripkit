@@ -1,9 +1,34 @@
 # CHANGELOG — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
+
+## [Unreleased]
+
+The **offline-3D / path-tracing pipeline**, phase 1: a new sixth tab that turns a pre-rendered frame
+sequence into a plugin-ready filmstrip.
+
+### Website
+- **Path-traced (or any pre-rendered) frames → a filmstrip, in one step.** Rendered your knob as a
+  sequence of images (Blender, KeyShot, Octane, an export from another tool)? The new **Assemble** tab
+  stacks the whole folder into a single filmstrip — drop it in, check the order, export. Pay the
+  expensive lighting/anti-aliasing cost once, offline, then ship a strip that runs anywhere.
+
+### Added
+- **Assemble tab.** Choose a folder (or drag-drop) of individually-rendered frames; StripKit
+  natural-sorts them (`frame_2` before `frame_10`, padded or not) and packs them into one stacked
+  filmstrip. Reconcile odd-sized frames (pad to largest / crop to smallest / strict), optionally
+  re-centre each frame on its content (fixes a 3D object that drifts between frames), optionally
+  re-time to a standard 32 / 64 / 128 count (nearest-frame, the importer's law), and export @2x +
+  `skin.json` + JUCE/CSS/iPlug2/HISE loader code — the same outputs as the Create tab. Assembly runs
+  off the UI thread with progress + cancel.
+- New `Services/FrameSequenceAssembler` (pure SkiaSharp) + `NaturalFileNameComparer`,
+  `Models/FrameSequenceModels`, `ViewModels/FrameSequenceViewModel` (+ `FrameItemRow`),
+  `Views/AssembleView`; `IImageLoadService.Probe` (header-only dimension peek) and
+  `IFileDialogService.OpenImagesAsync` (multi-select). The procedural renderer is untouched — no
+  `FilmstripEngine.cs` change. **+28 tests (suite 216 → 244), build 0/0.**
 
 ## [1.3.0] — 2026-06-18
 

@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (216 tests)
+dotnet test                                      # whole suite (244 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **216 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **244 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,29 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (216)
+## Test inventory (244)
+
+### Assemble tab (frame-sequence → filmstrip) — 28
+The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
+golden images) plus one golden lock.
+- `NaturalFileNameComparerTests.cs` — 7: numbered names sort numerically (`frame_2` before
+  `frame_10`), leading zeros compare equal, an unpadded sequence sorts into render order, and
+  non-numeric names fall back to case-insensitive text.
+- `FrameSequenceAssemblerTests.cs` — 9: vertical/horizontal stacking dimensions; placed cells equal
+  the source frames pixel-for-pixel; pad-to-largest pads + warns; crop-to-smallest; strict throws on a
+  mismatch; <2 frames throws; resample retimes to the target and keeps the endpoints (via the importer);
+  content re-centre moves an off-centre block to the cell centre.
+- `FrameSequenceProbeTests.cs` — 2 (integration): a real `ImageLoadService` + the assembler probe
+  natural-sort on-disk PNGs and report uniform vs mixed sizes (header-only, no full decode).
+- `FrameSequenceViewModelTests.cs` — 8: export gated until ≥2 frames; a single frame isn't enough;
+  dropped frames are numbered in order; remove/move renumber; clear disables export; non-image drops
+  are ignored; the target presets set the resample count. Services mocked (NSubstitute).
+- `FrameSequenceAssemblerGoldenTests.cs` — 1: a 4-frame strip of real art locks placement
+  (`baselines/assemble_knob_mix_4.png`).
+- `AssembleViewTests.cs` — 1 (`[AvaloniaFact]`): the `AssembleView` markup loads and realizes with a
+  populated frame list (compiled bindings, design tokens, and the classic-binding reorder template).
+
+
 
 ### Generate tab (AI SVG generation) — 72 + integration
 The networked, non-deterministic feature is covered without ever hitting a network: every AI

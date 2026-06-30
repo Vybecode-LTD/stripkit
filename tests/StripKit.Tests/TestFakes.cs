@@ -27,4 +27,11 @@ static class TestFakes
         return new GenerateViewModel(gen, TempSecrets(), TempSettings(),
                                      new LayeredImportService(), Substitute.For<IFileDialogService>());
     }
+
+    /// <summary>A <see cref="FrameSequenceViewModel"/> (Assemble tab) wired from substitutes — enough
+    /// for the main-window VM tests that just need an instance.</summary>
+    public static FrameSequenceViewModel AssembleVm() =>
+        new(Substitute.For<IImageLoadService>(), Substitute.For<IFrameSequenceAssembler>(),
+            Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(),
+            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>());
 }

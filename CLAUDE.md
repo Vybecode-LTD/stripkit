@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -38,7 +38,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **216 green.**
+  6.0.4). **244 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -89,10 +89,11 @@ component types are knob, vertical fader, horizontal slider, **meter**
 (progressive segment fill), **button** (discrete state frames — off/on/…), and **toggle**
 (an on/off pair; rendered exactly like a 2-state button, with switch-style generated art and a
 latching code-export binding). The app is a
-`TabControl` with **five** tabs — **Create**
+`TabControl` with **six** tabs — **Create**
 (make a strip), **Import** (re-use / re-slice / resample one), **Batch** (a whole folder at
-once), **Skin** (assemble a multi-control `skin.json`), and **Generate** (AI-generate layered
-control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
+once), **Skin** (assemble a multi-control `skin.json`), **Generate** (AI-generate layered
+control art from your own OpenAI / Gemini / Claude key, then hand it to Create), and **Assemble**
+(stack a folder of pre-rendered frames — e.g. a path-traced PNG sequence — into one filmstrip).
 
 - `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract),
   `FrameTransform`, `StripDetection` (importer output),
@@ -128,6 +129,11 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
   iPlug2 / HISE) for an exported strip; pure string-gen mirroring `ManifestService`.
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
   UI thread (`Task.Run`), with per-item progress and a working cancel.
+- `Services/FrameSequenceAssembler.cs` (+ `NaturalFileNameComparer`) — the **Assemble** tab:
+  natural-sort a folder of pre-rendered frames (`frame_2` before `frame_10`) and pack them into one
+  stacked strip (reconcile odd sizes via `CellFit`, optional content re-centre, optional nearest-frame
+  resample by delegating to `FilmstripImporter`). Pure SkiaSharp; no renderer change → not in
+  `FilmstripEngine.cs`. The import-side bridge for offline-3D / path-traced art.
 - `Services/AssetGenerationService.cs` (+ `IAssetGenerationProvider` → `ClaudeProvider` /
   `OpenAiProvider` / `GeminiProvider`, `SvgSanitizer`, `ISecretStore`/`DpapiSecretStore`) — the
   **Generate** tab: build a type-aware StripKit-aware SVG prompt (knob = `body`+`pointer`, button =
@@ -239,6 +245,29 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create).
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-06-30 (path-tracing pipeline P1 — the "Assemble" tab; unreleased, next: v1.4.0)** — Built the
+  first phase of the offline-3D / path-tracing program (origin: a KVR thread on raster vs. WebGL-3D
+  plugin GUIs — "you're better off offline path-tracing into spritesheets"). A new **sixth tab**
+  (**Assemble**) stacks a folder (or drag-drop) of individually-rendered frames — a path-traced PNG
+  sequence from Blender / KeyShot / Octane, or any pre-rendered set — into one filmstrip:
+  **natural-sort** (`frame_2` before `frame_10`, padded or not), reconcile odd frame sizes
+  (pad-to-largest / crop-to-smallest / strict), optional **content re-centre** (fixes a 3D object that
+  drifts between frames), optional **nearest-frame resample** to 32/64/128, and the full Create-tab
+  export set (@2x + `skin.json` + JUCE/CSS/iPlug2/HISE loader code). Assembly runs off the UI thread
+  with progress + cancel; preview decodes one frame on demand. **No renderer change** → nothing
+  mirrored into `FilmstripEngine.cs`. New: `Models/FrameSequenceModels.cs`,
+  `Services/NaturalFileNameComparer.cs`, `Services/IFrameSequenceAssembler` + `FrameSequenceAssembler`
+  (injects the importer for the resample), `ViewModels/FrameSequenceViewModel` + `FrameItemRow`,
+  `Views/AssembleView`; added `IImageLoadService.Probe` (header-only dim peek) + `IFileDialogService.OpenImagesAsync`
+  (multi-select); wired DI + `MainWindowViewModel` + the tab + a Tutorial walkthrough
+  (`TutorialScreen.Assemble`). New tests `NaturalFileNameComparerTests` / `FrameSequenceAssemblerTests`
+  / `FrameSequenceProbeTests` / `FrameSequenceViewModelTests` / `FrameSequenceAssemblerGoldenTests`
+  (golden `assemble_knob_mix_4`) / `AssembleViewTests` (headless markup smoke). **Suite 216→244 green, build 0/0.** Docs reconciled
+  (SOURCE_MAP/TESTING/ROADMAP/CHANGELOG[Unreleased]/CLAUDE). **Next (P2):** the **render-recipe export**
+  (a Blender `bpy` script + `frame,value,angle` CSV/JSON) so the offline render matches StripKit's
+  `(N−1)` sweep law — see `docs/ROADMAP.md` → "Offline-3D / path-tracing pipeline". Not yet released
+  (would be v1.4.0); not yet eyeballed live in the running app.
 
 - **2026-06-18 (v1.3.0 — AI-generation program + meters/toggles + security hardening; full reconcile +
   release)** — A large feature wave, shipped end-to-end. **(1) Security/quality fixes:** **BUG-010** —

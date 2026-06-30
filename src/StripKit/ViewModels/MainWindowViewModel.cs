@@ -48,7 +48,8 @@ public partial class MainWindowViewModel : ViewModelBase
                                IManifestService manifest, ICodeSnippetService codeSnippets,
                                ILayeredImportService layeredImport, IAssetService assets,
                                ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin,
-                               TutorialViewModel tutorial, GenerateViewModel generate)
+                               TutorialViewModel tutorial, GenerateViewModel generate,
+                               FrameSequenceViewModel assemble)
     {
         _imageLoad = imageLoad;
         _renderer = renderer;
@@ -63,6 +64,7 @@ public partial class MainWindowViewModel : ViewModelBase
         Skin = skin;
         Tutorial = tutorial;
         Generate = generate;
+        Assemble = assemble;
         Tutorial.LoadSampleRequested += OnTutorialLoadSampleRequested;
         Generate.UseInCreateRequested += OnGenerateUseInCreate;
 
@@ -133,6 +135,9 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>The "Generate" tab's view model (AI-generated SVG control art).</summary>
     public GenerateViewModel Generate { get; }
+
+    /// <summary>The "Assemble" tab's view model (stack a folder of pre-rendered frames into a strip).</summary>
+    public FrameSequenceViewModel Assemble { get; }
 
     // ---- combo box choices ----
     public ComponentType[] ComponentTypes { get; } =
@@ -1146,6 +1151,20 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPreview();
     }
 
+    // True while the user is actively dragging the alignment crosshair.
+    private bool _placingCrosshair;
+
+    /// <summary>The view sets this true on crosshair press and false on release. While true the preview
+    /// holds the art completely still (no pivot orbit) so placement is pixel-accurate; on release it
+    /// goes false and the preview orbits the chosen centre, so playback shows the rotation pinned to
+    /// exactly where the crosshair sits.</summary>
+    public void SetCrosshairPlacing(bool placing)
+    {
+        if (_placingCrosshair == placing) return;
+        _placingCrosshair = placing;
+        RefreshPreview();
+    }
+
     // A procedural meter, a layered knob (base body or an imported stack), and a button with
     // imported state layers all render without a flat source image.
     private bool CanExport() => HasSource || IsMeter || HasBaseLayer || HasImportedLayers;
@@ -1250,12 +1269,32 @@ public partial class MainWindowViewModel : ViewModelBase
             // export always uses the full supersample setting.
             settings.Supersample = ShowCenterGuide ? 1 : Math.Min(settings.Supersample, 2);
 
-            // While the crosshair is on, render the art at its neutral (rectangle-centred) position
-            // so dragging the crosshair marks a point on a STATIONARY knob. The chosen centre is
-            // applied once the guide is turned off — and the crosshair overlay maps to exactly this
-            // rectangle-centred art (see ArtRectOnScreen), so the mark lands where you drop it.
+            // While the crosshair is on, keep the art rectangle-centred (stationary) so the crosshair
+            // overlay still maps to exactly the drawn art (see ArtRectOnScreen) — but rotate around the
+            // chosen point via a pivot offset, so the centre of rotation IS where the crosshair sits and
+            // you see it live: the knob orbits a wrong mark and spins in place on the true centre. The
+            // crosshair stays put. Toggling the crosshair off renders around the real centre (the export
+            // path), which re-centres the art so the knob spins in place in the cell.
             if (ShowCenterGuide)
             {
+                // Keep the art rectangle-centred so it stays perfectly still while you drag the
+                // crosshair (the render ignores the chosen centre, so moving the crosshair never
+                // shifts the image). When you're NOT dragging, orbit the chosen point via a pivot
+                // offset so playback shows the rotation centred exactly on the crosshair — the knob
+                // orbits a wrong mark and spins in place on the true centre.
+                if (!_placingCrosshair)
+                {
+                    var alignArt = source ?? _baseLayer;
+                    if (alignArt is not null && alignArt.Width > 0 && alignArt.Height > 0)
+                    {
+                        // Contain-fit the source into the frame cell (matches the renderer), then express
+                        // the chosen centre as a pivot offset from the cell centre, in 1x frame units.
+                        double cs = Math.Min((double)settings.FrameWidth / alignArt.Width,
+                                             (double)settings.FrameHeight / alignArt.Height);
+                        settings.PivotOffsetX = (settings.SourceCenterX - 0.5) * alignArt.Width * cs;
+                        settings.PivotOffsetY = (settings.SourceCenterY - 0.5) * alignArt.Height * cs;
+                    }
+                }
                 settings.SourceCenterX = 0.5;
                 settings.SourceCenterY = 0.5;
             }

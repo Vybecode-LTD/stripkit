@@ -1,0 +1,82 @@
+<!-- Depth design system — Avalonia ResourceDictionary. Vendored from
+     C:\DEV\depth-design-system\avalonia\Depth.axaml (GENERATED from tokens.json).
+     Only the two FontFamily URIs are adapted for StripKit (the Geist/JetBrains-Mono
+     .ttf files aren't bundled, so we use system-family fallbacks). Avalonia has no
+     inset shadows, so recessed surfaces use a darker fill; raised surfaces use
+     BoxShadow + a top highlight. Do not hand-edit the token values — regenerate from
+     tokens.json if the design system changes. -->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <!-- Colors (sRGB hex converted from OKLCH) -->
+  <Color x:Key="DepthBgColor">#19191b</Color>
+  <Color x:Key="DepthChromeColor">#272829</Color>
+  <Color x:Key="DepthChrome2Color">#313233</Color>
+  <Color x:Key="DepthChrome3Color">#38393b</Color>
+  <Color x:Key="DepthInsetColor">#161719</Color>
+  <Color x:Key="DepthLineColor">#414245</Color>
+  <Color x:Key="DepthLineSoftColor">#343537</Color>
+  <Color x:Key="DepthInkColor">#f2f3f5</Color>
+  <Color x:Key="DepthInkDimColor">#b6b7ba</Color>
+  <Color x:Key="DepthInkFaintColor">#7f8083</Color>
+  <Color x:Key="DepthCanvasColor">#e7e8e9</Color>
+  <Color x:Key="DepthCanvas2Color">#f3f3f5</Color>
+  <Color x:Key="DepthCanvasInkColor">#4c4d4f</Color>
+  <Color x:Key="DepthCanvasFaintColor">#797a7d</Color>
+  <Color x:Key="DepthEmberColor">#f25914</Color>
+  <Color x:Key="DepthEmberHiColor">#ff8030</Color>
+  <Color x:Key="DepthEmberLoColor">#cc3c00</Color>
+  <Color x:Key="DepthVectorColor">#0096be</Color>
+  <Color x:Key="DepthVectorHiColor">#43cae7</Color>
+  <Color x:Key="DepthGoodColor">#4cb86a</Color>
+  <Color x:Key="DepthVioletColor">#966cd7</Color>
+
+  <!-- Brushes -->
+  <SolidColorBrush x:Key="DepthBg" Color="{StaticResource DepthBgColor}"/>
+  <SolidColorBrush x:Key="DepthChrome" Color="{StaticResource DepthChromeColor}"/>
+  <SolidColorBrush x:Key="DepthChrome2" Color="{StaticResource DepthChrome2Color}"/>
+  <SolidColorBrush x:Key="DepthChrome3" Color="{StaticResource DepthChrome3Color}"/>
+  <SolidColorBrush x:Key="DepthInset" Color="{StaticResource DepthInsetColor}"/>
+  <SolidColorBrush x:Key="DepthLine" Color="{StaticResource DepthLineColor}"/>
+  <SolidColorBrush x:Key="DepthLineSoft" Color="{StaticResource DepthLineSoftColor}"/>
+  <SolidColorBrush x:Key="DepthInk" Color="{StaticResource DepthInkColor}"/>
+  <SolidColorBrush x:Key="DepthInkDim" Color="{StaticResource DepthInkDimColor}"/>
+  <SolidColorBrush x:Key="DepthInkFaint" Color="{StaticResource DepthInkFaintColor}"/>
+  <SolidColorBrush x:Key="DepthCanvas" Color="{StaticResource DepthCanvasColor}"/>
+  <SolidColorBrush x:Key="DepthCanvas2" Color="{StaticResource DepthCanvas2Color}"/>
+  <SolidColorBrush x:Key="DepthCanvasInk" Color="{StaticResource DepthCanvasInkColor}"/>
+  <SolidColorBrush x:Key="DepthCanvasFaint" Color="{StaticResource DepthCanvasFaintColor}"/>
+  <SolidColorBrush x:Key="DepthEmber" Color="{StaticResource DepthEmberColor}"/>
+  <SolidColorBrush x:Key="DepthEmberHi" Color="{StaticResource DepthEmberHiColor}"/>
+  <SolidColorBrush x:Key="DepthEmberLo" Color="{StaticResource DepthEmberLoColor}"/>
+  <SolidColorBrush x:Key="DepthVector" Color="{StaticResource DepthVectorColor}"/>
+  <SolidColorBrush x:Key="DepthVectorHi" Color="{StaticResource DepthVectorHiColor}"/>
+  <SolidColorBrush x:Key="DepthGood" Color="{StaticResource DepthGoodColor}"/>
+  <SolidColorBrush x:Key="DepthViolet" Color="{StaticResource DepthVioletColor}"/>
+
+  <!-- Gradient for the primary (ember) button face + the raised panel face -->
+  <LinearGradientBrush x:Key="DepthEmberFace" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Offset="0" Color="{StaticResource DepthEmberHiColor}"/>
+    <GradientStop Offset="1" Color="{StaticResource DepthEmberLoColor}"/>
+  </LinearGradientBrush>
+  <LinearGradientBrush x:Key="DepthPanelFace" StartPoint="0%,0%" EndPoint="0%,100%">
+    <GradientStop Offset="0" Color="{StaticResource DepthChrome2Color}"/>
+    <GradientStop Offset="1" Color="{StaticResource DepthChromeColor}"/>
+  </LinearGradientBrush>
+
+  <!-- Fonts. StripKit doesn't bundle Geist/JetBrains-Mono .ttf, so these resolve to
+       system families (JetBrains Mono if installed, else Consolas). -->
+  <FontFamily x:Key="DepthSans">Verdana, Segoe UI, Arial, sans-serif</FontFamily>
+  <FontFamily x:Key="DepthMono">JetBrains Mono, Consolas, Menlo, monospace</FontFamily>
+  <!-- System glyph icon font (Win11 → Segoe Fluent Icons; Win10 fallback). StripKit ships
+       win-x64, so the system icon font is always present. -->
+  <FontFamily x:Key="DepthIcon">Segoe Fluent Icons, Segoe MDL2 Assets</FontFamily>
+
+  <!-- Radius + elevation tokens -->
+  <CornerRadius x:Key="DepthRadiusSm">6</CornerRadius>
+  <CornerRadius x:Key="DepthRadiusMd">8</CornerRadius>
+  <CornerRadius x:Key="DepthRadiusLg">11</CornerRadius>
+  <CornerRadius x:Key="DepthRadiusXl">13</CornerRadius>
+  <BoxShadows x:Key="DepthRaise">0 1 2 0 #4D000000, 0 4 9 -3 #73000000</BoxShadows>
+  <BoxShadows x:Key="DepthRaiseLg">0 2 4 0 #4D000000, 0 12 26 -8 #8C000000</BoxShadows>
+</ResourceDictionary>

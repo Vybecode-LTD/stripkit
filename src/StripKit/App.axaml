@@ -5,92 +5,129 @@
              RequestedThemeVariant="Dark">
 
     <Application.Resources>
-        <!-- VybeCod.ing house accent (#e8440a) applied to Fluent controls. The Light
-             variants drive accent-button hover; the Dark variants pressed states. -->
-        <Color x:Key="SystemAccentColor">#FFE8440A</Color>
-        <Color x:Key="SystemAccentColorDark1">#FFD13C08</Color>
-        <Color x:Key="SystemAccentColorDark2">#FFB83507</Color>
-        <Color x:Key="SystemAccentColorDark3">#FF9E2E06</Color>
-        <Color x:Key="SystemAccentColorLight1">#FFFF5A1E</Color>
-        <Color x:Key="SystemAccentColorLight2">#FFFF6F38</Color>
-        <Color x:Key="SystemAccentColorLight3">#FFFF8552</Color>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Depth design system tokens (additive — defines the Depth* brushes /
+                     radii / shadows / fonts). Applied per-subtree; currently the Create
+                     tab maps StripKit's keys onto these. See C:\DEV\depth-design-system. -->
+                <ResourceInclude Source="avares://StripKit/Depth/Depth.axaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-        <!-- ===== Obsidian design tokens (glassmorphism, dark) ===== -->
-        <SolidColorBrush x:Key="AccentBrush" Color="#FFE8440A" />
-        <SolidColorBrush x:Key="AccentHiBrush" Color="#FFFF5A1E" />
-        <SolidColorBrush x:Key="Text1Brush" Color="#FFF2F3F5" />
-        <SolidColorBrush x:Key="Text2Brush" Color="#FFA8ADB7" />
-        <SolidColorBrush x:Key="Text3Brush" Color="#FF6E7480" />
-        <SolidColorBrush x:Key="GlassFillBrush" Color="#14FFFFFF" />
-        <SolidColorBrush x:Key="GlassBorderBrush" Color="#26FFFFFF" />
-        <SolidColorBrush x:Key="GlassFillHoverBrush" Color="#22FFFFFF" />
-        <SolidColorBrush x:Key="GlassPressBrush" Color="#0AFFFFFF" />
-        <SolidColorBrush x:Key="GlassBorderHoverBrush" Color="#45FFFFFF" />
-        <SolidColorBrush x:Key="AccentPressBrush" Color="#FFC13C08" />
+        <!-- Fluent accent (checkboxes, sliders, focus, selection) → Depth ember (#f25914). -->
+        <Color x:Key="SystemAccentColor">#FFF25914</Color>
+        <Color x:Key="SystemAccentColorDark1">#FFDB4E0F</Color>
+        <Color x:Key="SystemAccentColorDark2">#FFCC3C00</Color>
+        <Color x:Key="SystemAccentColorDark3">#FFB33500</Color>
+        <Color x:Key="SystemAccentColorLight1">#FFFF6E22</Color>
+        <Color x:Key="SystemAccentColorLight2">#FFFF8030</Color>
+        <Color x:Key="SystemAccentColorLight3">#FFFF9450</Color>
 
-        <!-- Accent button fill: a subtle warm gradient (current look), brighter on hover. -->
-        <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Offset="0" Color="#FFE8440A" />
-            <GradientStop Offset="1" Color="#FFFF5A1E" />
+        <!-- ===== Depth design tokens (machined-grey, dark): StripKit's keys mapped onto the Depth*
+             tokens from the merged Depth.axaml. See C:\DEV\depth-design-system. ===== -->
+        <SolidColorBrush x:Key="AccentBrush" Color="{StaticResource DepthEmberColor}" />
+        <SolidColorBrush x:Key="AccentHiBrush" Color="{StaticResource DepthEmberHiColor}" />
+        <SolidColorBrush x:Key="Text1Brush" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="Text2Brush" Color="{StaticResource DepthInkDimColor}" />
+        <SolidColorBrush x:Key="Text3Brush" Color="{StaticResource DepthInkFaintColor}" />
+        <SolidColorBrush x:Key="GlassFillBrush" Color="{StaticResource DepthChrome2Color}" />
+        <SolidColorBrush x:Key="GlassBorderBrush" Color="{StaticResource DepthLineSoftColor}" />
+        <SolidColorBrush x:Key="GlassFillHoverBrush" Color="{StaticResource DepthChrome3Color}" />
+        <SolidColorBrush x:Key="GlassPressBrush" Color="{StaticResource DepthChromeColor}" />
+        <SolidColorBrush x:Key="GlassBorderHoverBrush" Color="{StaticResource DepthLineColor}" />
+        <SolidColorBrush x:Key="AccentPressBrush" Color="{StaticResource DepthEmberLoColor}" />
+
+        <!-- Primary (accent) button face = ember (top-lit). -->
+        <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="{StaticResource DepthEmberHiColor}" />
+            <GradientStop Offset="1" Color="{StaticResource DepthEmberLoColor}" />
         </LinearGradientBrush>
-        <LinearGradientBrush x:Key="AccentGradientHover" StartPoint="0%,0%" EndPoint="100%,100%">
-            <GradientStop Offset="0" Color="#FFFF5A1E" />
-            <GradientStop Offset="1" Color="#FFFF7A42" />
+        <LinearGradientBrush x:Key="AccentGradientHover" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="{StaticResource DepthEmberHiColor}" />
+            <GradientStop Offset="1" Color="{StaticResource DepthEmberColor}" />
         </LinearGradientBrush>
 
-        <!-- Inputs read as recessed dark wells with a clear light border, so they stand
-             out from the panel instead of blending in. Controls resolve these per-control
-             keys via DynamicResource, so an app-level override hits every ComboBox /
-             TextBox / NumericUpDown. Darker fills + lighter borders + (below) a drop shadow. -->
-        <SolidColorBrush x:Key="ComboBoxBackground" Color="#38000000" />
-        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="#2A000000" />
-        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="#4A000000" />
-        <SolidColorBrush x:Key="TextControlBackground" Color="#38000000" />
-        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#2A000000" />
-        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#4A000000" />
-        <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="#5AFFFFFF" />
-        <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="#82FFFFFF" />
-        <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="#5AFFFFFF" />
-        <SolidColorBrush x:Key="TextControlBorderBrush" Color="#5AFFFFFF" />
-        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="#82FFFFFF" />
-        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="#FFE8440A" />
+        <!-- Neutral buttons: a dark raised "keycap" — darker than the panel, top-lit bevel + shadow,
+             clearly lighter hover (the styles live in Application.Styles below). -->
+        <LinearGradientBrush x:Key="DepthButtonFace" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#2B2C2E" />
+            <GradientStop Offset="1" Color="#202123" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="DepthButtonFaceHover" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#3D3E40" />
+            <GradientStop Offset="1" Color="#2F3032" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="DepthButtonFacePressed" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#1E1F21" />
+            <GradientStop Offset="1" Color="#18191B" />
+        </LinearGradientBrush>
+        <LinearGradientBrush x:Key="DepthButtonBevel" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="#34FFFFFF" />
+            <GradientStop Offset="0.5" Color="#12FFFFFF" />
+            <GradientStop Offset="1" Color="#30000000" />
+        </LinearGradientBrush>
 
-        <!-- Section header text: dark grey, legible on the light-tinted glass. -->
-        <SolidColorBrush x:Key="SectionTextBrush" Color="#FF202024" />
+        <!-- Inputs read as recessed dark wells (DepthInset) with a hairline border. The Fluent
+             per-control keys resolve via DynamicResource, so these hit every ComboBox / TextBox /
+             NumericUpDown app-wide. -->
+        <SolidColorBrush x:Key="ComboBoxBackground" Color="{StaticResource DepthInsetColor}" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="{StaticResource DepthChromeColor}" />
+        <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource DepthInsetColor}" />
+        <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource DepthInsetColor}" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource DepthInsetColor}" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource DepthInsetColor}" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrush" Color="{StaticResource DepthLineSoftColor}" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="{StaticResource DepthLineColor}" />
+        <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="{StaticResource DepthLineSoftColor}" />
+        <SolidColorBrush x:Key="TextControlBorderBrush" Color="{StaticResource DepthLineSoftColor}" />
+        <SolidColorBrush x:Key="TextControlBorderBrushPointerOver" Color="{StaticResource DepthLineColor}" />
+        <SolidColorBrush x:Key="TextControlBorderBrushFocused" Color="{StaticResource DepthEmberColor}" />
+
+        <!-- ComboBox dropdown popup + its items (the "menu"): a solid Depth panel, neutral hover, ink text. -->
+        <SolidColorBrush x:Key="ComboBoxDropDownBackground" Color="{StaticResource DepthChromeColor}" />
+        <SolidColorBrush x:Key="ComboBoxDropDownForeground" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="ComboBoxDropDownBorderBrush" Color="{StaticResource DepthLineColor}" />
+        <SolidColorBrush x:Key="ComboBoxItemForeground" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="ComboBoxItemForegroundPointerOver" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="ComboBoxItemForegroundSelected" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="ComboBoxItemForegroundSelectedPointerOver" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="ComboBoxItemBackground" Color="Transparent" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundPointerOver" Color="{StaticResource DepthChrome2Color}" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundPressed" Color="{StaticResource DepthChrome3Color}" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="{StaticResource DepthChrome3Color}" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="{StaticResource DepthChrome3Color}" />
+        <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="{StaticResource DepthChrome3Color}" />
+
+        <!-- CheckBox + Slider accents → Depth ember (belt-and-suspenders with SystemAccentColor). -->
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillChecked" Color="{StaticResource DepthEmberColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPointerOver" Color="{StaticResource DepthEmberHiColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundFillCheckedPressed" Color="{StaticResource DepthEmberLoColor}" />
+        <SolidColorBrush x:Key="CheckBoxCheckBackgroundStrokeChecked" Color="{StaticResource DepthEmberColor}" />
+        <SolidColorBrush x:Key="SliderTrackValueFill" Color="{StaticResource DepthEmberColor}" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{StaticResource DepthEmberHiColor}" />
+        <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{StaticResource DepthEmberColor}" />
+
+        <!-- Section header text: light grey ink, legible on the dark Depth panels. -->
+        <SolidColorBrush x:Key="SectionTextBrush" Color="{StaticResource DepthInkDimColor}" />
 
         <!-- Slightly rounded controls + dropdown popups everywhere (Fluent reads these). -->
         <CornerRadius x:Key="ControlCornerRadius">6</CornerRadius>
         <CornerRadius x:Key="OverlayCornerRadius">8</CornerRadius>
 
-        <!-- Depth: a top-lit glass fill + a top-highlight hairline (brighter at the top
-             edge, fading down) so panels read as lit volumes, not flat rectangles. -->
+        <!-- Raised panel surface (machined grey, top-lit): a Chrome2→Chrome face + a hairline edge. -->
         <LinearGradientBrush x:Key="GlassFillGradient" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Offset="0" Color="#24FFFFFF" />
-            <GradientStop Offset="1" Color="#0EFFFFFF" />
+            <GradientStop Offset="0" Color="{StaticResource DepthChrome2Color}" />
+            <GradientStop Offset="1" Color="{StaticResource DepthChromeColor}" />
         </LinearGradientBrush>
-        <LinearGradientBrush x:Key="GlassBorderGradient" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Offset="0" Color="#55FFFFFF" />
-            <GradientStop Offset="1" Color="#16FFFFFF" />
-        </LinearGradientBrush>
+        <SolidColorBrush x:Key="GlassBorderGradient" Color="{StaticResource DepthLineColor}" />
 
-        <!-- Solid (opaque) elevated surface for modal dialogs (tutorial / about). Unlike the
-             translucent glass card, this is fully opaque + top-lit so dialog text stays crisp. -->
+        <!-- Opaque elevated surface for modal dialogs (tutorial / about): a raised Depth panel. -->
         <LinearGradientBrush x:Key="DialogFillGradient" StartPoint="0%,0%" EndPoint="0%,100%">
-            <GradientStop Offset="0" Color="#FF24242C" />
-            <GradientStop Offset="1" Color="#FF191920" />
+            <GradientStop Offset="0" Color="{StaticResource DepthChrome2Color}" />
+            <GradientStop Offset="1" Color="{StaticResource DepthChromeColor}" />
         </LinearGradientBrush>
 
-        <!-- Frosted base: real acrylic on Windows; FallbackColor (opaque) elsewhere
-             so the window is never see-through where acrylic is unavailable. -->
-        <ExperimentalAcrylicMaterial x:Key="ObsidianAcrylic"
-                                     BackgroundSource="Digger"
-                                     TintColor="#16161C"
-                                     TintOpacity="0.85"
-                                     MaterialOpacity="0.5"
-                                     FallbackColor="#FF101015" />
-
-        <!-- Glass buttons: a full ControlTheme so hover / press / focus and the accent
-             variant read as glass + glow, with smooth transitions. -->
+        <!-- Buttons: a full ControlTheme so hover / press / focus read with smooth transitions
+             (neutral = dark raised keycap via the styles below; .accent = ember face). -->
         <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
             <Setter Property="Background" Value="{DynamicResource GlassFillBrush}" />
             <Setter Property="Foreground" Value="{DynamicResource Text1Brush}" />
@@ -147,13 +184,13 @@
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
             <Style Selector="^.accent /template/ Border#PART_Border">
-                <Setter Property="BoxShadow" Value="0 4 18 0 #66E8440A" />
+                <Setter Property="BoxShadow" Value="0 4 18 0 #66F25914" />
             </Style>
             <Style Selector="^.accent:pointerover">
                 <Setter Property="Background" Value="{DynamicResource AccentGradientHover}" />
             </Style>
             <Style Selector="^.accent:pointerover /template/ Border#PART_Border">
-                <Setter Property="BoxShadow" Value="0 7 28 0 #8AE8440A" />
+                <Setter Property="BoxShadow" Value="0 7 28 0 #8AF25914" />
             </Style>
             <Style Selector="^.accent:pressed">
                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
@@ -182,6 +219,7 @@
                 </ControlTemplate>
             </Setter>
         </ControlTheme>
+        </ResourceDictionary>
     </Application.Resources>
 
     <Application.Styles>
@@ -243,12 +281,72 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
 
+        <!-- Tab headers: ~25% smaller than the Fluent default (24 → 18), vertically centred so they
+             line up with the header brandmark/wordmark band. -->
+        <Style Selector="TabItem">
+            <Setter Property="FontSize" Value="18" />
+            <Setter Property="VerticalContentAlignment" Value="Center" />
+            <!-- Tab band height drives the header-band alignment; keep it compact. -->
+            <Setter Property="MinHeight" Value="34" />
+            <Setter Property="Padding" Value="11,3" />
+        </Style>
+
+        <!-- Active tab: highlight the label in orange + a very slight tight dark drop shadow,
+             and drop the Fluent underline ("pipe") entirely. -->
+        <Style Selector="TabItem:selected">
+            <Setter Property="Foreground" Value="{DynamicResource DepthEmber}" />
+            <Setter Property="Effect">
+                <DropShadowEffect BlurRadius="2" Color="#000000" Opacity="0.6" OffsetX="0" OffsetY="1" />
+            </Setter>
+        </Style>
+        <Style Selector="TabItem:selected:pointerover">
+            <Setter Property="Foreground" Value="{DynamicResource DepthEmberHi}" />
+        </Style>
+        <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+
         <!-- Subtle depth on input fields: a soft drop shadow on the field's border. -->
         <Style Selector="TextBox /template/ Border#PART_BorderElement">
             <Setter Property="BoxShadow" Value="0 2 5 0 #59000000" />
         </Style>
         <Style Selector="ComboBox /template/ Border#Background">
             <Setter Property="BoxShadow" Value="0 2 5 0 #59000000" />
+        </Style>
+
+        <!-- ===== Depth controls (global) ===== -->
+
+        <!-- Mono for numeric spinners; labels and body stay sans. -->
+        <Style Selector="NumericUpDown">
+            <Setter Property="FontFamily" Value="{DynamicResource DepthMono}" />
+        </Style>
+
+        <!-- Tactile press feedback. -->
+        <Style Selector="Button:pressed">
+            <Setter Property="RenderTransform" Value="translateY(1px)" />
+        </Style>
+
+        <!-- Neutral (non-accent) buttons: a dark raised keycap with a top-lit bevel + drop shadow,
+             clearly lighter on hover. The accent (primary) button keeps its ember face. -->
+        <Style Selector="Button:not(.accent)">
+            <Setter Property="Background" Value="{DynamicResource DepthButtonFace}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource DepthButtonBevel}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="Button:not(.accent) /template/ Border#PART_Border">
+            <Setter Property="BoxShadow" Value="0 1 2 0 #59000000, 0 3 8 -2 #73000000" />
+        </Style>
+        <Style Selector="Button:not(.accent):pointerover">
+            <Setter Property="Background" Value="{DynamicResource DepthButtonFaceHover}" />
+        </Style>
+        <Style Selector="Button:not(.accent):pointerover /template/ Border#PART_Border">
+            <Setter Property="BoxShadow" Value="0 2 4 0 #66000000, 0 6 14 -3 #8C000000" />
+        </Style>
+        <Style Selector="Button:not(.accent):pressed">
+            <Setter Property="Background" Value="{DynamicResource DepthButtonFacePressed}" />
+        </Style>
+        <Style Selector="Button:not(.accent):pressed /template/ Border#PART_Border">
+            <Setter Property="BoxShadow" Value="0 1 1 0 #40000000" />
         </Style>
     </Application.Styles>
 </Application>

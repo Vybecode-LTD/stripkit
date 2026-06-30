@@ -1,6 +1,6 @@
 # ROADMAP — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and several
@@ -155,6 +155,42 @@ Open items carried from the v0.6.0 release — small, mostly non-feature:
 The product backlog, grouped by theme. Each item has a 1–2 sentence description
 and a priority tag (**P1** highest → **P3** lowest). The three ★ items are the
 highest-leverage bets across all groups; pursue them first.
+
+### Offline-3D / path-tracing pipeline (render sequence → filmstrip)
+
+The KVR-validated workflow: path-trace a control offline (Blender Cycles / KeyShot / Octane), then
+ship the rendered frames as a cheap runtime filmstrip — pay the lighting + anti-aliasing cost **once**,
+offline, instead of every frame on the user's GPU. StripKit owns the last mile (assemble the sequence)
+and, next, the spec for the render itself. **No renderer change in any phase** (assembly/packing only),
+so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster vs. WebGL-3D plugin GUIs —
+"you're still better off doing offline path-tracing into spritesheets".)*
+
+- ✅ **P1 — Frame-sequence assembler (the "Assemble" tab)** *(unreleased; next: v1.4.0)* — stack a
+  folder (or drag-drop) of individually-rendered frames into one filmstrip: natural-sort
+  (`frame_2` before `frame_10`), reconcile odd frame sizes (pad-to-largest / crop-to-smallest /
+  strict), optional content re-centre (fixes 3D object drift between frames), optional nearest-frame
+  re-time to 32/64/128, and the usual @2x / `skin.json` / JUCE-CSS-iPlug2-HISE loader-code exports.
+  New `FrameSequenceAssembler` (pure SkiaSharp, injects the importer for the resample),
+  `NaturalFileNameComparer`, `FrameSequenceModels`, `FrameSequenceViewModel` (+ `FrameItemRow`),
+  `AssembleView`; `IImageLoadService.Probe` + `IFileDialogService.OpenImagesAsync`. +28 tests
+  (216 → 244), golden `assemble_knob_mix_4`. **(P1, the headline — done.)**
+- ⏳ **P2 — Render-recipe export** — emit the spec that makes the offline render match StripKit's
+  runtime law (`angle_i = start + (end − start)·i/(N−1)`, the deliberate N−1 divisor): a Blender
+  `bpy` script (transparent film, rotation linearly keyframed over exactly N frames) **plus** an
+  engine-agnostic `frame,value,angle` CSV/JSON table for KeyShot / Octane / C4D. A pure
+  `RenderRecipeService` mirroring `CodeSnippetService`; a "Render recipe" panel on the Assemble (and
+  Create) tab. Closes the loop end-to-end: StripKit specs the render → you path-trace → StripKit
+  assembles. **(P1 — the recommended next phase.)**
+- ⏳ **P3 — 3D-render QC + alpha/HDR ingest** — catch the path-tracer failure modes on import:
+  premultiplied-alpha edge halos (un-premultiply / despill), object drift (detect + recentre — P1
+  added the fix, P3 adds detection/reporting), and 8-bit banding on smooth metal/glass (ingest
+  16-bit / EXR HDR → tone-map + dithered quantise). **(P2)**
+- ⏳ **P4 — Frame interpolation ("render fewer, ship more")** — render ~32 expensive frames and
+  synthesise 64/128: crossfade-blend (v1, cheap — good for slow rotation) then optical-flow (v2). A
+  new resample mode in the assembler; directly attacks the "path tracing is expensive" cost. **(P2)**
+- ⏳ **P5 — AOV / multi-pass layer ingest** — ingest separate render passes (beauty + emission/glow)
+  into the **existing** `RenderLayer` stack so a knob's LED/glow can be toggled or value-tracked at
+  runtime without re-rendering. Extends `LayeredImportService`; no renderer change. **(P3)**
 
 ### Close the loop (asset → working control)
 

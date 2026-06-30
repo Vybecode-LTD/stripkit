@@ -1,0 +1,170 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:vm="clr-namespace:StripKit.ViewModels"
+             xmlns:controls="clr-namespace:StripKit.Controls"
+             x:Class="StripKit.Views.AssembleView"
+             x:DataType="vm:FrameSequenceViewModel">
+
+    <Grid ColumnDefinitions="370,*">
+
+        <!-- ===== LEFT: frames + options ===== -->
+        <Border Grid.Column="0" Classes="card" Margin="12,12,6,12">
+            <ScrollViewer>
+                <StackPanel Margin="16" Spacing="2" IsEnabled="{Binding !IsRunning}">
+
+                    <TextBlock Text="Assemble" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <Border Classes="divider" />
+                    <TextBlock Text="Stack a folder of pre-rendered frames (e.g. a path-traced PNG sequence) into one filmstrip."
+                               Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <!-- Source frames -->
+                    <controls:SectionHeader Text="SOURCE FRAMES" />
+                    <Button Content="Choose folder…" HorizontalAlignment="Stretch"
+                            ToolTip.Tip="Pick a folder of numbered frames (e.g. knob_0001.png … knob_0128.png). You can also drop them onto the preview."
+                            Command="{Binding ChooseFolderCommand}" />
+                    <Grid ColumnDefinitions="*,6,*" Margin="0,4,0,0">
+                        <Button Grid.Column="0" Content="Add files…" HorizontalAlignment="Stretch" Command="{Binding AddFilesCommand}" />
+                        <Button Grid.Column="2" Content="Clear" HorizontalAlignment="Stretch" Command="{Binding ClearFramesCommand}" />
+                    </Grid>
+                    <TextBlock Classes="label" Text="{Binding SequenceInfo}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <TextBlock Text="{Binding WarningText}" IsVisible="{Binding HasWarning}"
+                               Foreground="{DynamicResource AccentHiBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
+
+                    <Border Classes="tile" Margin="0,6,0,0" Padding="4" IsVisible="{Binding HasFrames}">
+                        <ScrollViewer MaxHeight="200">
+                            <!-- Classic bindings here so the per-row buttons can reach the parent VM's
+                                 commands from inside the DataTemplate's namescope. -->
+                            <ItemsControl ItemsSource="{Binding Frames}" x:CompileBindings="False">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="2,1">
+                                            <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center"
+                                                       Text="{Binding Display}" TextTrimming="CharacterEllipsis" />
+                                            <Button Grid.Column="1" Content="↑" Width="26" Padding="0"
+                                                    ToolTip.Tip="Move earlier"
+                                                    Command="{Binding DataContext.MoveFrameUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Grid.Column="2" Content="↓" Width="26" Padding="0" Margin="2,0,0,0"
+                                                    ToolTip.Tip="Move later"
+                                                    Command="{Binding DataContext.MoveFrameDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                            <Button Grid.Column="3" Content="✕" Width="26" Padding="0" Margin="2,0,0,0"
+                                                    ToolTip.Tip="Remove"
+                                                    Command="{Binding DataContext.RemoveFrameCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                    CommandParameter="{Binding}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+
+                    <!-- Component type -->
+                    <controls:SectionHeader Text="COMPONENT TYPE" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="What these frames depict — sets the manifest and loader-code control type."
+                              ItemsSource="{Binding ComponentTypes}" SelectedItem="{Binding ComponentType}" />
+
+                    <!-- Layout -->
+                    <controls:SectionHeader Text="LAYOUT" />
+                    <TextBlock Classes="label" Text="Stack direction" />
+                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding StackDirections}" SelectedItem="{Binding StackDirection}" />
+                    <TextBlock Classes="label" Text="If frame sizes differ" Margin="0,6,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding CellFits}" SelectedItem="{Binding CellFit}" />
+                    <CheckBox Content="Re-centre each frame on its content" IsChecked="{Binding RecenterOnContent}" Margin="0,6,0,0"
+                              ToolTip.Tip="Fixes a 3D object that drifts off-centre between rendered frames." />
+
+                    <!-- Resample -->
+                    <controls:SectionHeader Text="RESAMPLE (optional)" />
+                    <CheckBox Content="Re-time to a standard frame count" IsChecked="{Binding ResampleEnabled}" />
+                    <StackPanel IsVisible="{Binding ResampleEnabled}" Spacing="2" Margin="0,4,0,0">
+                        <NumericUpDown Value="{Binding TargetFrameCount}" Minimum="2" Maximum="512" Increment="1" />
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                            <Button Content="32" Command="{Binding SetTarget32Command}" />
+                            <Button Content="64" Command="{Binding SetTarget64Command}" />
+                            <Button Content="128" Command="{Binding SetTarget128Command}" />
+                        </StackPanel>
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Nearest-frame re-time (the importer's law) — render fewer expensive frames, ship a standard count." />
+                    </StackPanel>
+
+                    <!-- Quality / output -->
+                    <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
+                    <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}"
+                              ToolTip.Tip="Writes a 2× upscaled copy. For best quality, render your sequence at 2× instead." />
+
+                    <!-- Manifest -->
+                    <controls:SectionHeader Text="MANIFEST (optional)" />
+                    <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}" />
+                    <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
+                    <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)" />
+
+                    <!-- Code export -->
+                    <controls:SectionHeader Text="CODE EXPORT (loader snippets)" />
+                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}" />
+                    <StackPanel IsVisible="{Binding ExportCode}" Spacing="2" Margin="0,4,0,12">
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="JUCE" IsChecked="{Binding EmitCodeJuce}" />
+                            <CheckBox Grid.Column="1" Content="CSS / HTML" IsChecked="{Binding EmitCodeCss}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="iPlug2" IsChecked="{Binding EmitCodeIPlug2}" />
+                            <CheckBox Grid.Column="1" Content="HISE" IsChecked="{Binding EmitCodeHise}" />
+                        </Grid>
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,2,0,0"
+                                   Text="Writes a loader file per ticked target next to the PNG — the same snippets the Create tab emits." />
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </Border>
+
+        <!-- ===== RIGHT: preview + export ===== -->
+        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+
+            <!-- Preview doubles as a drop zone: drop a folder or a set of frames here. -->
+            <Border Grid.Row="0" x:Name="FramesDropBorder" DragDrop.AllowDrop="True"
+                    Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
+                    BorderThickness="2" BorderBrush="Transparent"
+                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                <Border.Transitions>
+                    <Transitions>
+                        <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
+                    </Transitions>
+                </Border.Transitions>
+                <Panel>
+                    <Image Source="{Binding PreviewImage}" Stretch="Uniform" Margin="24"
+                           RenderOptions.BitmapInterpolationMode="HighQuality" />
+                    <TextBlock Text="Choose a folder of rendered frames — or drop a sequence here"
+                               IsVisible="{Binding !HasFrames}"
+                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                               Foreground="{DynamicResource Text3Brush}" />
+                </Panel>
+            </Border>
+
+            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+                <StackPanel Spacing="6">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Slider Grid.Column="0" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="0,0,12,0" />
+                        <TextBlock Grid.Column="1" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" MinWidth="130" TextAlignment="Right" />
+                    </Grid>
+
+                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" Height="6" IsVisible="{Binding IsRunning}" />
+                    <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource Text2Brush}" FontSize="12"
+                               IsVisible="{Binding IsRunning}" />
+
+                    <Grid ColumnDefinitions="*,Auto,Auto">
+                        <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
+                        <Button Grid.Column="1" Content="Cancel" MinWidth="90" Margin="0,0,8,0"
+                                IsVisible="{Binding IsRunning}" Command="{Binding CancelCommand}" />
+                        <Button Grid.Column="2" Classes="accent" Content="Assemble &amp; export" MinWidth="190"
+                                ToolTip.Tip="Pack the frames into one stacked PNG (plus @2x, a skin.json, and loader code if ticked)."
+                                Command="{Binding ExportCommand}" />
+                    </Grid>
+                </StackPanel>
+            </Border>
+        </Grid>
+    </Grid>
+</UserControl>

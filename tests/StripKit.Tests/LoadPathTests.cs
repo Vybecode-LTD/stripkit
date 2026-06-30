@@ -48,7 +48,8 @@ public class LoadPathTests
             Path.Combine(Path.GetTempPath(), $"stripkit_test_settings_{Guid.NewGuid():N}.json")));
         return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
                                         new CodeSnippetService(), new LayeredImportService(), assets,
-                                        importer, batch, skin, tutorial, TestFakes.GenerateVm()), load, dialogs);
+                                        importer, batch, skin, tutorial, TestFakes.GenerateVm(),
+                                        TestFakes.AssembleVm()), load, dialogs);
     }
 
     [Fact]
