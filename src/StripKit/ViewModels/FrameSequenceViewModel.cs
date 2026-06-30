@@ -27,12 +27,14 @@ public partial class FrameSequenceViewModel : ViewModelBase
     private readonly IExportService _export;
     private readonly IManifestService _manifest;
     private readonly ICodeSnippetService _codeSnippets;
+    private readonly IRenderRecipeService _recipes;
 
     private CancellationTokenSource? _cts;
 
     public FrameSequenceViewModel(IImageLoadService imageLoad, IFrameSequenceAssembler assembler,
                                   IFileDialogService dialogs, IExportService export,
-                                  IManifestService manifest, ICodeSnippetService codeSnippets)
+                                  IManifestService manifest, ICodeSnippetService codeSnippets,
+                                  IRenderRecipeService recipes)
     {
         _imageLoad = imageLoad;
         _assembler = assembler;
@@ -40,6 +42,8 @@ public partial class FrameSequenceViewModel : ViewModelBase
         _export = export;
         _manifest = manifest;
         _codeSnippets = codeSnippets;
+        _recipes = recipes;
+        UpdateRecipePreview();
     }
 
     /// <summary>The ordered frames that will be stacked (1 = first/min, N = last/max).</summary>
@@ -55,6 +59,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
     // ---- sequence state ----
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CheckFramesCommand))]
     private bool _hasFrames;
 
     [ObservableProperty] private string _sequenceInfo = "No frames yet — choose a folder or drop a rendered sequence here.";
@@ -70,6 +75,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
     [ObservableProperty] private StackDirection _stackDirection = StackDirection.Vertical;
     [ObservableProperty] private CellFit _cellFit = CellFit.PadToLargest;
     [ObservableProperty] private bool _recenterOnContent;
+    [ObservableProperty] private bool _unpremultiplyAlpha;
 
     [ObservableProperty] private bool _resampleEnabled;
     [ObservableProperty] private int _targetFrameCount = 64;
@@ -84,6 +90,15 @@ public partial class FrameSequenceViewModel : ViewModelBase
     [ObservableProperty] private bool _emitCodeIPlug2;
     [ObservableProperty] private bool _emitCodeHise;
 
+    // ---- render recipe (plan the offline render that feeds this tab) ----
+    public RenderRecipeTarget[] RecipeTargets { get; } =
+        [RenderRecipeTarget.Blender, RenderRecipeTarget.Csv, RenderRecipeTarget.Json];
+    [ObservableProperty] private RenderRecipeTarget _recipePreviewTarget = RenderRecipeTarget.Blender;
+    [ObservableProperty] private int _recipeFrameCount = 64;
+    [ObservableProperty] private double _recipeSweepDegrees = 270;
+    [ObservableProperty] private int _recipeResolution = 256;
+    [ObservableProperty] private string _generatedRecipe = "";
+
     // ---- preview ----
     [ObservableProperty] private double _previewValue;
     [ObservableProperty] private AvBitmap? _previewImage;
@@ -93,6 +108,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CheckFramesCommand))]
     private bool _isRunning;
 
     [ObservableProperty] private double _progressValue;   // 0..100 for a ProgressBar
@@ -106,6 +122,31 @@ public partial class FrameSequenceViewModel : ViewModelBase
         base.OnPropertyChanged(e);
         if (e.PropertyName == nameof(PreviewValue))
             RefreshPreview();
+        else if (e.PropertyName is nameof(ComponentType) or nameof(RecipeFrameCount)
+                 or nameof(RecipeSweepDegrees) or nameof(RecipeResolution) or nameof(RecipePreviewTarget))
+            UpdateRecipePreview();
+    }
+
+    // ---- render recipe ----
+
+    /// <summary>Build the recipe request from the recipe inputs (clockwise sweep, square render size).</summary>
+    private RenderRecipeRequest BuildRecipeRequest()
+    {
+        double half = RecipeSweepDegrees / 2.0;
+        return new RenderRecipeRequest(ComponentType, RecipeFrameCount, -half, half,
+                                       RecipeResolution, RecipeResolution, SuggestBaseName());
+    }
+
+    private void UpdateRecipePreview() =>
+        GeneratedRecipe = _recipes.Generate(RecipePreviewTarget, BuildRecipeRequest());
+
+    [RelayCommand]
+    private async Task SaveRecipeAsync()
+    {
+        var dir = await _dialogs.OpenFolderAsync("Choose a folder for the render recipe");
+        if (string.IsNullOrEmpty(dir)) return;
+        var path = await _recipes.SaveAsync(RecipePreviewTarget, BuildRecipeRequest(), dir);
+        StatusMessage = $"Saved render recipe → {Path.GetFileName(path)}";
     }
 
     // ---- frame-list management ----
@@ -256,6 +297,44 @@ public partial class FrameSequenceViewModel : ViewModelBase
 
     private bool CanExport() => HasFrames && !IsRunning;
 
+    /// <summary>Render-QC pre-flight: decode the frames off the UI thread and report the path-tracer
+    /// failure modes (drift, missing transparency, blank or premultiplied frames) without assembling.</summary>
+    [RelayCommand(CanExecute = nameof(CanExport))]
+    private async Task CheckFramesAsync()
+    {
+        var paths = Frames.Select(f => f.Path).ToList();
+        StatusMessage = "Checking render quality…";
+
+        var report = await Task.Run(() =>
+        {
+            var bitmaps = new List<SKBitmap>(paths.Count);
+            try
+            {
+                foreach (var p in paths)
+                {
+                    var bmp = _imageLoad.Load(p);
+                    if (bmp is not null) bitmaps.Add(bmp);
+                }
+                return bitmaps.Count >= 1 ? FrameSequenceAssembler.AnalyzeQc(bitmaps) : null;
+            }
+            finally
+            {
+                foreach (var b in bitmaps) b.Dispose();
+            }
+        });
+
+        if (report is null)
+        {
+            StatusMessage = "No readable frames to check.";
+            return;
+        }
+
+        WarningText = report.IsClean ? "" : string.Join("\n", report.Messages);
+        StatusMessage = report.IsClean
+            ? $"Render QC: {report.FrameCount} frames look clean — no drift, transparency present."
+            : $"Render QC flagged {report.Messages.Count} thing(s) to check (see above).";
+    }
+
     [RelayCommand(CanExecute = nameof(CanExport))]
     private async Task ExportAsync()
     {
@@ -275,6 +354,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
             Direction = StackDirection,
             Fit = CellFit,
             RecenterOnContent = RecenterOnContent,
+            UnpremultiplyAlpha = UnpremultiplyAlpha,
             ResampleTo = ResampleEnabled ? TargetFrameCount : null,
         };
 

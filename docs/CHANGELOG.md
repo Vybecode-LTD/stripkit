@@ -20,6 +20,8 @@ one machined-grey, ember-accent look.
 - **A render recipe that matches StripKit's frame math.** Path-tracing a knob? Export a Blender script
   (or a CSV/JSON table) so your offline render lands each frame on exactly the right angle — then stack
   the result on the Assemble tab. No guesswork, no drift.
+- **Catches common render mistakes.** Assembling a rendered sequence now flags object drift, a
+  missing transparent background, blank frames, or dark edge halos — and offers one-click fixes.
 - **A new look.** A refined dark, precision-instrument interface — consistent across every tab.
 
 ### Added
@@ -42,6 +44,14 @@ one machined-grey, ember-accent look.
   + `Models/RenderRecipeModels`, mirroring `CodeSnippetService`; one `BuildFrameTable` shares the
   renderer's deliberate `(N−1)` law so the recipe and the runtime can never diverge. **+14 tests
   (244 → 258), build 0/0.**
+- **Render QC on import (path-tracing P3).** The Assemble tab now catches the path-tracer failure
+  modes: a **"Check frames"** pre-flight (and the assemble result) reports object **drift** between
+  frames (with a "tick Re-centre" nudge), frames with **no transparency** (a missing transparent
+  background) or **none at all** (a failed render), and **premultiplied edges**; an **"Un-premultiply
+  alpha"** toggle divides RGB by alpha to remove dark edge halos. New `FrameSequenceAssembler.AnalyzeQc`
+  / `UnpremultiplyAlpha` + `Models.RenderQcReport`, pure SkiaSharp. **+7 tests (258 → 265).**
+- **Render-recipe entry-point on the Assemble tab.** Plan a render where you assemble it — the same
+  Blender/CSV/JSON recipe export, driven by the Assemble component type + frames/sweep/size inputs.
 - **Depth design-system rebrand.** The whole app moved onto the Depth design tokens (vendored
   `src/StripKit/Depth/Depth.axaml`): solid machined-grey surfaces, an ember accent, recessed
   monospace-numeral input wells, raised neutral "keycap" buttons, and a solid window base (the acrylic

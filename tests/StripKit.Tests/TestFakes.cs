@@ -33,5 +33,6 @@ static class TestFakes
     public static FrameSequenceViewModel AssembleVm() =>
         new(Substitute.For<IImageLoadService>(), Substitute.For<IFrameSequenceAssembler>(),
             Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(),
-            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>());
+            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>(),
+            new RenderRecipeService());
 }

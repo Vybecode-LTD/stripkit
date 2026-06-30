@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (258 tests)
+dotnet test                                      # whole suite (265 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **258 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **265 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (258)
+## Test inventory (265)
 
 ### Assemble tab (frame-sequence → filmstrip) — 28
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
@@ -313,6 +313,13 @@ The recipe's per-frame table must match the renderer's law exactly, so an offlin
   (`IS_ROTARY` True/False).
 - JSON parses with its metadata + one entry per frame; `FileName` extensions + id sanitisation (Theory);
   `SaveAsync` writes the recipe to disk matching `Generate`.
+
+### `RenderQcTests.cs` — 7 (render QC + un-premultiply, path-tracing P3)
+- `UnpremultiplyAlpha`: recovers the straight colour from premultiplied bytes (50%-alpha pixel),
+  and leaves fully opaque / fully transparent pixels alone.
+- `AnalyzeQc`: detects object drift between frames (content-centre spread); flags frames with no
+  transparency and fully-blank frames; reports clean for a well-behaved sequence.
+- `Assemble` surfaces the QC warnings in its result.
 
 ### `BatchProcessorTests.cs` — 5 (integration, real services + temp files)
 - `Renders_a_strip_for_each_input` (3 inputs → 3 correctly-sized strips; match-to-source).

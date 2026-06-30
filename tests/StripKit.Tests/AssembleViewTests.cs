@@ -30,7 +30,8 @@ public class AssembleViewTests
 
         var vm = new FrameSequenceViewModel(Substitute.For<IImageLoadService>(), assembler,
             Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(),
-            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>());
+            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>(),
+            new RenderRecipeService());
         vm.AddDroppedPaths(new[] { "a.png", "b.png", "c.png" });
         return vm;
     }

@@ -185,10 +185,19 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   preview + copy + save) — Create carries every input the recipe needs (type, frame count, sweep,
   resolution). +14 tests (244 → 258). **(P1 — done.)** *(A discoverability entry-point on the Assemble
   tab is an easy follow-on.)*
-- ⏳ **P3 — 3D-render QC + alpha/HDR ingest** — catch the path-tracer failure modes on import:
-  premultiplied-alpha edge halos (un-premultiply / despill), object drift (detect + recentre — P1
-  added the fix, P3 adds detection/reporting), and 8-bit banding on smooth metal/glass (ingest
-  16-bit / EXR HDR → tone-map + dithered quantise). **(P2)**
+- ✅ **P3 — Render QC on import** *(unreleased; v1.4.0; EXR/HDR split to P3b)* — catch the path-tracer failure
+  modes when frames land on the Assemble tab. **Done:** `FrameSequenceAssembler.AnalyzeQc` reports
+  **object drift** (the content-centre spread in px — P1 added the re-centre fix, P3 adds the
+  detection + a "tick Re-centre" nudge), frames with **no transparency** (a missing transparent
+  background — the exact mistake the render recipe prevents) or **none at all** (a failed render), and
+  **premultiplied edges**; plus a **"Check frames"** pre-flight button and a **"Un-premultiply alpha"**
+  fix (`UnpremultiplyAlpha` divides RGB by alpha to kill dark edge halos). +7 tests (258 → 265). Also
+  landed the **Assemble-tab render-recipe entry-point** (plan a render right where you assemble).
+  **Deferred → P3b:** 16-bit / EXR HDR ingest + tone-map + dithered de-band — needs the Magick.NET
+  **Q8 → Q16-HDRI** swap (Q8 can't hold >8-bit), so it's its own piece. **(P2)**
+- ⏳ **P3b — 16-bit / EXR HDR ingest** — accept `.exr` / 16-bit frames (via a Magick.NET Q16-HDRI
+  loader), tone-map HDR → SDR, and **dither** down to 8-bit RGBA to kill the banding 8-bit renders show
+  on smooth metal/glass. Split out of P3 because it needs the quantum-depth dependency swap. **(P3)**
 - ⏳ **P4 — Frame interpolation ("render fewer, ship more")** — render ~32 expensive frames and
   synthesise 64/128: crossfade-blend (v1, cheap — good for slow rotation) then optical-flow (v2). A
   new resample mode in the assembler; directly attacks the "path tracing is expensive" cost. **(P2)**

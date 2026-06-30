@@ -30,7 +30,8 @@ public class FrameSequenceViewModelTests
 
         return new FrameSequenceViewModel(imageLoad, assembler,
             Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(),
-            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>());
+            Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>(),
+            new RenderRecipeService());
     }
 
     [Fact]

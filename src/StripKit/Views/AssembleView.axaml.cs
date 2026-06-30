@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Input;
+using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
 using StripKit.ViewModels;
@@ -78,5 +79,15 @@ public partial class AssembleView : UserControl
             Vm.AddDroppedPaths(paths);
             e.Handled = true;
         }
+    }
+
+    // Copy the previewed render recipe (Blender / CSV / JSON) to the clipboard — a view (top-level) concern.
+    private async void OnCopyRecipe(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is null || string.IsNullOrEmpty(Vm.GeneratedRecipe)) return;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null) return;
+        await clipboard.SetTextAsync(Vm.GeneratedRecipe);
+        Vm.StatusMessage = $"Copied the {Vm.RecipePreviewTarget} render recipe to the clipboard.";
     }
 }

@@ -136,9 +136,12 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   UI thread (`Task.Run`), with per-item progress and a working cancel.
 - `Services/FrameSequenceAssembler.cs` (+ `NaturalFileNameComparer`) — the **Assemble** tab:
   natural-sort a folder of pre-rendered frames (`frame_2` before `frame_10`) and pack them into one
-  stacked strip (reconcile odd sizes via `CellFit`, optional content re-centre, optional nearest-frame
-  resample by delegating to `FilmstripImporter`). Pure SkiaSharp; no renderer change → not in
-  `FilmstripEngine.cs`. The import-side bridge for offline-3D / path-traced art.
+  stacked strip (reconcile odd sizes via `CellFit`, optional content re-centre, optional **un-premultiply**,
+  optional nearest-frame resample by delegating to `FilmstripImporter`). Two static **render-QC** helpers
+  (path-tracing P3): `AnalyzeQc` → a `RenderQcReport` (drift / missing-transparency / blank / premultiplied
+  frames; surfaced as assemble warnings + the "Check frames" pre-flight) and `UnpremultiplyAlpha`. Pure
+  SkiaSharp; no renderer change → not in `FilmstripEngine.cs`. The import-side bridge for offline-3D /
+  path-traced art.
 - `Services/AssetGenerationService.cs` (+ `IAssetGenerationProvider` → `ClaudeProvider` /
   `OpenAiProvider` / `GeminiProvider`, `SvgSanitizer`, `ISecretStore`/`DpapiSecretStore`) — the
   **Generate** tab: build a type-aware StripKit-aware SVG prompt (knob = `body`+`pointer`, button =
@@ -250,6 +253,23 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-06-30 (v1.4.0-dev: path-tracing P3 — Render QC on import + the Assemble-tab recipe
+  entry-point; on branch `feat/v1.4.0`, unreleased)** — Continued the path-tracing chain. **(1) P3 —
+  Render QC.** The Assemble tab catches the path-tracer failure modes: new static
+  `FrameSequenceAssembler.AnalyzeQc` → a `Models.RenderQcReport` (object **drift** in px via the
+  content-centre spread; frames with **no transparency** = a missing transparent background, or **none**
+  = a failed render; **premultiplied** edges) — surfaced both as assemble-result warnings and via a new
+  **"Check frames"** pre-flight button. Plus an **"Un-premultiply alpha"** fix
+  (`FrameSequenceAssembler.UnpremultiplyAlpha` divides RGB by alpha to kill dark edge halos), wired into
+  `FrameSequenceOptions.UnpremultiplyAlpha`. Pure SkiaSharp. New `RenderQcTests` (+7). **(2) Assemble-tab
+  render-recipe entry-point** — the same Blender/CSV/JSON recipe export (P2) now lives on the Assemble
+  tab too, driven by its component type + frames/sweep/size inputs (injected `IRenderRecipeService` into
+  `FrameSequenceViewModel`; updated the 3 test-fake call sites). **Suite 258→265 green, build 0/0;
+  live-verified (both new Assemble sections render + the recipe preview).** Docs reconciled
+  (ROADMAP P3→✅ + new P3b for the deferred 16-bit/EXR-HDR ingest — needs a Magick.NET Q8→Q16-HDRI swap;
+  CHANGELOG[Unreleased] / SOURCE_MAP / TESTING 265 / CLAUDE). **Next:** the Obsidian→Depth doc reconcile
+  (House conventions + ARCHITECTURE), then merge `feat/v1.4.0` → main; then P3b / P4 (frame interpolation).
 
 - **2026-06-30 (v1.4.0-dev: Depth UI rebrand + crosshair fix committed, then path-tracing P2 —
   render-recipe export; on branch `feat/v1.4.0`, unreleased)** — Two things this session, both on the

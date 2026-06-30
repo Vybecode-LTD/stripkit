@@ -116,8 +116,10 @@ does each thing live" companion.
 - `TutorialStep.cs` — one Getting Started step (title, body, optional tip, offers-sample flag).
 - `FrameSequenceModels.cs` — the **Assemble tab** data: `CellFit` enum (Strict / PadToLargest /
   CropToSmallest — how to reconcile mismatched frame sizes), `FrameSequenceOptions` (direction, fit,
-  re-centre, optional resample target), `FrameSequenceResult` (the stacked strip + count/size/warnings),
-  and `SequenceProbe` (the non-decoding dimension report). No deps.
+  re-centre, **un-premultiply**, optional resample target), `FrameSequenceResult` (the stacked strip +
+  count/size/warnings), `SequenceProbe` (the non-decoding dimension report), and **`RenderQcReport`**
+  (the P3 render-QC metrics — drift px, opaque/empty frame counts, premultiplied suspicion — with a
+  computed `Messages` advisory list). No deps.
 
 ### `Services/` — the engine and I/O
 
@@ -159,9 +161,12 @@ does each thing live" companion.
 - `IFrameSequenceAssembler.cs` / `FrameSequenceAssembler.cs` — the **Assemble tab** engine: `Probe`
   natural-sorts candidate frame paths and reports their dimension spread (header-only); `Assemble`
   packs already-decoded frames into one stacked strip (reconcile mismatched sizes per `CellFit`,
-  optional content re-centre, optional nearest-frame resample by delegating to `IFilmstripImporter`),
-  with an output-size safety cap. Pure SkiaSharp, no Avalonia dependency; changes no renderer math, so
-  **not** mirrored in `FilmstripEngine.cs`.
+  optional content re-centre, optional **un-premultiply** to kill dark edge halos, optional
+  nearest-frame resample by delegating to `IFilmstripImporter`), with an output-size safety cap. Two
+  static **render-QC** helpers (P3): `AnalyzeQc` reports drift / opaque / empty / premultiplied frames
+  (surfaced as assemble warnings + the "Check frames" pre-flight) and `UnpremultiplyAlpha` divides RGB
+  by alpha. Pure SkiaSharp, no Avalonia dependency; changes no renderer math, so **not** mirrored in
+  `FilmstripEngine.cs`.
 - `ISettingsService.cs` / `SettingsService.cs` — load/save the small `AppSettings` JSON
   (`%APPDATA%/StripKit/settings.json`); the app's persisted state (the first-run "seen
   tutorial" flag + the Generate tab's last provider/model). Best-effort; constructor-injectable path

@@ -74,6 +74,13 @@
                     <CheckBox Content="Re-centre each frame on its content" IsChecked="{Binding RecenterOnContent}" Margin="0,6,0,0"
                               ToolTip.Tip="Fixes a 3D object that drifts off-centre between rendered frames." />
 
+                    <!-- Render QC — catch the path-tracer failure modes on import -->
+                    <controls:SectionHeader Text="RENDER QC (path-tracing)" />
+                    <Button Content="Check frames" HorizontalAlignment="Stretch" Command="{Binding CheckFramesCommand}"
+                            ToolTip.Tip="Scan the frames for object drift, a missing transparent background, blank frames, or premultiplied edges — before you assemble." />
+                    <CheckBox Content="Un-premultiply alpha (fix dark edge halos)" IsChecked="{Binding UnpremultiplyAlpha}" Margin="0,6,0,0"
+                              ToolTip.Tip="Divides RGB by alpha to remove the dark fringe a premultiplied render leaves on anti-aliased edges. Only tick it if you see halos." />
+
                     <!-- Resample -->
                     <controls:SectionHeader Text="RESAMPLE (optional)" />
                     <CheckBox Content="Re-time to a standard frame count" IsChecked="{Binding ResampleEnabled}" />
@@ -114,6 +121,39 @@
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,2,0,0"
                                    Text="Writes a loader file per ticked target next to the PNG — the same snippets the Create tab emits." />
                     </StackPanel>
+
+                    <!-- Render recipe — plan the offline render that this tab assembles -->
+                    <controls:SectionHeader Text="RENDER RECIPE (plan a render)" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,2,0,0"
+                               Text="Haven't rendered yet? Export a Blender script / CSV / JSON so your offline frames match StripKit's (N−1) sweep law, then load them above. Uses the Component type chosen above." />
+                    <Expander Header="Preview / save render recipe" Margin="0,6,0,12">
+                        <StackPanel Spacing="6">
+                            <Grid ColumnDefinitions="*,8,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Frames to render" />
+                                    <NumericUpDown Value="{Binding RecipeFrameCount}" Minimum="2" Maximum="512" Increment="1" />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Render size (px)" />
+                                    <NumericUpDown Value="{Binding RecipeResolution}" Minimum="8" Maximum="4096" Increment="1" />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Classes="label" Text="Sweep (degrees) — rotary" Margin="0,4,0,0" />
+                            <NumericUpDown Value="{Binding RecipeSweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
+                            <ComboBox HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                                      ItemsSource="{Binding RecipeTargets}" SelectedItem="{Binding RecipePreviewTarget}" />
+                            <Border Classes="tile" Padding="2">
+                                <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Auto">
+                                    <TextBox Text="{Binding GeneratedRecipe}" IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                                </ScrollViewer>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                                <Button Content="Save recipe…" Command="{Binding SaveRecipeCommand}" />
+                                <Button Content="Copy to clipboard" Click="OnCopyRecipe" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
 
                 </StackPanel>
             </ScrollViewer>
