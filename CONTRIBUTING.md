@@ -39,8 +39,8 @@ CI runs automatically on every PR (build + tests on Windows).
 ## House conventions
 
 **Design system**
-- The UI uses the **Obsidian glass** dark theme. Design tokens live in `App.axaml` -- re-use them, never hard-code hex values.
-- Accent: `#e8440a`. Font: **Verdana-led sans-serif** (`Verdana, Segoe UI, Arial`). No monospace in the UI.
+- The UI uses the **Depth** machined-grey dark theme (vendored `Depth/Depth.axaml`, mapped onto StripKit's keys in `App.axaml`) -- re-use the tokens, never hard-code hex values.
+- Accent: `#f25914` (ember). Font: **Verdana-led sans-serif** (`Verdana, Segoe UI, Arial`) for labels/body; **monospace for numerics only** (`NumericUpDown` + numeric readouts).
 
 **MVVM boundary**
 - View models must **not** reference Avalonia UI types (the preview `Bitmap` alias is the one allowed exception).

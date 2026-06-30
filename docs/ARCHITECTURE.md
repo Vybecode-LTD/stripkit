@@ -568,7 +568,7 @@ controls + design tokens (no renderer/engine change).
   host VM extracts the bundled `Assets/sample-knob.png` via `IAssetService` and runs it through the
   normal `LoadSourceFromPath` (resetting to a single-source knob first), so a new user sees the full
   load → preview → export loop with no art of their own.
-- **View (`TutorialOverlay`).** A non-blocking bottom-centre glass `card` (Obsidian tokens) over a
+- **View (`TutorialOverlay`).** A non-blocking bottom-centre `card` (Depth tokens) over a
   faint, click-through scrim, hosted as the top child of the `MainWindow` root `Panel` and bound to
   `Tutorial`; it hides itself (and stops intercepting input) when `IsOpen` is false. Plus
   `ToolTip.Tip` hints on the key Create-tab controls.
@@ -990,20 +990,25 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 - **MVVM:** view models never reference Avalonia UI types (the preview `Bitmap` alias is the
   one allowed presentation type). Code-behind holds only view concerns (timers, drag-drop,
   the crosshair drag, opening About links). Source-generator classes are `partial`.
-- **Design tokens (Obsidian glassmorphism, dark):** accent `#e8440a`; **sans-serif**
-  `Verdana, Segoe UI, Arial` (no monospace). Tokens centralized in `App.axaml`:
-  `AccentBrush`/`AccentHiBrush`, `Text1/2/3Brush`, `GlassFill*`/`GlassBorder*` brushes and
-  gradients, `AccentGradient(Hover)`, recessed input wells (`ComboBox*`/`TextControl*`
-  background+border keys, focused border = accent), `SectionTextBrush`, `ControlCornerRadius`
-  6 / `OverlayCornerRadius` 8, and the `ObsidianAcrylic` `ExperimentalAcrylicMaterial`
-  (`FallbackColor` opaque for non-acrylic platforms). A full `Button` `ControlTheme` provides
-  glass + `:pointerover`/`:pressed`/`:disabled`/`:focus-visible` states with brush/box-shadow
-  transitions and an `.accent` (Fluent primary) variant. Style classes: `Border.card`/`.tile`/
-  `.divider`, `TextBlock.section`/`.label`, plus the `SectionHeader` control. The window uses
-  `TransparencyLevelHint="AcrylicBlur"` + an `ExperimentalAcrylicBorder` frosted base and a
-  warm radial accent glow. Avalonia has no stock per-panel backdrop blur — the frost is the
-  window acrylic + translucent layers. Re-use these tokens; don't hard-code hex or
-  reintroduce monospace.
+- **Design tokens (Depth machined-grey, dark; rebranded from Obsidian glass in v1.4.0):** ember accent
+  `#f25914`; **sans for labels/body** (`Verdana, Segoe UI, Arial`) and **monospace for numerics only**
+  (`JetBrains Mono, Consolas, …` — `NumericUpDown` + numeric readouts). The Depth tokens are vendored in
+  `src/StripKit/Depth/Depth.axaml` (`DepthBg`/`DepthChrome*`/`DepthInset`/`DepthLine*`, `DepthInk*`,
+  `DepthEmber*`, `DepthRadius*`, `DepthRaise*`) and **mapped** onto StripKit's keys in `App.axaml`:
+  `AccentBrush`/`AccentHiBrush`, `Text1/2/3Brush`, the `GlassFill*`/`GlassBorder*` surface keys (now
+  solid greys), `AccentGradient(Hover)` (ember face), recessed input wells (`ComboBox*`/`TextControl*`
+  background+border keys → `DepthInset`/`DepthLine`, focused border = ember) + the dropdown/menu +
+  checkbox/slider keys, `SectionTextBrush` (→ `DepthInkDim`, light on the dark panel), `ControlCornerRadius`
+  6 / `OverlayCornerRadius` 8, and `DialogFillGradient`. A full `Button` `ControlTheme` plus global
+  `Button:not(.accent)` styles give neutral **raised "keycap"** buttons (a `DepthButtonFace` + bevel +
+  drop shadow, lighter on hover, `translateY` on press) and an `.accent` (ember-face) primary variant.
+  Style classes: `Border.card`/`.tile`/`.divider`, `TextBlock.section`/`.label`, plus the `SectionHeader`
+  control. The window is a **solid `DepthBg`** base — the old acrylic (`ObsidianAcrylic`
+  `ExperimentalAcrylicMaterial`, `TransparencyLevelHint="AcrylicBlur"`, the `ExperimentalAcrylicBorder`
+  frost + the warm radial glow) was removed, so every tab reads uniform. Re-use these mapped keys / Depth
+  tokens; don't hard-code hex, and keep monospace to numerics. *(The renderer's procedural meter/arc
+  default colours, §5, are still packed `0xFFE8440A` in `FilmstripSettings` — a model default, not a UI
+  token, so the rebrand left them unchanged to keep the goldens byte-identical.)*
 - **C#:** `Path.Combine` (never raw separators); no `System.Drawing`; no `.Result`/`.Wait()`;
   `async void` only for event handlers (all commands are `async Task` via `[RelayCommand]`).
 - **Do not** rewrite `SkiaFilmstripRenderer` or re-scaffold the project; extend it.

@@ -66,8 +66,9 @@ does each thing live" companion.
 
 - `Program.cs` — entry point; builds the Avalonia app (`UsePlatformDetect`,
   `WithInterFont`).
-- `App.axaml` / `App.axaml.cs` — the **Obsidian glassmorphism** design tokens (Fluent
-  base, `#e8440a` accent, acrylic/glass brushes, Verdana sans-serif) and the
+- `App.axaml` / `App.axaml.cs` — the **Depth** design tokens (Fluent base, `#f25914` ember accent,
+  the vendored `Depth/Depth.axaml` merged + mapped onto StripKit's keys: solid machined-grey surfaces,
+  recessed wells, raised keycap buttons; Verdana sans + monospace numerics) and the
   **composition root**: all DI registrations live here, and the
   `MainWindow` is created with its view model and given to the dialog service.
   `App.axaml.cs` also strips the framework's default data-validator
@@ -334,9 +335,10 @@ does each thing live" companion.
 
 ### `Assets/`
 
-- `README.txt` — where to drop a bundled font/icon. The app uses a **Verdana-led
-  sans-serif** fallback chain (Obsidian design; JetBrains Mono was removed) and ships
-  `stripkit.ico` / `stripkit.png` for the window / taskbar / installer icon.
+- `README.txt` — where to drop a bundled font/icon. The app uses a **Verdana-led sans-serif** chain
+  for labels/body and a **monospace** chain (`JetBrains Mono, Consolas, …`) for numerics only (Depth
+  design — neither font is bundled, both resolve to system fallbacks) and ships `stripkit.ico` /
+  `stripkit.png` for the window / taskbar / installer icon.
 - `sample-knob.png` — the bundled sample knob the tutorial's "Load sample knob" shortcut loads
   (extracted to a temp file by `AssetService`).
 

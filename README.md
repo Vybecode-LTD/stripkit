@@ -169,8 +169,8 @@ Contributions are very welcome — bug reports, feature ideas, and pull requests
    - Parse untrusted SVG (AI replies, imported files) only through `Services/SafeXml.cs` — never
      a bare `XDocument.Parse` (DTD / entity-expansion exposure).
    - View models don't reference Avalonia UI types (the preview `Bitmap` alias aside); use
-     compiled bindings; re-use the `App.axaml` design tokens (Obsidian glass, `#e8440a`
-     accent, Verdana — no monospace). Don't hard-code hex.
+     compiled bindings; re-use the `App.axaml` design tokens (the **Depth** machined-grey theme,
+     `#f25914` ember accent, Verdana — monospace for numerics only). Don't hard-code hex.
 4. Open a PR describing the change and referencing any issue it closes.
 
 **Found a bug?** Open an issue with steps to reproduce (and the source PNG's dimensions for a
@@ -185,7 +185,8 @@ don't need to touch versioning in a PR.
 StripKit.sln
 FilmstripEngine.cs          standalone, portable renderer (not compiled by the app)
 src/StripKit/
-  Program.cs, App.axaml     entry point + composition root (DI), Obsidian design tokens
+  Program.cs, App.axaml     entry point + composition root (DI), Depth design tokens
+  Depth/Depth.axaml         vendored Depth design-system tokens (mapped onto StripKit's keys in App.axaml)
   Models/                   FilmstripSettings, FrameTransform, StripDetection, SkinManifest, BatchModels, CodeModels, RenderLayer, GenerationModels, AppSettings, TutorialStep, enums (incl. ComponentType.Button, LayerBehavior.Frame)
   Services/                 renderer · importer · manifest · code-snippet · pointer-extractor · layered-import · SafeXml · batch · AI generation (providers + sanitizer + secret store) · image load · file dialog · export · settings · asset
   Helpers/                  SkiaImageInterop · HexToColorBrushConverter

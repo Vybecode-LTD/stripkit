@@ -232,14 +232,18 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
 
 ## House conventions
 
-- **Obsidian design system** (glassmorphism, dark): accent `#e8440a`, **sans-serif
-  only** — `Verdana, Segoe UI, Arial, sans-serif` (no monospace). Design tokens live
-  in `App.axaml` (`AccentBrush`/`AccentHiBrush`, `Text1/2/3Brush`, `GlassFill/GlassBorder`,
-  the `ObsidianAcrylic` material, the `SectionHeader` control theme). The window uses
-  `TransparencyLevelHint="AcrylicBlur"`
-  + an `ExperimentalAcrylicBorder` frosted base (`FallbackColor` for non-acrylic
-  platforms); panels are `Border.card` glass; primary buttons use Fluent's `accent`
-  class. Re-use these tokens — don't hard-code hex or reintroduce JetBrains Mono.
+- **Depth design system** (machined-grey, dark; rebranded from Obsidian glass in v1.4.0): ember accent
+  `#f25914`, **sans for labels/body** (`Verdana, Segoe UI, Arial, sans-serif`) and **monospace for
+  numerics only** (`JetBrains Mono, Consolas, …` — `NumericUpDown` + numeric readouts). The Depth tokens
+  are vendored in `src/StripKit/Depth/Depth.axaml` (`DepthBg`/`DepthChrome*`/`DepthInset`/`DepthLine*`,
+  `DepthInk*`, `DepthEmber*`, `DepthRadius*`, `DepthRaise*`) and **mapped** onto StripKit's existing keys
+  in `App.axaml` (`AccentBrush`/`AccentHiBrush`, `Text1/2/3Brush`, the `GlassFill*`/`GlassBorder*` surface
+  keys — now solid greys, the input-well + dropdown + checkbox/slider keys, `SectionTextBrush`,
+  `DialogFillGradient`), promoted **global** so all six tabs + dialogs share one look. The window is a
+  **solid `DepthBg`** base (no acrylic / no glow — the old `ObsidianAcrylic` material is gone). Panels are
+  `Border.card`; **neutral buttons** are dark raised "keycaps" (`Button:not(.accent)` — bevel + drop
+  shadow, lighter on hover), **primary** buttons use the `.accent` class (ember face). Re-use these
+  mapped keys / Depth tokens — don't hard-code hex, and keep monospace to numerics (not labels/body).
 - View models never reference Avalonia UI types (testability). Source-generator
   classes must be `partial`. Use `Path.Combine`, never raw separators.
 - No `System.Drawing`; no `.Result`/`.Wait()`; `async void` only for event handlers.

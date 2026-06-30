@@ -343,7 +343,8 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
 ## Standing conventions for every phase
 
 Keep the MVVM boundary (no UI types in view models, minimal code-behind), the
-design tokens (Obsidian glassmorphism — dark theme, `#e8440a` accent, Verdana-led
-sans-serif; see `App.axaml`), compiled bindings, and `python -m pip` style invocation
+design tokens (the **Depth** machined-grey dark theme — `#f25914` ember accent, Verdana-led
+sans for labels/body + monospace for numerics; vendored `Depth/Depth.axaml`, mapped in `App.axaml`),
+compiled bindings, and `python -m pip` style invocation
 in any Python helpers. After each phase, build, run, confirm, and update the "Last
 completed task" section of `CLAUDE.md`.

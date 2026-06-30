@@ -81,10 +81,11 @@ recovered in `b55380f`).
   divisor is correct (last frame lands exactly on max) — do not change it to `N`.
 - Do **not** move view-model logic into code-behind, or reference Avalonia UI types
   from view models (the preview `Bitmap` alias is the one allowed exception).
-- Do **not** replace the house conventions: the **Obsidian glass** dark theme, the
-  `#e8440a` accent, **Verdana-led sans-serif** (no monospace — JetBrains Mono was
-  removed), CommunityToolkit source generators, compiled bindings. Re-use the
-  `App.axaml` design tokens (incl. the `SectionHeader` control); don't hard-code hex.
+- Do **not** replace the house conventions: the **Depth** machined-grey dark theme (vendored
+  `Depth/Depth.axaml`, mapped in `App.axaml`), the `#f25914` ember accent, **Verdana-led sans-serif**
+  for labels/body with **monospace for numerics only**, CommunityToolkit source generators, compiled
+  bindings. Re-use the `App.axaml` mapped keys / Depth tokens (incl. the `SectionHeader` control);
+  don't hard-code hex.
 - Do **not** "fix" the importer's detected count by trusting it — it is a guess; the
   UI makes it editable and the user verifies (see `docs/ARCHITECTURE.md` §10).
 - Do **not** parse an untrusted SVG (an AI reply or an imported file) with a bare

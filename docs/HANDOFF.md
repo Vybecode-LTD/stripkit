@@ -143,8 +143,9 @@ longer aborts on a CRLF warning.)
   keep the `.ps1` BOM. CI is the **sole** release creator; commit feature work **before** the release
   script (it stages only version files + the installer). The git block tolerates stderr warnings now
   (BUG-011) but watch for other PS-5.1 native-stderr traps.
-- **House design:** Obsidian dark glass, `#e8440a` accent, **sans-serif only** (Verdana-led, no
-  monospace). Reuse the `App.axaml` tokens (incl. the `SectionHeader` control).
+- **House design:** **Depth** machined-grey dark theme (vendored `Depth/Depth.axaml`, mapped in
+  `App.axaml`), `#f25914` ember accent, Verdana-led sans for labels/body + **monospace for numerics
+  only**. Reuse the mapped keys / Depth tokens (incl. the `SectionHeader` control).
 
 ---
 
