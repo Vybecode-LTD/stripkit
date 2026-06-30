@@ -7,14 +7,20 @@
 
 ## [Unreleased]
 
-The **offline-3D / path-tracing pipeline**, phase 1: a new sixth tab that turns a pre-rendered frame
-sequence into a plugin-ready filmstrip.
+The **offline-3D / path-tracing pipeline** (P1 + P2) and a full **Depth UI rebrand**. P1 adds a sixth
+tab that turns a pre-rendered frame sequence into a plugin-ready filmstrip; P2 exports the render
+*recipe* that makes the offline frames line up with StripKit's frame math; the rebrand gives every tab
+one machined-grey, ember-accent look.
 
 ### Website
 - **Path-traced (or any pre-rendered) frames → a filmstrip, in one step.** Rendered your knob as a
   sequence of images (Blender, KeyShot, Octane, an export from another tool)? The new **Assemble** tab
   stacks the whole folder into a single filmstrip — drop it in, check the order, export. Pay the
   expensive lighting/anti-aliasing cost once, offline, then ship a strip that runs anywhere.
+- **A render recipe that matches StripKit's frame math.** Path-tracing a knob? Export a Blender script
+  (or a CSV/JSON table) so your offline render lands each frame on exactly the right angle — then stack
+  the result on the Assemble tab. No guesswork, no drift.
+- **A new look.** A refined dark, precision-instrument interface — consistent across every tab.
 
 ### Added
 - **Assemble tab.** Choose a folder (or drag-drop) of individually-rendered frames; StripKit
@@ -29,6 +35,20 @@ sequence into a plugin-ready filmstrip.
   `Views/AssembleView`; `IImageLoadService.Probe` (header-only dimension peek) and
   `IFileDialogService.OpenImagesAsync` (multi-select). The procedural renderer is untouched — no
   `FilmstripEngine.cs` change. **+28 tests (suite 216 → 244), build 0/0.**
+- **Render-recipe export (path-tracing P2).** A "Render recipe" panel on the Create tab emits a
+  Blender `bpy` script (transparent film; a keyframe baked on **every** frame so the angles are exact,
+  plus a 0..1 `value` custom property to drive non-rotary rigs) and an engine-agnostic
+  `frame,value,angle_deg` CSV/JSON table for KeyShot / Octane / C4D. New `Services/RenderRecipeService`
+  + `Models/RenderRecipeModels`, mirroring `CodeSnippetService`; one `BuildFrameTable` shares the
+  renderer's deliberate `(N−1)` law so the recipe and the runtime can never diverge. **+14 tests
+  (244 → 258), build 0/0.**
+- **Depth design-system rebrand.** The whole app moved onto the Depth design tokens (vendored
+  `src/StripKit/Depth/Depth.axaml`): solid machined-grey surfaces, an ember accent, recessed
+  monospace-numeral input wells, raised neutral "keycap" buttons, and a solid window base (the acrylic
+  glass + warm glow removed) — uniform across all six tabs and the dialogs, plus a new VYBECODE DSP
+  brandmark + wordmark header.
+- **Crosshair fix.** Enabling the alignment crosshair keeps the image stationary while you drag the
+  mark onto the knob's true centre; on release, playback rotates about that point.
 
 ## [1.3.0] — 2026-06-18
 

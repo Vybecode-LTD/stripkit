@@ -28,6 +28,7 @@ public partial class App : Application
         services.AddSingleton<ILayeredImportService, LayeredImportService>();
         services.AddSingleton<IManifestService, ManifestService>();
         services.AddSingleton<ICodeSnippetService, CodeSnippetService>();
+        services.AddSingleton<IRenderRecipeService, RenderRecipeService>();
         services.AddSingleton<IBatchProcessor, BatchProcessor>();
         services.AddSingleton<IFrameSequenceAssembler, FrameSequenceAssembler>();
         services.AddSingleton<IExportService, ExportService>();

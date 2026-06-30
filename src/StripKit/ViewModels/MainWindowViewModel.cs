@@ -18,6 +18,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IExportService _export;
     private readonly IManifestService _manifest;
     private readonly ICodeSnippetService _codeSnippets;
+    private readonly IRenderRecipeService _recipes;
     private readonly ILayeredImportService _layeredImport;
     private readonly IAssetService _assets;
 
@@ -46,6 +47,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public MainWindowViewModel(IImageLoadService imageLoad, IFilmstripRenderer renderer,
                                IFileDialogService dialogs, IExportService export,
                                IManifestService manifest, ICodeSnippetService codeSnippets,
+                               IRenderRecipeService recipes,
                                ILayeredImportService layeredImport, IAssetService assets,
                                ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin,
                                TutorialViewModel tutorial, GenerateViewModel generate,
@@ -57,6 +59,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _export = export;
         _manifest = manifest;
         _codeSnippets = codeSnippets;
+        _recipes = recipes;
         _layeredImport = layeredImport;
         _assets = assets;
         Importer = importer;
@@ -73,6 +76,7 @@ public partial class MainWindowViewModel : ViewModelBase
         StatusMessage = "Load a source image to begin.";
         UpdateReadouts();
         UpdateCodePreview();
+        UpdateRecipePreview();
 
         // Open the Getting Started guide automatically the first time the app is run.
         Tutorial.MaybeShowOnFirstRun();
@@ -250,6 +254,12 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private CodeTarget _codePreviewTarget = CodeTarget.Juce;
     [ObservableProperty] private string _generatedCode = "";
 
+    // ---- render recipe (offline-3D / path-tracing spec) ----
+    public RenderRecipeTarget[] RecipeTargets { get; } =
+        [RenderRecipeTarget.Blender, RenderRecipeTarget.Csv, RenderRecipeTarget.Json];
+    [ObservableProperty] private RenderRecipeTarget _recipePreviewTarget = RenderRecipeTarget.Blender;
+    [ObservableProperty] private string _generatedRecipe = "";
+
     // ---- preview ----
     [ObservableProperty] private double _previewValue = 0.5;
     [ObservableProperty] private AvBitmap? _previewImage;
@@ -305,6 +315,13 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        // Switching the previewed recipe target only re-renders the recipe text.
+        if (e.PropertyName is nameof(RecipePreviewTarget))
+        {
+            UpdateRecipePreview();
+            return;
+        }
+
         switch (e.PropertyName)
         {
             case nameof(PreviewImage):
@@ -331,6 +348,7 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(HasImportedLayers):
             case nameof(ImportInfo):
             case nameof(GeneratedCode):
+            case nameof(GeneratedRecipe):
             case nameof(ExportCode):
             case nameof(EmitCodeJuce):
             case nameof(EmitCodeCss):
@@ -350,6 +368,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         UpdateReadouts();
         UpdateCodePreview();
+        UpdateRecipePreview();
         RefreshPreview();
     }
 
@@ -543,6 +562,29 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void UpdateCodePreview() =>
         GeneratedCode = _codeSnippets.Generate(CodePreviewTarget, BuildCodeRequest());
+
+    // ---- render recipe (offline-3D spec) ----
+
+    /// <summary>The render-recipe request for the current settings — the same control id the code
+    /// export uses, plus the rotary sweep angles so an offline render matches the (N−1) law.</summary>
+    private RenderRecipeRequest BuildRecipeRequest()
+    {
+        var baseName = Path.GetFileNameWithoutExtension(_sourcePath ?? _baseLayerPath) ?? (IsMeter ? "meter" : "filmstrip");
+        return new RenderRecipeRequest(ComponentType, FrameCount, StartAngleDegrees, EndAngleDegrees,
+                                       FrameWidth, FrameHeight, baseName);
+    }
+
+    private void UpdateRecipePreview() =>
+        GeneratedRecipe = _recipes.Generate(RecipePreviewTarget, BuildRecipeRequest());
+
+    [RelayCommand]
+    private async Task SaveRecipeAsync()
+    {
+        var dir = await _dialogs.OpenFolderAsync("Choose a folder for the render recipe");
+        if (string.IsNullOrEmpty(dir)) return;
+        var path = await _recipes.SaveAsync(RecipePreviewTarget, BuildRecipeRequest(), dir);
+        StatusMessage = $"Saved render recipe → {Path.GetFileName(path)}";
+    }
 
     /// <summary>The code targets ticked for emission on export.</summary>
     private IEnumerable<CodeTarget> SelectedCodeTargets()

@@ -95,6 +95,9 @@ does each thing live" companion.
   `BatchItemResult`, `BatchResult` for the Batch tab.
 - `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise`) +
   `CodeSnippetRequest` record: the inputs for the code-export service.
+- `RenderRecipeModels.cs` — the **render-recipe** (path-tracing P2) data: `RenderRecipeTarget` enum
+  (`Blender` / `Csv` / `Json`), `RenderRecipeRequest` record (type + frame count + sweep angles +
+  resolution + control id; `IsRotary`), and the `RecipeFrame` row (frame index, 0..1 value, angle°). No deps.
 - `RenderLayer.cs` — `LayerBehavior` enum (`Static` / `Rotate` / `Frame`) + `RenderLayer`
   (behaviour + a normalized per-layer pivot): the ordered layer stack for a layered knob /
   button (`FilmstripSettings.Layers`). `Static` = every frame, `Rotate` = knob pointer,
@@ -177,6 +180,11 @@ does each thing live" companion.
 - `ICodeSnippetService.cs` / `CodeSnippetService.cs` — emit ready-to-paste loader code
   (JUCE / CSS-HTML / iPlug2 / HISE) for an exported strip: `Generate` / `FileName` (pure)
   + a thin `SaveAsync`. No Avalonia dependency.
+- `IRenderRecipeService.cs` / `RenderRecipeService.cs` — the **render-recipe export** (path-tracing
+  P2): emit a Blender `bpy` script / `frame,value,angle_deg` CSV / JSON so an offline render matches the
+  runtime law. Pure string-gen mirroring `CodeSnippetService` (`Generate` / `FileName` + a thin
+  `SaveAsync`); the static `BuildFrameTable` is the one source of truth and mirrors
+  `SkiaFilmstripRenderer.ComputeTransform`'s `t = i/(N−1)` / `angle = start + (end−start)·t`. No Avalonia dep.
 - `IBatchProcessor.cs` / `BatchProcessor.cs` — render a folder of sources into many
   strips off the UI thread (`Task.Run`), with per-item progress and between-item
   cancellation; isolates per-file failures. No Avalonia dependency.

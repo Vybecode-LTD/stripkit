@@ -47,7 +47,7 @@ public class LoadPathTests
         var tutorial = new TutorialViewModel(new SettingsService(
             Path.Combine(Path.GetTempPath(), $"stripkit_test_settings_{Guid.NewGuid():N}.json")));
         return (new MainWindowViewModel(load, renderer, dialogs, export, Substitute.For<IManifestService>(),
-                                        new CodeSnippetService(), new LayeredImportService(), assets,
+                                        new CodeSnippetService(), new RenderRecipeService(), new LayeredImportService(), assets,
                                         importer, batch, skin, tutorial, TestFakes.GenerateVm(),
                                         TestFakes.AssembleVm()), load, dialogs);
     }

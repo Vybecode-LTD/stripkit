@@ -363,6 +363,27 @@
                         </StackPanel>
                     </Expander>
 
+                    <!-- Render recipe — offline-3D / path-tracing spec (Blender script + CSV/JSON table) -->
+                    <controls:SectionHeader Text="RENDER RECIPE (offline 3D)" />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,2,0,0"
+                               Text="Path-tracing this control in Blender / KeyShot / Octane? Export a render recipe so the offline frames match StripKit's (N−1) sweep law, then stack them on the Assemble tab." />
+                    <Expander Header="Preview / save render recipe" Margin="0,6,0,12">
+                        <StackPanel Spacing="6">
+                            <ComboBox HorizontalAlignment="Stretch"
+                                      ItemsSource="{Binding RecipeTargets}" SelectedItem="{Binding RecipePreviewTarget}" />
+                            <Border Classes="tile" Padding="2">
+                                <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Auto">
+                                    <TextBox Text="{Binding GeneratedRecipe}" IsReadOnly="True" AcceptsReturn="True"
+                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                                </ScrollViewer>
+                            </Border>
+                            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
+                                <Button Content="Save recipe…" Command="{Binding SaveRecipeCommand}" />
+                                <Button Content="Copy to clipboard" Click="OnCopyRecipe" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Expander>
+
                 </StackPanel>
             </ScrollViewer>
         </Border>

@@ -174,13 +174,17 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   `NaturalFileNameComparer`, `FrameSequenceModels`, `FrameSequenceViewModel` (+ `FrameItemRow`),
   `AssembleView`; `IImageLoadService.Probe` + `IFileDialogService.OpenImagesAsync`. +28 tests
   (216 → 244), golden `assemble_knob_mix_4`. **(P1, the headline — done.)**
-- ⏳ **P2 — Render-recipe export** — emit the spec that makes the offline render match StripKit's
-  runtime law (`angle_i = start + (end − start)·i/(N−1)`, the deliberate N−1 divisor): a Blender
-  `bpy` script (transparent film, rotation linearly keyframed over exactly N frames) **plus** an
-  engine-agnostic `frame,value,angle` CSV/JSON table for KeyShot / Octane / C4D. A pure
-  `RenderRecipeService` mirroring `CodeSnippetService`; a "Render recipe" panel on the Assemble (and
-  Create) tab. Closes the loop end-to-end: StripKit specs the render → you path-trace → StripKit
-  assembles. **(P1 — the recommended next phase.)**
+- ✅ **P2 — Render-recipe export** *(unreleased; v1.4.0)* — emit the spec that makes the offline
+  render match StripKit's runtime law (`angle_i = start + (end − start)·i/(N−1)`, the deliberate N−1
+  divisor): a Blender `bpy` script (transparent film; a keyframe baked on **every** one of the N
+  frames — exact angles, no interpolation drift — plus a 0..1 `value` custom property to drive
+  non-rotary rigs via drivers) **plus** an engine-agnostic `frame,value,angle_deg` CSV/JSON table for
+  KeyShot / Octane / C4D. Pure `RenderRecipeService` (+ `RenderRecipeModels`) mirroring
+  `CodeSnippetService`, with one `BuildFrameTable` that mirrors `ComputeTransform` so the recipe and
+  the renderer can never diverge. A "Render recipe" panel on the **Create** tab (Blender/CSV/JSON live
+  preview + copy + save) — Create carries every input the recipe needs (type, frame count, sweep,
+  resolution). +14 tests (244 → 258). **(P1 — done.)** *(A discoverability entry-point on the Assemble
+  tab is an easy follow-on.)*
 - ⏳ **P3 — 3D-render QC + alpha/HDR ingest** — catch the path-tracer failure modes on import:
   premultiplied-alpha edge halos (un-premultiply / despill), object drift (detect + recentre — P1
   added the fix, P3 adds detection/reporting), and 8-bit banding on smooth metal/glass (ingest

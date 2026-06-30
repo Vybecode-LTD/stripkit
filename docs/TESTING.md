@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (244 tests)
+dotnet test                                      # whole suite (258 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **244 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **258 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (244)
+## Test inventory (258)
 
 ### Assemble tab (frame-sequence → filmstrip) — 28
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
@@ -302,6 +302,17 @@ Per-target loader-code generation (`CodeSnippetService`), all pure string assert
 - HISE: a `ScriptPanel` paint routine (`loadImage` + `setPaintRoutine`).
 - Identifiers are sanitised; `FileName` maps each target (Theory, 4 rows); `SaveAsync`
   writes the snippet to disk matching `Generate`.
+
+### `RenderRecipeServiceTests.cs` — 14 (render-recipe export, path-tracing P2)
+The recipe's per-frame table must match the renderer's law exactly, so an offline render stacks cleanly.
+- `BuildFrameTable`: N rows with the endpoints on the extremes; the deliberate `(N−1)` divisor (frame 1
+  of 64 = 1/63, not 1/64); an odd count's exact geometric midpoint; non-rotary keeps angle 0 while the
+  value still ramps; a single frame doesn't divide by zero.
+- CSV: a header + one row per frame; numbers stay invariant-culture even under a comma-decimal locale.
+- Blender: transparent film, the frame range + law, RGBA; rotation baked only for a rotary knob
+  (`IS_ROTARY` True/False).
+- JSON parses with its metadata + one entry per frame; `FileName` extensions + id sanitisation (Theory);
+  `SaveAsync` writes the recipe to disk matching `Generate`.
 
 ### `BatchProcessorTests.cs` — 5 (integration, real services + temp files)
 - `Renders_a_strip_for_each_input` (3 inputs → 3 correctly-sized strips; match-to-source).

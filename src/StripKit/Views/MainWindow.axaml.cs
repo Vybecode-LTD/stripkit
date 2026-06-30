@@ -118,6 +118,16 @@ public partial class MainWindow : Window
         Vm.StatusMessage = $"Copied the {Vm.CodePreviewTarget} snippet to the clipboard.";
     }
 
+    // Copy the currently-previewed render recipe (Blender / CSV / JSON) to the clipboard.
+    private async void OnCopyRecipe(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is null || string.IsNullOrEmpty(Vm.GeneratedRecipe)) return;
+        var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+        if (clipboard is null) return;
+        await clipboard.SetTextAsync(Vm.GeneratedRecipe);
+        Vm.StatusMessage = $"Copied the {Vm.RecipePreviewTarget} render recipe to the clipboard.";
+    }
+
     private void OnPlayTick(object? sender, EventArgs e)
     {
         if (Vm is null)

@@ -127,6 +127,11 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
 - `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
   iPlug2 / HISE) for an exported strip; pure string-gen mirroring `ManifestService`.
+- `Services/RenderRecipeService.cs` — the **Render recipe** (Create tab; path-tracing P2): emit a
+  Blender `bpy` script + `frame,value,angle_deg` CSV/JSON so an offline render matches the runtime
+  sweep law. Pure string-gen like `CodeSnippetService`; its static `BuildFrameTable` mirrors
+  `SkiaFilmstripRenderer`'s `t = i/(N−1)` / `angle = start + (end−start)·t`, so recipe and renderer
+  can't drift. App-only; not in `FilmstripEngine.cs`.
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
   UI thread (`Task.Run`), with per-item progress and a working cancel.
 - `Services/FrameSequenceAssembler.cs` (+ `NaturalFileNameComparer`) — the **Assemble** tab:
@@ -245,6 +250,32 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-06-30 (v1.4.0-dev: Depth UI rebrand + crosshair fix committed, then path-tracing P2 —
+  render-recipe export; on branch `feat/v1.4.0`, unreleased)** — Two things this session, both on the
+  new **`feat/v1.4.0`** branch. **(1) Committed the prior batch** (`4793b50`): the P1 Assemble tab + a
+  full **Depth design-system rebrand** (vendored `src/StripKit/Depth/Depth.axaml` from
+  `C:\DEV\depth-design-system`; `App.axaml` maps StripKit's keys → Depth tokens, **promoted global** so
+  all six tabs + dialogs share one machined-grey / ember / recessed-mono-well / raised-keycap look;
+  solid Depth window — acrylic + glow removed; VYBECODE DSP brandmark header) + the **crosshair fix**
+  (image stays still while the crosshair is dragged; playback orbits the mark on release —
+  `_placingCrosshair` gate in `MainWindowViewModel.RefreshPreview`). The three concerns share the
+  MainWindow/App files so they couldn't be split into buildable commits; landed as one verified commit.
+  **(2) Built path-tracing P2 — render-recipe export.** New app-only `Services/RenderRecipeService` (+
+  `IRenderRecipeService`, `Models/RenderRecipeModels`) emits a Blender `bpy` script (transparent film;
+  a keyframe baked on **every** frame — exact angles, no interpolation drift — plus a 0..1 `value`
+  custom property to drive non-rotary rigs) and an engine-agnostic `frame,value,angle_deg` CSV/JSON
+  table. Pure string-gen mirroring `CodeSnippetService`; one static `BuildFrameTable` mirrors the
+  renderer's `(N−1)` law so recipe and runtime can't diverge. A **"Render recipe" panel on the Create
+  tab** (Blender/CSV/JSON live preview + copy + save) — Create carries every input the recipe needs
+  (type, frame count, sweep, resolution); the Assemble tab has none of the sweep/resolution inputs, so
+  it's the natural home. Wired DI + `MainWindowViewModel` (funnel + `SaveRecipeCommand`) +
+  `MainWindow.axaml`/`.cs` (panel + copy handler). New `RenderRecipeServiceTests` (+14). **Suite 244→258
+  green, build 0/0; live-verified (Blender + CSV preview + dropdown).** Docs reconciled
+  (ROADMAP P2→✅ / CHANGELOG[Unreleased] / SOURCE_MAP / TESTING 258 / CLAUDE). **Still pending:** the
+  CLAUDE.md *House conventions* + ARCHITECTURE still describe the old "Obsidian glassmorphism / no
+  monospace" system — reconcile to Depth before the v1.4.0 release. **Next (P3):** 3D-render QC +
+  alpha/EXR-HDR ingest; optional: an Assemble-tab recipe entry-point; the `frame-sequence-assembler` skill.
 
 - **2026-06-30 (path-tracing pipeline P1 — the "Assemble" tab; unreleased, next: v1.4.0)** — Built the
   first phase of the offline-3D / path-tracing program (origin: a KVR thread on raster vs. WebGL-3D
