@@ -182,13 +182,28 @@
                 </Panel>
             </Border>
 
-            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+            <Border Grid.Row="1" x:Name="TransportTile" Classes="tile" Margin="0,12,0,0">
                 <StackPanel Spacing="6">
-                    <Grid ColumnDefinitions="*,Auto">
-                        <Slider Grid.Column="0" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="0,0,12,0" />
-                        <TextBlock Grid.Column="1" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
-                                   Foreground="{DynamicResource Text2Brush}" MinWidth="130" TextAlignment="Right" />
+                    <Grid ColumnDefinitions="Auto,*,Auto">
+                        <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" IsEnabled="{Binding HasFrames}">
+                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
+                            <Button x:Name="PlayButton" Click="OnPlayClick" Width="90" ToolTip.Tip="Play / stop the preview">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <TextBlock x:Name="PlayIcon" Text="&#xE768;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                                    <TextBlock x:Name="PlayLabel" Text="Play" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
+                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40" ToolTip.Tip="Reset to the first frame" />
+                        </StackPanel>
+                        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
+                        <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
+                                   Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right"
+                                   FontFamily="{StaticResource DepthMono}" />
                     </Grid>
+
+                    <TextBlock Text="{Binding SequenceInfo}" Foreground="{DynamicResource Text3Brush}" FontSize="12"
+                               FontFamily="{StaticResource DepthMono}" />
 
                     <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}" Height="6" IsVisible="{Binding IsRunning}" />
                     <TextBlock Text="{Binding ProgressText}" Foreground="{DynamicResource Text2Brush}" FontSize="12"

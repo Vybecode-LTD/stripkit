@@ -102,7 +102,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
     // ---- preview ----
     [ObservableProperty] private double _previewValue;
     [ObservableProperty] private AvBitmap? _previewImage;
-    [ObservableProperty] private string _previewReadout = "";
+    [ObservableProperty] private string _previewReadout = "Frame —/—";
 
     // ---- run state ----
     [ObservableProperty]
@@ -191,7 +191,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
         WarningText = "";
         SequenceInfo = "No frames yet — choose a folder or drop a rendered sequence here.";
         PreviewImage = null;
-        PreviewReadout = "";
+        PreviewReadout = "Frame —/—";
         StatusMessage = "Cleared.";
     }
 
@@ -270,7 +270,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
         if (Frames.Count == 0)
         {
             PreviewImage = null;
-            PreviewReadout = "";
+            PreviewReadout = "Frame —/—";
             return;
         }
 

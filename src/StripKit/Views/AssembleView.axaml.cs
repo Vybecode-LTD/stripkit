@@ -7,6 +7,7 @@ using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Media;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using StripKit.ViewModels;
 
 namespace StripKit.Views;
@@ -16,9 +17,18 @@ public partial class AssembleView : UserControl
     private static readonly IBrush AccentBrush = new SolidColorBrush(Color.Parse("#FFE8440A"));
     private static readonly string[] AcceptedExtensions = [".png", ".webp", ".bmp", ".jpg", ".jpeg"];
 
+    // Auto-play is a view-side animation concern (mirrors the Create tab): it steps PreviewValue
+    // through the frames on a timer, ping-ponging at the ends. Kept out of the view model.
+    private readonly DispatcherTimer _playTimer;
+    private double _direction = 1.0;
+
     public AssembleView()
     {
         InitializeComponent();
+
+        _playTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(33) };
+        _playTimer.Tick += OnPlayTick;
+        DetachedFromVisualTree += (_, _) => StopPlay();
 
         // Drop handlers are scoped to this tab's drop border so they don't collide with the other
         // tabs' drop zones. DragOver must set DragEffects or Drop never fires. (See the
@@ -30,6 +40,60 @@ public partial class AssembleView : UserControl
     }
 
     private FrameSequenceViewModel? Vm => DataContext as FrameSequenceViewModel;
+
+    // ---- preview transport (mirrors the Create tab) ----
+
+    private void OnPlayClick(object? sender, RoutedEventArgs e)
+    {
+        if (Vm is null || Vm.Frames.Count < 2) return;
+        if (_playTimer.IsEnabled) StopPlay();
+        else
+        {
+            _playTimer.Start();
+            PlayIcon.Text = "\uE769";   // pause glyph
+            PlayLabel.Text = "Stop";
+        }
+    }
+
+    private void StopPlay()
+    {
+        if (!_playTimer.IsEnabled) return;
+        _playTimer.Stop();
+        PlayIcon.Text = "\uE768";       // play glyph
+        PlayLabel.Text = "Play";
+    }
+
+    private void OnStepBack(object? sender, RoutedEventArgs e) { StopPlay(); StepPreview(-1); }
+    private void OnStepForward(object? sender, RoutedEventArgs e) { StopPlay(); StepPreview(1); }
+
+    private void OnResetPreview(object? sender, RoutedEventArgs e)
+    {
+        StopPlay();
+        if (Vm is not null) Vm.PreviewValue = 0.0;   // back to the first frame
+    }
+
+    // Step the preview by one frame in the sequence (the frames are discrete, so this snaps).
+    private void StepPreview(int delta)
+    {
+        if (Vm is null) return;
+        int n = Vm.Frames.Count;
+        if (n < 2) return;
+        int cur = (int)Math.Round(Vm.PreviewValue * (n - 1));
+        int next = Math.Clamp(cur + delta, 0, n - 1);
+        Vm.PreviewValue = (double)next / (n - 1);
+    }
+
+    private void OnPlayTick(object? sender, EventArgs e)
+    {
+        if (Vm is null) return;
+        int n = Vm.Frames.Count;
+        if (n < 2) { StopPlay(); return; }
+        int cur = (int)Math.Round(Vm.PreviewValue * (n - 1));
+        int next = cur + (int)_direction;
+        if (next >= n - 1) { next = n - 1; _direction = -1.0; }
+        else if (next <= 0) { next = 0; _direction = 1.0; }
+        Vm.PreviewValue = (double)next / (n - 1);
+    }
 
     private void OnDragEnter(object? sender, DragEventArgs e)
     {

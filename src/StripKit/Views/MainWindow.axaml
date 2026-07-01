@@ -15,7 +15,8 @@
     <Panel>
         <!-- Solid Depth base (machined grey) — uniform across every tab. -->
 
-        <TabControl SelectedIndex="{Binding SelectedTabIndex}">
+        <!-- 10px top padding on the nav band (tabs + the right-side header overlay both sit 10px down). -->
+        <TabControl SelectedIndex="{Binding SelectedTabIndex}" Margin="0,10,0,0">
 
         <TabItem Header="Create">
             <Grid ColumnDefinitions="370,*">
@@ -429,7 +430,7 @@
                 </Panel>
             </Border>
 
-            <Border Grid.Row="1" Classes="tile" Margin="0,12,0,0">
+            <Border Grid.Row="1" x:Name="TransportTile" Classes="tile" Margin="0,12,0,0">
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
@@ -494,7 +495,7 @@
 
         <!-- Header right side: app wordmark + a Help button + an About (?) button, across from the tabs. -->
         <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Orientation="Horizontal"
-                    Height="34" Margin="0,0,18,0" Spacing="12">
+                    Height="38" Margin="0,10,18,0" Spacing="12">
             <!-- Brandmark + wordmark: the VybeCode DSP pulse mark followed by "VYBECODE DSP". -->
             <StackPanel Orientation="Horizontal" Spacing="9" VerticalAlignment="Center" IsHitTestVisible="False">
                 <Image Source="/Assets/vybecode-dsp-brandmark.png" Height="28" VerticalAlignment="Center"
@@ -507,7 +508,7 @@
                     ToolTip.Tip="Open the Getting Started guide for the current tab"
                     Command="{Binding Tutorial.OpenCommand}"
                     CommandParameter="{Binding SelectedTabIndex}" />
-            <Button Content="?" Width="28" Height="28" CornerRadius="14" Padding="0" FontSize="15"
+            <Button Content="?" Width="21" Height="21" CornerRadius="10.5" Padding="0" FontSize="11.5"
                     VerticalAlignment="Center" ToolTip.Tip="About StripKit"
                     Command="{Binding ShowAboutCommand}" />
         </StackPanel>

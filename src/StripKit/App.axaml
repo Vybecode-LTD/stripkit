@@ -106,6 +106,18 @@
         <SolidColorBrush x:Key="SliderTrackValueFillPointerOver" Color="{StaticResource DepthEmberHiColor}" />
         <SolidColorBrush x:Key="SliderTrackValueFillPressed" Color="{StaticResource DepthEmberColor}" />
 
+        <!-- Tab header foreground per state — the Fluent TabItem template binds the label colour to
+             THESE resources, so setting them (not a Style on TabItem.Foreground, which never reaches the
+             inner text) is what actually controls the hover/selected colours. Inactive tabs brighten on
+             hover (dim ink → full ink) to signal they're clickable; the active tab stays ember on hover
+             (never white). -->
+        <SolidColorBrush x:Key="TabItemHeaderForegroundUnselected" Color="{StaticResource DepthInkDimColor}" />
+        <SolidColorBrush x:Key="TabItemHeaderForegroundUnselectedPointerOver" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="TabItemHeaderForegroundUnselectedPressed" Color="{StaticResource DepthInkColor}" />
+        <SolidColorBrush x:Key="TabItemHeaderForegroundSelected" Color="{StaticResource DepthEmberColor}" />
+        <SolidColorBrush x:Key="TabItemHeaderForegroundSelectedPointerOver" Color="{StaticResource DepthEmberColor}" />
+        <SolidColorBrush x:Key="TabItemHeaderForegroundSelectedPressed" Color="{StaticResource DepthEmberColor}" />
+
         <!-- Section header text: light grey ink, legible on the dark Depth panels. -->
         <SolidColorBrush x:Key="SectionTextBrush" Color="{StaticResource DepthInkDimColor}" />
 
@@ -286,21 +298,22 @@
         <Style Selector="TabItem">
             <Setter Property="FontSize" Value="18" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
-            <!-- Tab band height drives the header-band alignment; keep it compact. -->
-            <Setter Property="MinHeight" Value="34" />
+            <!-- Explicit (not Min) height + zero margin makes the tab band a deterministic 38px, so the
+                 top-right header overlay (same 38px, top-anchored) centres on exactly the same line. -->
+            <Setter Property="Height" Value="38" />
+            <Setter Property="MinHeight" Value="38" />
+            <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="11,3" />
+            <Setter Property="VerticalAlignment" Value="Top" />
         </Style>
 
-        <!-- Active tab: highlight the label in orange + a very slight tight dark drop shadow,
-             and drop the Fluent underline ("pipe") entirely. -->
+        <!-- Active tab: a very slight tight dark drop shadow + drop the Fluent underline ("pipe").
+             The orange label colour (and the stays-orange-on-hover behaviour) comes from the
+             TabItemHeaderForeground* resources above, which is what the template actually binds. -->
         <Style Selector="TabItem:selected">
-            <Setter Property="Foreground" Value="{DynamicResource DepthEmber}" />
             <Setter Property="Effect">
                 <DropShadowEffect BlurRadius="2" Color="#000000" Opacity="0.6" OffsetX="0" OffsetY="1" />
             </Setter>
-        </Style>
-        <Style Selector="TabItem:selected:pointerover">
-            <Setter Property="Foreground" Value="{DynamicResource DepthEmberHi}" />
         </Style>
         <Style Selector="TabItem:selected /template/ Border#PART_SelectedPipe">
             <Setter Property="IsVisible" Value="False" />

@@ -53,11 +53,11 @@ public partial class ImporterViewModel : ViewModelBase
     [ObservableProperty] private int _targetFrameCount = 64;
     [ObservableProperty] private bool _lowConfidence;
     [ObservableProperty] private string _detectedInfo = "";
-    [ObservableProperty] private string _frameSizeInfo = "";
+    [ObservableProperty] private string _frameSizeInfo = "Frame: —";
 
     [ObservableProperty] private double _previewValue = 0.5;
     [ObservableProperty] private AvBitmap? _previewImage;
-    [ObservableProperty] private string _previewReadout = "";
+    [ObservableProperty] private string _previewReadout = "Frame —/—";
     [ObservableProperty] private string _statusMessage = "Load or drop a filmstrip to begin.";
 
     /// <summary>
