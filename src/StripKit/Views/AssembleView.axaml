@@ -91,8 +91,11 @@
                             <Button Content="64" Command="{Binding SetTarget64Command}" />
                             <Button Content="128" Command="{Binding SetTarget128Command}" />
                         </StackPanel>
+                        <TextBlock Classes="label" Text="Method" Margin="0,6,0,0" />
+                        <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Interpolations}" SelectedItem="{Binding Interpolation}"
+                                  ToolTip.Tip="Nearest picks the closest rendered frame (never ghosts). Crossfade blends the two bracketing frames to synthesise in-betweens." />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="Nearest-frame re-time (the importer's law) — render fewer expensive frames, ship a standard count." />
+                                   Text="Nearest never ghosts (safe default). Crossfade blends in-between frames — render ~32, ship 64/128 for slow, smooth motion." />
                     </StackPanel>
 
                     <!-- Quality / output -->

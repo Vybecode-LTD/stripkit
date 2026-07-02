@@ -55,6 +55,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
          ComponentType.Meter, ComponentType.Button, ComponentType.Toggle];
     public StackDirection[] StackDirections { get; } = [StackDirection.Vertical, StackDirection.Horizontal];
     public CellFit[] CellFits { get; } = [CellFit.PadToLargest, CellFit.CropToSmallest, CellFit.Strict];
+    public FrameInterpolation[] Interpolations { get; } = [FrameInterpolation.Nearest, FrameInterpolation.Crossfade];
 
     // ---- sequence state ----
     [ObservableProperty]
@@ -79,6 +80,10 @@ public partial class FrameSequenceViewModel : ViewModelBase
 
     [ObservableProperty] private bool _resampleEnabled;
     [ObservableProperty] private int _targetFrameCount = 64;
+
+    /// <summary>Nearest source frame (default, never ghosts) or crossfade blend (P4 — synthesize
+    /// in-betweens so a few expensive path-traced frames ship as a standard count).</summary>
+    [ObservableProperty] private FrameInterpolation _interpolation = FrameInterpolation.Nearest;
 
     // ---- export options (mirror the Create tab) ----
     [ObservableProperty] private bool _exportAt2x = true;
@@ -356,6 +361,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
             RecenterOnContent = RecenterOnContent,
             UnpremultiplyAlpha = UnpremultiplyAlpha,
             ResampleTo = ResampleEnabled ? TargetFrameCount : null,
+            Interpolation = Interpolation,
         };
 
         // Created on the UI thread → Report callbacks marshal back to the UI thread.

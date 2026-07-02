@@ -207,6 +207,64 @@ public class FrameSequenceAssemblerTests
         finally { foreach (var f in frames) f.Dispose(); }
     }
 
+    [Fact]
+    public void Crossfade_resample_hits_the_target_count_and_keeps_the_endpoints_exact()
+    {
+        var frames = Frames(8, 16, 16);
+        try
+        {
+            var result = _assembler.Assemble(frames, new FrameSequenceOptions
+            {
+                Direction = StackDirection.Vertical,
+                ResampleTo = 4,
+                Interpolation = FrameInterpolation.Crossfade,
+            });
+            using (result.Strip)
+            {
+                result.FrameCount.Should().Be(4);
+                result.Resampled.Should().BeTrue();
+                result.Strip.Height.Should().Be(16 * 4);
+
+                var layout = new StripDetection(true, 4, 16, 16, null, false, new[] { 4 });
+                using var d0 = _importer.ExtractFrame(result.Strip, layout, 0);
+                using var d3 = _importer.ExtractFrame(result.Strip, layout, 3);
+                PixelsEqual(d0, frames[0]).Should().BeTrue("crossfade endpoint 0 is the real first frame");
+                PixelsEqual(d3, frames[7]).Should().BeTrue("crossfade endpoint N-1 is the real last frame");
+            }
+        }
+        finally { foreach (var f in frames) f.Dispose(); }
+    }
+
+    [Fact]
+    public void Crossfade_midpoint_blends_the_two_bracketing_frames()
+    {
+        // Two distinct opaque frames; upsample to 3 → the middle frame must be a ~50/50 blend, i.e. an
+        // in-between that equals neither endpoint (nearest resampling could never produce this).
+        var frames = new List<SKBitmap> { Solid(16, 16, SKColors.Red), Solid(16, 16, SKColors.Blue) };
+        try
+        {
+            var result = _assembler.Assemble(frames, new FrameSequenceOptions
+            {
+                Direction = StackDirection.Vertical,
+                ResampleTo = 3,
+                Interpolation = FrameInterpolation.Crossfade,
+            });
+            using (result.Strip)
+            {
+                result.FrameCount.Should().Be(3);
+                var layout = new StripDetection(true, 3, 16, 16, null, false, new[] { 3 });
+                using var mid = _importer.ExtractFrame(result.Strip, layout, 1);
+                var p = mid.GetPixel(8, 8);
+
+                ((int)p.Red).Should().BeInRange(110, 145, "half of red 255");
+                ((int)p.Blue).Should().BeInRange(110, 145, "half of blue 255");
+                ((int)p.Green).Should().BeLessThan(20);
+                p.Alpha.Should().BeGreaterThan(250);
+            }
+        }
+        finally { foreach (var f in frames) f.Dispose(); }
+    }
+
     static bool PixelsEqual(SKBitmap a, SKBitmap b)
     {
         if (a.Width != b.Width || a.Height != b.Height) return false;

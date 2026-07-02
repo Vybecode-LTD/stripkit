@@ -65,6 +65,7 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
         // Optional fix: un-premultiply alpha to remove dark edge halos. We own (and dispose) the copies.
         List<SKBitmap>? owned = options.UnpremultiplyAlpha ? frames.Select(UnpremultiplyAlpha).ToList() : null;
         var working = owned ?? frames;
+        List<SKBitmap>? synthesized = null;   // P4 crossfade-interpolated frames (disposed in finally)
 
         try
         {
@@ -94,7 +95,25 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
                     break;
             }
 
-            int n = working.Count;
+            int srcN = working.Count;
+
+            // P4 — crossfade interpolation: synthesize the target frames by cross-dissolving the two
+            // bracketing source frames, so a few expensive path-traced frames ship as a standard count.
+            // Produces cell-sized, already-placed frames, so the stack blits them without re-centring.
+            IReadOnlyList<SKBitmap> stackFrames = working;
+            bool stackRecenter = options.RecenterOnContent;
+            bool crossfaded = false;
+            if (options.ResampleTo is int xtgt && xtgt >= 2 && xtgt != srcN
+                && options.Interpolation == FrameInterpolation.Crossfade)
+            {
+                synthesized = CrossfadeResample(working, xtgt, cellW, cellH, options.RecenterOnContent);
+                stackFrames = synthesized;
+                stackRecenter = false;   // interpolated frames are already cell-sized + placed
+                crossfaded = true;
+                warnings.Add($"Interpolated {srcN} → {xtgt} frames (crossfade blend).");
+            }
+
+            int n = stackFrames.Count;
             bool vertical = options.Direction == StackDirection.Vertical;
             long outW = vertical ? cellW : (long)cellW * n;
             long outH = vertical ? (long)cellH * n : cellH;
@@ -112,14 +131,15 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
                 {
                     int dx = vertical ? 0 : i * cellW;
                     int dy = vertical ? i * cellH : 0;
-                    DrawIntoCell(canvas, working[i], dx, dy, cellW, cellH, options.RecenterOnContent);
+                    DrawIntoCell(canvas, stackFrames[i], dx, dy, cellW, cellH, stackRecenter);
                 }
             }
 
             int count = n;
-            bool resampled = false;
-            if (options.ResampleTo is int target && target >= 2 && target != n)
+            bool resampled = crossfaded;
+            if (!crossfaded && options.ResampleTo is int target && target >= 2 && target != n)
             {
+                // Nearest-frame re-time via the importer (a moving pointer never ghosts).
                 var layout = new StripDetection(vertical, n, cellW, cellH, null, false, Array.Empty<int>());
                 var retimed = _importer.Resample(strip, layout, target);
                 strip.Dispose();
@@ -135,7 +155,70 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
         {
             if (owned is not null)
                 foreach (var b in owned) b.Dispose();
+            if (synthesized is not null)
+                foreach (var b in synthesized) b.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Synthesize <paramref name="target"/> cell-sized frames by cross-dissolving the two bracketing
+    /// source frames at each fractional position. The <c>(N−1)/(M−1)</c> law lands the endpoints exactly
+    /// on the real first/last source frame; interior frames blend A·(1−f) + B·f in premultiplied space.
+    /// Returns cell-sized, already-placed bitmaps the caller owns and disposes.
+    /// </summary>
+    private static List<SKBitmap> CrossfadeResample(IReadOnlyList<SKBitmap> frames, int target,
+                                                    int cellW, int cellH, bool recenter)
+    {
+        int srcN = frames.Count;
+        var outList = new List<SKBitmap>(target);
+        for (int j = 0; j < target; j++)
+        {
+            double pos = target > 1 ? (double)j * (srcN - 1) / (target - 1) : 0.0;
+            int a = Math.Clamp((int)Math.Floor(pos), 0, srcN - 1);
+            int b = Math.Min(a + 1, srcN - 1);
+            double f = pos - a;
+
+            var cell = new SKBitmap(cellW, cellH, SKColorType.Rgba8888, SKAlphaType.Premul);
+            using (var canvas = new SKCanvas(cell))
+            {
+                canvas.Clear(SKColors.Transparent);
+                if (b == a || f <= 0.0)
+                {
+                    DrawWeighted(canvas, frames[a], cellW, cellH, recenter, 1.0, SKBlendMode.Src);
+                }
+                else
+                {
+                    // Cross-dissolve: write A·(1−f), then additively add B·f (both premultiplied).
+                    DrawWeighted(canvas, frames[a], cellW, cellH, recenter, 1.0 - f, SKBlendMode.Src);
+                    DrawWeighted(canvas, frames[b], cellW, cellH, recenter, f, SKBlendMode.Plus);
+                }
+            }
+            outList.Add(cell);
+        }
+        return outList;
+    }
+
+    // Draw one frame into the cell, centred (by content when requested), at an opacity weight and a
+    // chosen blend mode — the primitive the crossfade uses to combine two frames.
+    private static void DrawWeighted(SKCanvas canvas, SKBitmap frame, int cellW, int cellH,
+                                     bool recenter, double weight, SKBlendMode blend)
+    {
+        double fcx = 0.5, fcy = 0.5;
+        if (recenter)
+            (fcx, fcy) = ContentAnalysis.DetectContentCenter(frame);
+
+        double left = cellW * 0.5 - frame.Width * fcx;
+        double top = cellH * 0.5 - frame.Height * fcy;
+
+        using var img = SKImage.FromBitmap(frame);
+        using var paint = new SKPaint
+        {
+            BlendMode = blend,
+            Color = SKColors.White.WithAlpha((byte)Math.Clamp((int)Math.Round(weight * 255), 0, 255)),
+        };
+        var src = SKRect.Create(0, 0, frame.Width, frame.Height);
+        var dest = SKRect.Create((float)Math.Round(left), (float)Math.Round(top), frame.Width, frame.Height);
+        canvas.DrawImage(img, src, dest, Blit, paint);
     }
 
     // Place one frame inside its cell. Centre it (by content centroid when requested, else by the

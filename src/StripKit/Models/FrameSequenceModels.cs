@@ -19,6 +19,22 @@ public enum CellFit
 }
 
 /// <summary>
+/// How the assembler synthesizes frames when re-timing to a different count (path-tracing P4 —
+/// "render fewer, ship more").
+/// </summary>
+public enum FrameInterpolation
+{
+    /// <summary>Pick the nearest source frame for each output frame — no blending (the importer's law).
+    /// Correct for a filmstrip in general: a moving pointer never ghosts. The default.</summary>
+    Nearest,
+
+    /// <summary>Cross-dissolve the two bracketing source frames by their fractional distance, so a
+    /// handful of expensive path-traced frames can be shipped as a standard 64/128. Good for slow, smooth
+    /// motion (a gently rotating knob); it can ghost on fast motion, where Nearest is safer.</summary>
+    Crossfade,
+}
+
+/// <summary>
 /// Options for assembling a sequence of individually-rendered frames into one stacked filmstrip.
 /// Pure data — no UI or Avalonia dependency.
 /// </summary>
@@ -39,9 +55,14 @@ public sealed record FrameSequenceOptions
     /// fully opaque / fully transparent pixels. Off by default (only premultiplied renders need it).</summary>
     public bool UnpremultiplyAlpha { get; init; }
 
-    /// <summary>When set, re-time the assembled strip to this many output frames via the importer's
-    /// nearest-frame law; <c>null</c> keeps the native (input) frame count.</summary>
+    /// <summary>When set, re-time the assembled strip to this many output frames; <c>null</c> keeps the
+    /// native (input) frame count.</summary>
     public int? ResampleTo { get; init; }
+
+    /// <summary>How to synthesize frames when <see cref="ResampleTo"/> re-times the sequence: pick the
+    /// nearest source frame (default), or cross-dissolve the two bracketing frames (P4 — "render fewer,
+    /// ship more"). Ignored when <see cref="ResampleTo"/> is null.</summary>
+    public FrameInterpolation Interpolation { get; init; } = FrameInterpolation.Nearest;
 }
 
 /// <summary>
