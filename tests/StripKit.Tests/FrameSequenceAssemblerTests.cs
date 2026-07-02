@@ -265,6 +265,50 @@ public class FrameSequenceAssemblerTests
         finally { foreach (var f in frames) f.Dispose(); }
     }
 
+    [Fact]
+    public void Emission_pass_additively_brightens_the_beauty_frames()
+    {
+        var beauty = new List<SKBitmap> { Solid(16, 16, new SKColor(40, 40, 40)), Solid(16, 16, new SKColor(40, 40, 40)) };
+        var emission = new List<SKBitmap> { Solid(16, 16, new SKColor(200, 0, 0)), Solid(16, 16, new SKColor(200, 0, 0)) };
+        try
+        {
+            var result = _assembler.Assemble(beauty, new FrameSequenceOptions
+            {
+                EmissionFrames = emission,
+                EmissionIntensity = 1.0,
+            });
+            using (result.Strip)
+            {
+                var layout = new StripDetection(true, 2, 16, 16, null, false, new[] { 2 });
+                using var cell = _importer.ExtractFrame(result.Strip, layout, 0);
+                var p = cell.GetPixel(8, 8);
+                ((int)p.Red).Should().BeGreaterThan(200, "beauty 40 + additive emission 200");
+                ((int)p.Green).Should().BeInRange(30, 60, "emission has no green, so green is unchanged");
+                result.Warnings.Should().Contain(w => w.Contains("emission"));
+            }
+        }
+        finally { foreach (var b in beauty) b.Dispose(); foreach (var b in emission) b.Dispose(); }
+    }
+
+    [Fact]
+    public void A_mismatched_emission_pass_is_ignored_with_a_warning()
+    {
+        var beauty = Frames(3, 16, 16);
+        var emission = new List<SKBitmap> { Solid(16, 16, new SKColor(200, 0, 0)) };   // 1 vs 3 beauty frames
+        try
+        {
+            var result = _assembler.Assemble(beauty, new FrameSequenceOptions { EmissionFrames = emission });
+            using (result.Strip)
+            {
+                result.Warnings.Should().Contain(w => w.Contains("Emission pass ignored"));
+                var layout = new StripDetection(true, 3, 16, 16, null, false, new[] { 3 });
+                using var cell = _importer.ExtractFrame(result.Strip, layout, 0);
+                PixelsEqual(cell, beauty[0]).Should().BeTrue("a mismatched emission pass leaves the beauty untouched");
+            }
+        }
+        finally { foreach (var b in beauty) b.Dispose(); foreach (var b in emission) b.Dispose(); }
+    }
+
     static bool PixelsEqual(SKBitmap a, SKBitmap b)
     {
         if (a.Width != b.Width || a.Height != b.Height) return false;

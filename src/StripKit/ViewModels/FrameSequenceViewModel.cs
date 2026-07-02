@@ -85,6 +85,12 @@ public partial class FrameSequenceViewModel : ViewModelBase
     /// in-betweens so a few expensive path-traced frames ship as a standard count).</summary>
     [ObservableProperty] private FrameInterpolation _interpolation = FrameInterpolation.Nearest;
 
+    // ---- emission / AOV pass (P5) ----
+    [ObservableProperty] private bool _emissionEnabled;
+    [ObservableProperty] private string _emissionInfo = "No emission pass added.";
+    [ObservableProperty] private double _emissionIntensity = 100;   // percent, 0..100
+    private readonly List<string> _emissionPaths = new();
+
     // ---- export options (mirror the Create tab) ----
     [ObservableProperty] private bool _exportAt2x = true;
     [ObservableProperty] private bool _exportManifest = true;
@@ -186,6 +192,37 @@ public partial class FrameSequenceViewModel : ViewModelBase
         if (images.Count == 0) return;
         if (Frames.Count == 0) SetFrames(images);
         else AddFrames(images);
+    }
+
+    /// <summary>Choose a second folder — the emission / glow AOV pass — that the assembler additively
+    /// composites over the beauty frames (P5). Natural-sorted the same way; the counts must match.</summary>
+    [RelayCommand]
+    private async Task ChooseEmissionFolderAsync()
+    {
+        var folder = await _dialogs.OpenFolderAsync("Choose the folder of emission / glow frames (the AOV pass)");
+        if (folder is null) return;
+
+        var candidates = Directory.EnumerateFiles(folder)
+            .Where(f => AcceptedExtensions.Contains(Path.GetExtension(f), StringComparer.OrdinalIgnoreCase))
+            .ToList();
+        var probe = _assembler.Probe(candidates, _imageLoad);
+
+        _emissionPaths.Clear();
+        _emissionPaths.AddRange(probe.OrderedPaths);
+        EmissionEnabled = _emissionPaths.Count > 0;
+        EmissionInfo = _emissionPaths.Count == 0
+            ? "No readable emission frames found."
+            : _emissionPaths.Count == Frames.Count
+                ? $"{_emissionPaths.Count} emission frame(s) — matches the beauty count."
+                : $"{_emissionPaths.Count} emission frame(s) — beauty has {Frames.Count}; the counts must match to composite.";
+    }
+
+    [RelayCommand]
+    private void ClearEmission()
+    {
+        _emissionPaths.Clear();
+        EmissionEnabled = false;
+        EmissionInfo = "No emission pass added.";
     }
 
     [RelayCommand]
@@ -364,6 +401,9 @@ public partial class FrameSequenceViewModel : ViewModelBase
             Interpolation = Interpolation,
         };
 
+        var emissionPaths = EmissionEnabled ? _emissionPaths.ToList() : new List<string>();
+        double emissionGain = Math.Clamp(EmissionIntensity / 100.0, 0.0, 1.0);
+
         // Created on the UI thread → Report callbacks marshal back to the UI thread.
         var progress = new Progress<int>(done =>
         {
@@ -374,7 +414,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
         try
         {
             var ct = _cts.Token;
-            var result = await Task.Run(() => AssembleFromPaths(paths, options, progress, ct));
+            var result = await Task.Run(() => AssembleFromPaths(paths, emissionPaths, emissionGain, options, progress, ct));
             if (result is null)
             {
                 StatusMessage = "Cancelled.";
@@ -454,10 +494,12 @@ public partial class FrameSequenceViewModel : ViewModelBase
     /// <summary>Stream-decode each frame (reporting progress, honouring cancel) then hand the set to
     /// the assembler. Bitmaps are disposed as soon as the strip is built, so peak memory stays near
     /// one decoded sequence rather than that plus the output. Returns null if cancelled.</summary>
-    private FrameSequenceResult? AssembleFromPaths(IReadOnlyList<string> paths, FrameSequenceOptions options,
+    private FrameSequenceResult? AssembleFromPaths(IReadOnlyList<string> paths, IReadOnlyList<string> emissionPaths,
+                                                   double emissionGain, FrameSequenceOptions options,
                                                    IProgress<int> progress, CancellationToken ct)
     {
         var bitmaps = new List<SKBitmap>(paths.Count);
+        List<SKBitmap>? emission = null;
         try
         {
             for (int i = 0; i < paths.Count; i++)
@@ -471,11 +513,26 @@ public partial class FrameSequenceViewModel : ViewModelBase
             if (bitmaps.Count < 2)
                 throw new InvalidOperationException("Need at least two readable frames to assemble.");
 
-            return _assembler.Assemble(bitmaps, options);
+            var opts = options;
+            if (emissionPaths.Count > 0)
+            {
+                emission = new List<SKBitmap>(emissionPaths.Count);
+                foreach (var p in emissionPaths)
+                {
+                    if (ct.IsCancellationRequested) return null;
+                    var bmp = _imageLoad.Load(p);
+                    if (bmp is not null) emission.Add(bmp);
+                }
+                opts = options with { EmissionFrames = emission, EmissionIntensity = emissionGain };
+            }
+
+            return _assembler.Assemble(bitmaps, opts);
         }
         finally
         {
             foreach (var b in bitmaps) b.Dispose();
+            if (emission is not null)
+                foreach (var b in emission) b.Dispose();
         }
     }
 

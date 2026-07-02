@@ -65,10 +65,31 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
         // Optional fix: un-premultiply alpha to remove dark edge halos. We own (and dispose) the copies.
         List<SKBitmap>? owned = options.UnpremultiplyAlpha ? frames.Select(UnpremultiplyAlpha).ToList() : null;
         var working = owned ?? frames;
+        List<SKBitmap>? emissive = null;      // P5 emission-composited frames (disposed in finally)
         List<SKBitmap>? synthesized = null;   // P4 crossfade-interpolated frames (disposed in finally)
 
         try
         {
+            // P5 — AOV / emission pass: additively composite a second render pass (emission/glow) over
+            // each beauty frame before packing, so a path-traced glow reads like emitted light instead of
+            // being baked flat into the beauty. No renderer change — the glow is baked into the strip.
+            if (options.EmissionFrames is { Count: > 0 } emission)
+            {
+                if (emission.Count == working.Count)
+                {
+                    double gain = Math.Clamp(options.EmissionIntensity, 0.0, 1.0);
+                    emissive = new List<SKBitmap>(working.Count);
+                    for (int i = 0; i < working.Count; i++)
+                        emissive.Add(CompositeEmission(working[i], emission[i], gain));
+                    working = emissive;
+                    warnings.Add($"Composited an emission/glow pass over {emissive.Count} frames.");
+                }
+                else
+                {
+                    warnings.Add($"Emission pass ignored — {emission.Count} emission frame(s) but {working.Count} beauty frame(s).");
+                }
+            }
+
             int maxW = working.Max(f => f.Width), maxH = working.Max(f => f.Height);
             int minW = working.Min(f => f.Width), minH = working.Min(f => f.Height);
             bool uniform = maxW == minW && maxH == minH;
@@ -155,9 +176,33 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
         {
             if (owned is not null)
                 foreach (var b in owned) b.Dispose();
+            if (emissive is not null)
+                foreach (var b in emissive) b.Dispose();
             if (synthesized is not null)
                 foreach (var b in synthesized) b.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Additively composite an emission/glow AOV frame over a beauty frame at a 0..1 intensity — the
+    /// physically-correct way to add emitted light (a knob's LED, a screen's glow) that a path tracer
+    /// renders as a separate pass. Returns a new bitmap the caller owns; the beauty frame is unchanged.
+    /// </summary>
+    private static SKBitmap CompositeEmission(SKBitmap beauty, SKBitmap emission, double intensity)
+    {
+        var outb = beauty.Copy(SKColorType.Rgba8888);
+        using (var canvas = new SKCanvas(outb))
+        {
+            using var img = SKImage.FromBitmap(emission);
+            using var paint = new SKPaint
+            {
+                BlendMode = SKBlendMode.Plus,   // add emitted light on top of the beauty
+                Color = SKColors.White.WithAlpha((byte)Math.Clamp((int)Math.Round(intensity * 255), 0, 255)),
+            };
+            canvas.DrawImage(img, SKRect.Create(0, 0, emission.Width, emission.Height),
+                                  SKRect.Create(0, 0, beauty.Width, beauty.Height), Blit, paint);
+        }
+        return outb;
     }
 
     /// <summary>

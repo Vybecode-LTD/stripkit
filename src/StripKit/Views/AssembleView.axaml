@@ -98,6 +98,18 @@
                                    Text="Nearest never ghosts (safe default). Crossfade blends in-between frames — render ~32, ship 64/128 for slow, smooth motion." />
                     </StackPanel>
 
+                    <!-- Emission / AOV pass (P5) -->
+                    <controls:SectionHeader Text="EMISSION / GLOW PASS (optional)" />
+                    <Button Content="Choose emission folder…" HorizontalAlignment="Stretch"
+                            Command="{Binding ChooseEmissionFolderCommand}"
+                            ToolTip.Tip="A second render pass (an emission/glow AOV) — one frame per beauty frame — additively composited so a path-traced glow reads like emitted light instead of being baked flat." />
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0" Text="{Binding EmissionInfo}" />
+                    <StackPanel IsVisible="{Binding EmissionEnabled}" Spacing="2" Margin="0,4,0,0">
+                        <TextBlock Classes="label" Text="Intensity (%)" Margin="0,4,0,0" />
+                        <Slider Minimum="0" Maximum="100" Value="{Binding EmissionIntensity}" />
+                        <Button Content="Remove emission pass" HorizontalAlignment="Left" Command="{Binding ClearEmissionCommand}" />
+                    </StackPanel>
+
                     <!-- Quality / output -->
                     <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
                     <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}"

@@ -63,6 +63,16 @@ public sealed record FrameSequenceOptions
     /// nearest source frame (default), or cross-dissolve the two bracketing frames (P4 — "render fewer,
     /// ship more"). Ignored when <see cref="ResampleTo"/> is null.</summary>
     public FrameInterpolation Interpolation { get; init; } = FrameInterpolation.Nearest;
+
+    /// <summary>An optional emission / glow render pass (an AOV), aligned 1:1 with the beauty frames.
+    /// When present and the counts match, each frame is additively composited over its beauty frame
+    /// before packing (P5) — a path-traced glow reads correctly instead of being baked flat. The
+    /// assembler does not dispose these; the caller owns them.</summary>
+    public IReadOnlyList<SKBitmap>? EmissionFrames { get; init; }
+
+    /// <summary>Emission-pass intensity, 0..1 (0 = off, 1 = full additive). Ignored without
+    /// <see cref="EmissionFrames"/>.</summary>
+    public double EmissionIntensity { get; init; } = 1.0;
 }
 
 /// <summary>
