@@ -2,7 +2,7 @@
 
 > Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
 
-**Open bugs: 0.** **Resolved: 11.**
+**Open bugs: 0.** **Resolved: 16.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -205,6 +205,79 @@ forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
   completed by hand (commit `f38a5f5`, tag `v1.3.0`) after the abort.
 - **Regression guard:** none (release-script issue, not unit-testable) — the next release exercises it;
   the exit-code gating is the guard.
+
+### BUG-012 — UnpremultiplyAlpha corrupted colours (Premul-tagged bitmap holding straight bytes) ✅
+- **Severity:** High (the P3 "Un-premultiply alpha" halo fix produced visibly wrong colours on export).
+- **Component:** `src/StripKit/Services/FrameSequenceAssembler.cs` (`UnpremultiplyAlpha`).
+- **Reported / Fixed:** 2026-07-02 (audit of the unreleased v1.4.0 work).
+- **Symptom:** ticking "Un-premultiply alpha" on the Assemble tab shifted colours. A straight
+  (200,100,50) at α128 came off disk as ~(255,199,100,128).
+- **Root cause:** the method wrote straight (un-premultiplied) RGB into a bitmap produced by `src.Copy()`,
+  which **preserves the source's `Premul` alpha type**. Downstream (the canvas blit into the strip, the
+  PNG encode) then re-interpreted the straight bytes as premultiplied. The existing test only inspected
+  raw `dst.Bytes`, so it passed while the feature was broken.
+- **Fix:** allocate the destination as `SKAlphaType.Unpremul` and write the straight bytes into it.
+- **Regression guard:** `RenderQcTests.UnpremultiplyAlpha_returns_an_unpremultiplied_bitmap_that_survives_a_premultiplied_roundtrip`
+  (asserts `AlphaType == Unpremul`, `GetPixel`, and a real PNG encode/decode) +
+  `…recovers_colour_across_a_multi_pixel_frame…` (the stride loop). Both fail against the old code.
+
+### BUG-013 — Layered SVG file-import fetched external `<image>` references (SSRF) ✅
+- **Severity:** High (security — SSRF / local-file-existence oracle triggered by merely opening a file).
+- **Component:** `src/StripKit/Services/LayeredImportService.cs` (`ImportSvg`) + `SvgSanitizer.cs`.
+- **Reported / Fixed:** 2026-07-02 (audit; **verified live** — a beacon connected).
+- **Symptom:** opening a crafted `knob.svg` containing `<image xlink:href="http://attacker/…">` (or
+  `file:///…`) issued an outbound request during rasterization, before any content was shown.
+- **Root cause:** the file-import path ran only `SafeXml.Parse` (a DTD/entity gate) and then handed the
+  **raw** text to `Svg.Skia.FromSvg`. `SvgSanitizer` — which strips `<image>`/`<script>`/`<foreignObject>`/
+  `on*`/non-`#` `href` — was only applied to the AI-reply path, so the file picker was unprotected, and
+  svg-net resolves an external `<image href>` over HTTP(S)/disk during `DrawPicture`. (The BUG-009/010
+  hardening addressed DTDs/entities only, not element-level external references.)
+- **Fix:** `SvgSanitizer.Sanitize` is now public; `ImportSvg` runs it on the parsed document and feeds the
+  re-serialized, sanitized SVG to `Svg.Skia` (both the full render and the per-layer renders).
+- **Regression guard:** `LayeredImportServiceTests.Svg_import_does_not_fetch_an_external_image_reference`
+  — imports an SVG referencing a loopback listener and asserts **no connection** (fails against the old code).
+
+### BUG-014 — Static layer shifted/blanked button & toggle state frames (absolute-index matching) ✅
+- **Severity:** Medium (broken state art for a realistic layered button/toggle with a shared border).
+- **Component:** `src/StripKit/Services/SkiaFilmstripRenderer.cs` (`RenderButtonLayers`) + the
+  `FilmstripEngine.cs` mirror + `MainWindowViewModel.cs` (state-frame count).
+- **Reported / Fixed:** 2026-07-02 (audit).
+- **Symptom:** a layered button/toggle with a `Static` border/shadow group ahead of its off/on states
+  rendered frame 0 as border-only (state-less) and pushed off→frame 1; the state-frame count was also
+  inflated by the Static layers.
+- **Root cause:** `RenderButtonLayers` matched `Frame` layers by their **absolute** index in the layer
+  stack (`i == frameIndex`), which only holds when no Static layer precedes them.
+- **Fix:** match `Frame` layers by their **ordinal position among Frame layers** (renderer + mirror), and
+  derive the state-frame count from the number of `Frame` layers, not the total.
+- **Regression guard:** `ToggleRenderTests.A_static_border_before_the_state_layers_does_not_shift_the_off_and_on_states`.
+
+### BUG-015 — RegenerateSetItem reused a cancelled CancellationTokenSource ✅
+- **Severity:** Medium (a Generate-tab set item silently failed to regenerate after any prior cancel).
+- **Component:** `src/StripKit/ViewModels/GenerateViewModel.cs` (`RegenerateSetItemAsync`).
+- **Reported / Fixed:** 2026-07-02 (audit).
+- **Symptom:** after cancelling a set generation, clicking Regenerate on one grid item did nothing and
+  showed "Regeneration cancelled." even though the user hadn't cancelled that action.
+- **Root cause:** `_setCts ??= new()` kept the shared, already-cancelled source; the item's token was
+  cancelled before the work started (`Task.Run(…, ct)` threw immediately).
+- **Fix:** cancel/dispose/recreate `_setCts` at the start of the command (matching `GenerateSetAsync`).
+- **Regression guard:** `GenerateViewModelTests.Regenerating_a_set_item_after_a_cancel_still_works_and_does_not_abort`.
+
+### BUG-016 — Audit low-severity cleanup (drift metric, resource leaks, blank tip box) ✅
+- **Severity:** Low (batch of small correctness / resource / UI defects found in the same 2026-07-02 audit).
+- **Fixed:** 2026-07-02.
+- **Items:**
+  - **QC drift over-reported for mixed-size sequences** (`FrameSequenceAssembler.AnalyzeQc`) — it scaled a
+    per-frame-normalized centre spread by the largest cell, so an object at the same absolute pixel across
+    a 64² and a 128² frame read as ~24px of drift. Now measured in absolute pixels. Guard:
+    `RenderQcTests.AnalyzeQc_does_not_report_phantom_drift_for_mixed_size_frames…` (+ a positive/negative
+    premultiplied-edge pair that the QC branch previously had no positive test for).
+  - **Three resource leaks** (`GenerateViewModel` / `IAssetGenerationProvider`): matching-set & variation
+    preview `Bitmap`s were dropped to GC instead of disposed; the auto-retry left the first attempt's temp
+    SVG on disk; the provider never disposed its `HttpResponseMessage`. All now disposed/deleted.
+  - **Tutorial tip box rendered blank** (`Views/TutorialOverlay.axaml`) — it bound the undefined
+    `GlassFill`/`GlassBorder` keys (a Depth-rebrand rename miss); corrected to `GlassFillBrush`/`GlassBorderBrush`.
+- **Regression guard:** the QC drift + premultiplied-edge tests above; the leaks/tip-box are pattern fixes
+  verified by inspection (the disposes/renames), with the suite staying green.
 
 ---
 

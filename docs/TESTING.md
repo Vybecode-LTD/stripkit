@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (265 tests)
+dotnet test                                      # whole suite (274 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **265 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **274 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (265)
+## Test inventory (274)
 
 ### Assemble tab (frame-sequence → filmstrip) — 28
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
@@ -97,7 +97,7 @@ capturing the outgoing request body's shape.
 - `VisionProviderTests.cs` — 3: per-provider **vision** request shape — Claude sends a base64
   `image` block, OpenAI an `image_url` data URI, Gemini `inline_data` — and each reads the text
   description back. The outgoing request body is captured and asserted.
-- `GenerateViewModelTests.cs` — 21: key gating, per-provider key save/reload, the success path
+- `GenerateViewModelTests.cs` — 22: key gating, per-provider key save/reload, the success path
   (import-validated + Create handoff fires with a real temp SVG), the two failure paths, and that
   **a custom/delisted model id (not in the suggestions) is sent verbatim** rather than dropped to a
   suggestion (the editable `AutoCompleteBox` model field); the colour/effect/control-type fields
@@ -106,7 +106,8 @@ capturing the outgoing request body's shape.
   not); **refine** (gated on an instruction, then updates the result); **prompt seeds** (built-in
   library, apply, save/persist/reload/delete, built-ins are read-only); the **matching set**
   (gated on a key + ≥1 type, one result per included type, per-item Use-in-Create handoff) and
-  **variations** (the grid fills with N takes of the selected type).
+  **variations** (the grid fills with N takes of the selected type); **(audit)** a set item
+  **regenerates after a prior cancel** (a fresh CTS, not a reused cancelled one).
 - `GenerateViewTests.cs` — 1: headless realization of `GenerateView` (compiled bindings,
   design tokens, the reveal binding, the colour-swatch buttons, the `AutoCompleteBox` model field,
   and the `StringConverters` usage all load at runtime).
@@ -155,11 +156,14 @@ off-only frame shows the off layer, the on frame shows the on layer, a shared St
 on both) and end-to-end via `GenerateIntegrationTests` (a generated button's `off`/`on` groups
 become Frame layers). The path is also mirrored in `FilmstripEngine.cs`.
 
-### `ToggleRenderTests.cs` — 1 (toggle state-frame renderer)
+### `ToggleRenderTests.cs` — 2 (toggle state-frame renderer)
 A **Toggle** is its own `ComponentType` but renders exactly like a 2-state Button — it reuses the
 Button state-frame path, so the renderer goldens are unchanged.
 - `Frame_0_shows_the_off_state_and_frame_1_shows_the_on_state` — pixel-logic: the off
   (dark) `Frame` layer shows only on frame 0 and the on (lit) layer only on frame 1.
+- **(audit)** `A_static_border_before_the_state_layers_does_not_shift_the_off_and_on_states` — with a
+  `[Static, Frame(off), Frame(on)]` stack, off still renders on frame 0 and on on frame 1 (ordinal
+  matching, not absolute index).
 
 ### `ImageLoadServiceTests.cs` — 3 (concrete PNG decode path)
 The real `ImageLoadService` decode used across the app: it peeks header dimensions via `SKCodec`
@@ -176,7 +180,7 @@ Splitting a flat knob into a symmetric base + the indicator via the radial-symme
 - `Extract_returns_null_for_a_missing_image`.
 - `A_plain_symmetric_disc_yields_an_essentially_empty_pointer` (nothing to extract).
 
-### `LayeredImportServiceTests.cs` — 10 (layered PSD/SVG import, ★ #3 step 3)
+### `LayeredImportServiceTests.cs` — 11 (layered PSD/SVG import, ★ #3 step 3)
 Parsing a real layered source into the renderer's layer stack. Fixtures are synthesized in memory
 (an SVG string; a PSD written by Magick.NET) so no binary assets live in the repo.
 - SVG: groups → named, behaviour-guessed layers; layers isolated + registered on the canvas; a
@@ -187,6 +191,9 @@ Parsing a real layered source into the renderer's layer stack. Fixtures are synt
 - `Import` returns null for a missing/garbage file; `CanImport` recognizes `.svg`/`.psd`/`.psb` only.
 - SVG parsing goes through `SafeXml` — a DTD-bearing document is rejected as malformed (no entity
   expansion).
+- **(audit)** `Svg_import_does_not_fetch_an_external_image_reference` — an SVG with an
+  `<image xlink:href="http://127.0.0.1:…">` is imported while a loopback listener asserts **no outbound
+  connection** (the SSRF fix strips `<image>` before Svg.Skia); the safe body layer still imports.
 
 ### `LayeredImportViewModelTests.cs` — 11 (the Create-tab import command + the type-aware handoff)
 - Importing an SVG populates tagged rows (body=Static, pointer=Rotate), forces the knob type,
@@ -314,12 +321,23 @@ The recipe's per-frame table must match the renderer's law exactly, so an offlin
 - JSON parses with its metadata + one entry per frame; `FileName` extensions + id sanitisation (Theory);
   `SaveAsync` writes the recipe to disk matching `Generate`.
 
-### `RenderQcTests.cs` — 7 (render QC + un-premultiply, path-tracing P3)
+### `RenderQcTests.cs` — 12 (render QC + un-premultiply, path-tracing P3)
 - `UnpremultiplyAlpha`: recovers the straight colour from premultiplied bytes (50%-alpha pixel),
   and leaves fully opaque / fully transparent pixels alone.
 - `AnalyzeQc`: detects object drift between frames (content-centre spread); flags frames with no
   transparency and fully-blank frames; reports clean for a well-behaved sequence.
 - `Assemble` surfaces the QC warnings in its result.
+- **(audit)** `UnpremultiplyAlpha` returns an **Unpremul-tagged** bitmap whose straight colour survives
+  GetPixel **and a real PNG encode/decode** (guards the colour-corruption bug — a Premul tag reads/encodes
+  as garbage), and recovers colour across a **multi-pixel** frame (later rows/columns — the stride loop).
+- **(audit)** `AnalyzeQc` does **not** report phantom drift for **mixed-size** frames whose content sits
+  at the same absolute pixel, and flags a **premultiplied-edge** sequence (positive) while a straight-alpha
+  edge keeps the flag off (negative control).
+
+### `TransportTileAlignmentTests.cs` — 1 (`[AvaloniaFact]`, headless)
+- `The_three_tabs_transport_tiles_render_at_the_same_height` — the Create / Import / Assemble preview
+  transport tiles realize at the same `Bounds.Height` (the uniform-transport fix), measured headlessly
+  rather than by screenshot.
 
 ### `BatchProcessorTests.cs` — 5 (integration, real services + temp files)
 - `Renders_a_strip_for_each_input` (3 inputs → 3 correctly-sized strips; match-to-source).

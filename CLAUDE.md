@@ -30,7 +30,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - .NET 9, Avalonia 11.3, CommunityToolkit.Mvvm 8.4 (source generators),
   SkiaSharp 3.119.2. `Avalonia.Controls.ColorPicker` 11.3.0 (Generate colour swatches).
 - Layered-source import (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) + **Magick.NET-Q8-x64**
-  14.13.1 (Apache-2.0, PSD/PSB layers). Both permissive; not in `FilmstripEngine.cs`.
+  14.14.0 (Apache-2.0, PSD/PSB layers). Both permissive; not in `FilmstripEngine.cs`.
 - AI SVG generation (Generate tab, app-only): OpenAI / Gemini / Claude — plus any **OpenAI-compatible
   custom endpoint** (`AiProvider.Custom`: OpenRouter / Ollama / LM Studio) — over a shared `HttpClient`,
   incl. **vision** (`DescribeImageAsync`) for reference-image matching; user API keys encrypted at rest
@@ -38,7 +38,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **244 green.**
+  6.0.4). **274 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -258,8 +258,27 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
 
 ## Last completed task
 
+- **2026-07-02 (v1.4.0-dev: full fine-tooth-comb audit + 11 code/test fixes; on `main`, unreleased)** —
+  A 10-dimension, adversarially-verified audit of the unreleased v1.4.0 work found 18 real items; the 11
+  **code + test** findings were fixed here (commit `301b2b4`) with fail-before/pass-after regression
+  tests. **Suite 265 → 274 green, build clean.** **Two HIGH bugs, both live in the v1.4.0 work:** (1) the
+  P3 **`UnpremultiplyAlpha`** returned a *premultiplied-tagged* bitmap holding straight bytes → the
+  "un-premultiply alpha" halo fix **corrupted colours** on export (now returns an Unpremul-tagged bitmap);
+  (2) the layered **SVG file-import** handed raw text to Svg.Skia without `SvgSanitizer`, so an external
+  `<image xlink:href="http://…">` **fired an outbound request** (SSRF / file-existence oracle) on file
+  open — verified live (`SvgSanitizer.Sanitize` is now public and runs before `FromSvg` on the import
+  path too; AI-reply path was already safe). **Medium:** button/toggle `Frame` layers now match by
+  **ordinal** not absolute index (a leading Static border no longer shifts/blanks states — renderer +
+  `FilmstripEngine.cs` mirror + state-frame count); Regenerate uses a fresh CTS. **Low:** QC drift in
+  absolute px; 3 resource leaks (set preview bitmaps, auto-retry temp SVG, `HttpResponseMessage`);
+  TutorialOverlay's undefined `GlassFill`/`GlassBorder` keys → `*Brush`. Also deleted the redundant merged
+  `feat/v1.4.0` branch; gitignored the long-standing strays (`.claude/launch.json`, `press/`,
+  `docs/PRESS-RELEASE.md`). Also **bumped Magick.NET-Q8-x64 14.13.1 → 14.14.0** (both projects), which
+  **clears the known HIGH/moderate NuGet advisories** (NU1903/NU1902) with the suite still 274 green.
+  **Next:** push `main` to origin + release v1.4.0; then P3b (EXR/HDR) / P4 (frame interpolation).
+
 - **2026-06-30 (v1.4.0-dev: path-tracing P3 — Render QC on import + the Assemble-tab recipe
-  entry-point; on branch `feat/v1.4.0`, unreleased)** — Continued the path-tracing chain. **(1) P3 —
+  entry-point; on `main`, unreleased)** — Continued the path-tracing chain. **(1) P3 —
   Render QC.** The Assemble tab catches the path-tracer failure modes: new static
   `FrameSequenceAssembler.AnalyzeQc` → a `Models.RenderQcReport` (object **drift** in px via the
   content-centre spread; frames with **no transparency** = a missing transparent background, or **none**
@@ -276,8 +295,8 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   (House conventions + ARCHITECTURE), then merge `feat/v1.4.0` → main; then P3b / P4 (frame interpolation).
 
 - **2026-06-30 (v1.4.0-dev: Depth UI rebrand + crosshair fix committed, then path-tracing P2 —
-  render-recipe export; on branch `feat/v1.4.0`, unreleased)** — Two things this session, both on the
-  new **`feat/v1.4.0`** branch. **(1) Committed the prior batch** (`4793b50`): the P1 Assemble tab + a
+  render-recipe export; on `main`, unreleased)** — Two things this session (originally staged on a
+  `feat/v1.4.0` branch, since folded into `main` and the branch deleted). **(1) Committed the prior batch** (`4793b50`): the P1 Assemble tab + a
   full **Depth design-system rebrand** (vendored `src/StripKit/Depth/Depth.axaml` from
   `C:\DEV\depth-design-system`; `App.axaml` maps StripKit's keys → Depth tokens, **promoted global** so
   all six tabs + dialogs share one machined-grey / ember / recessed-mono-well / raised-keycap look;

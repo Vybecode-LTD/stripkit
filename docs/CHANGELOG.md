@@ -23,6 +23,9 @@ one machined-grey, ember-accent look.
 - **Catches common render mistakes.** Assembling a rendered sequence now flags object drift, a
   missing transparent background, blank frames, or dark edge halos — and offers one-click fixes.
 - **A new look.** A refined dark, precision-instrument interface — consistent across every tab.
+- **Reliability + polish.** The playback transport now looks and behaves the same on every tab, and a
+  pre-release audit hardened file import (a crafted SVG can no longer make the app phone home), fixed a
+  colour shift in the un-premultiply cleanup, and squared away layered button/toggle state art.
 
 ### Added
 - **Assemble tab.** Choose a folder (or drag-drop) of individually-rendered frames; StripKit
@@ -59,6 +62,26 @@ one machined-grey, ember-accent look.
   brandmark + wordmark header.
 - **Crosshair fix.** Enabling the alignment crosshair keeps the image stationary while you drag the
   mark onto the knob's true centre; on release, playback rotates about that point.
+
+### Fixed
+- **Uniform preview transport across every tab** (Create / Import / Assemble render the play/scrub
+  controls identically), plus the inactive-tab hover colour and header/nav alignment, and a new
+  "Extract current frame" action. **+1 test (`TransportTileAlignmentTests`; 265 → 266).**
+- **Pre-release audit hardening (11 fixes).** A fine-tooth-comb audit of the v1.4.0 work fixed:
+  - **`UnpremultiplyAlpha` corrupted colours** — it returned a premultiplied-tagged bitmap holding
+    straight bytes, so the P3 "Un-premultiply alpha" halo fix shifted colour on assemble/export. It now
+    returns an un-premultiplied bitmap.
+  - **SVG file-import SSRF** — the layered-file picker handed raw SVG to Svg.Skia without the sanitizer,
+    so an external `<image xlink:href="http://…">` (or `file://`) fired an outbound request during
+    rasterization. `SvgSanitizer.Sanitize` now runs on the import path before `FromSvg`.
+  - **Button/toggle state art** — a shared `Static` border/shadow layer shifted (and blanked) the off/on
+    frames because `Frame` layers matched by absolute stack index. They now match by ordinal among Frame
+    layers (renderer + `FilmstripEngine.cs`), and the state-frame count ignores Static layers.
+  - Regenerating one matching-set item after a cancel works again; QC drift is measured in absolute
+    pixels (no phantom drift on mixed-size sequences); three resource leaks closed (set/variation preview
+    bitmaps, an auto-retry temp SVG, the provider `HttpResponseMessage`); and the Getting-Started tip box
+    renders (it referenced `GlassFill`/`GlassBorder`, undefined after the Depth rebrand → `*Brush`).
+  - **+8 tests (266 → 274), build clean.** See `docs/BUGS.md` (BUG-012…015).
 
 ## [1.3.0] — 2026-06-18
 

@@ -60,7 +60,7 @@ Microsoft.Extensions.DependencyInjection 9.0.0, SkiaSharp 3.119.2 (the floor Svg
 warns of a conflict), and `Avalonia.Controls.ColorPicker` 11.3.0 (the Generate colour swatches).
 
 **Layered-import / Generate packages (app-only, not in `FilmstripEngine.cs`):** `Svg.Skia` 5.0.0
-(MIT, SVG layers), `Magick.NET-Q8-x64` 14.13.1 (Apache-2.0, PSD/PSB layers), and
+(MIT, SVG layers), `Magick.NET-Q8-x64` 14.14.0 (Apache-2.0, PSD/PSB layers), and
 `System.Security.Cryptography.ProtectedData` 9.0.0 (Windows DPAPI for the encrypted AI keys).
 
 ---

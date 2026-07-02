@@ -67,7 +67,7 @@
          The Q8 x64 native (not -AnyCPU) is used because StripKit ships win-x64 only — it keeps the
          self-contained publish from bundling every platform's ImageMagick binary. -->
     <PackageReference Include="Svg.Skia" Version="5.0.0" />
-    <PackageReference Include="Magick.NET-Q8-x64" Version="14.13.1" />
+    <PackageReference Include="Magick.NET-Q8-x64" Version="14.14.0" />
   </ItemGroup>
 
 </Project>

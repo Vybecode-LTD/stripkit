@@ -103,7 +103,7 @@ Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 git clone https://github.com/Vybecode-LTD/stripkit.git
 cd stripkit
 dotnet run --project src/StripKit      # launch the app
-dotnet test                            # 171 tests
+dotnet test                            # 274 tests
 ```
 
 Build a self-contained Windows release:
@@ -118,12 +118,12 @@ dotnet publish src/StripKit -c Release -r win-x64 --self-contained true -o publi
 
 ## 📖 Using the app
 
-StripKit is a five-tab app: **Create**, **Import**, **Batch**, **Skin**, and **Generate**.
+StripKit is a six-tab app: **Create**, **Import**, **Batch**, **Skin**, **Generate**, and **Assemble**.
 
 **Create — single image → animated strip**
 1. **Load a source PNG** (button or drag-and-drop onto the preview) — your transparent
    control art (a knob drawn pointing up at 12 o'clock; a fader/slider's moving cap).
-2. Pick the **component type** (knob / vertical fader / horizontal slider / meter / button) and
+2. Pick the **component type** (knob / vertical fader / horizontal slider / meter / button / toggle) and
    the **frame count** (32 / 64 / 128 or custom; 64 is standard).
 3. Tune the per-type settings — rotary sweep & pivot, linear margins, meter segments &
    fill direction, or button states — and **align** the knob centre with auto-center or the crosshair.
@@ -147,6 +147,14 @@ set the skin-level metadata, and export one combined multi-control manifest.
 preview it (the preview is the real import, so what you see will import), then **Use in Create**
 to jump to the builder with the layers loaded — or Save / Copy the SVG.
 
+**Assemble — a pre-rendered frame sequence → one strip:** rendered your control offline (Blender,
+KeyShot, Octane, or any tool that emits a frame-per-image sequence)? Choose the folder (or drag-drop);
+StripKit natural-sorts the frames (`frame_2` before `frame_10`), reconciles odd sizes, optionally
+re-centres drifting content and re-times to 32 / 64 / 128, runs a render-QC pre-flight (drift, missing
+transparency, blank or premultiplied frames), and packs them into one filmstrip — plus the same @2x /
+`skin.json` / loader-code exports as Create. A **Render recipe** panel emits a Blender/CSV/JSON spec so
+the offline render lands each frame on StripKit's exact angle.
+
 **Quality tips:** give knob art ~10% transparent margin so corners don't clip on rotation;
 exported PNGs are 32-bit RGBA with a transparent background (the plugin paints the
 background, the filmstrip draws only the control).
@@ -160,7 +168,7 @@ Contributions are very welcome — bug reports, feature ideas, and pull requests
 
 **Workflow**
 1. Fork the repo and branch off `main`.
-2. Make your change and add/update tests — `dotnet test` must stay green (currently **171**).
+2. Make your change and add/update tests — `dotnet test` must stay green (currently **274**).
 3. Keep the house conventions:
    - Don't rewrite `Services/SkiaFilmstripRenderer.cs`; the rotation/supersampling math is
      deliberate (the `(N-1)` angle divisor is intentional — last frame lands exactly on max).
@@ -191,8 +199,8 @@ src/StripKit/
   Services/                 renderer · importer · manifest · code-snippet · pointer-extractor · layered-import · SafeXml · batch · AI generation (providers + sanitizer + secret store) · image load · file dialog · export · settings · asset
   Helpers/                  SkiaImageInterop · HexToColorBrushConverter
   Controls/                 SectionHeader
-  ViewModels/               MainWindowViewModel (Create) · ImporterViewModel · BatchViewModel · SkinViewModel · GenerateViewModel · TutorialViewModel · ImportedLayerRow
-  Views/                    MainWindow (TabControl) · ImporterView · BatchView · SkinView · GenerateView · TutorialOverlay
+  ViewModels/               MainWindowViewModel (Create) · ImporterViewModel · BatchViewModel · SkinViewModel · GenerateViewModel · FrameSequenceViewModel (Assemble) · TutorialViewModel · ImportedLayerRow
+  Views/                    MainWindow (TabControl) · ImporterView · BatchView · SkinView · GenerateView · AssembleView · TutorialOverlay
 tests/StripKit.Tests/       xUnit: renderer golden-image, alignment, VM, importer, manifest, batch, meter, value-arc, layered-knob, code-snippet, pointer-extractor, layered-import, Generate pipeline + integration, tutorial, settings
 installer/StripKit.iss      Inno Setup installer script
 scripts/Invoke-Release.ps1  local release driver (Stage 1)

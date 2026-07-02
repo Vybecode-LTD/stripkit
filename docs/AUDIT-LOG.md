@@ -6,6 +6,40 @@
 
 ---
 
+## 2026-07-02 — v1.4.0-dev: full fine-tooth-comb audit + 11 code/test fixes + docs reconcile
+
+**Type:** Audit-driven fix wave (adversarially verified) + documentation reconciliation. Work is on
+`main`, unreleased (still 5+ commits ahead of origin; the fixes add one more, `301b2b4`).
+
+**Method:** A 10-dimension multi-agent audit (renderer, engine-mirror, importer/assembler, security,
+view-models, generate-service, app-wiring, xaml-views, tests, docs/git/release), each finding
+independently re-verified by a skeptic. 23 raw findings → **19 survived** (18 unique after dedup);
+**4 refuted**, including a hallucinated `ZZ_AuditProbeTests.cs` and a `<style>`/`@import` SSRF that did
+**not** reproduce (proven by a live probe). Don't re-chase those.
+
+**Fixed (11 code + test, commit `301b2b4`) — suite 265 → 274 green, build clean:**
+- **HIGH** BUG-012 `UnpremultiplyAlpha` colour corruption (Premul-tagged straight bytes).
+- **HIGH** BUG-013 SVG file-import SSRF via external `<image>` (verified live; `SvgSanitizer.Sanitize`
+  now runs on the import path).
+- **MED** BUG-014 button/toggle state frames shifted by a leading Static layer (ordinal matching;
+  renderer + `FilmstripEngine.cs` mirror + state-frame count).
+- **MED** BUG-015 RegenerateSetItem reused a cancelled CTS.
+- **LOW** BUG-016 batch: QC drift over-reported for mixed sizes; 3 resource leaks; blank tutorial tip box.
+- 6 of the fixes carry fail-before/pass-after regression tests; 2 are coverage-gap tests for
+  already-correct code (premultiplied-edge QC positive/negative, un-premultiply multi-pixel stride).
+
+**Repo hygiene:** deleted the redundant, fully-merged `feat/v1.4.0` branch; gitignored the long-standing
+untracked strays (`.claude/launch.json`, `press/`, `docs/PRESS-RELEASE.md`).
+
+**Reconciliation:** updated CLAUDE.md (274, "on main", new Last-completed-task), README (six tabs +
+Assemble + 274), TESTING (265 → **274** + the new test entries + `TransportTileAlignmentTests`),
+CHANGELOG `[Unreleased]` (the uniform-transport fix `383060c` + the audit `### Fixed` block), BUGS
+(BUG-012…016), and this log; and **bumped Magick.NET-Q8-x64 14.13.1 → 14.14.0** (app + test projects),
+which **clears the known HIGH/moderate NuGet advisories** (NU1903/NU1902) with the suite still 274 green.
+Next: push `main` + release v1.4.0.
+
+---
+
 ## 2026-06-18 — v1.3.0: AI-generation program + meters/toggles + security hardening + full reconcile
 
 **Type:** Audit-driven fix + large feature wave + release + documentation reconciliation.

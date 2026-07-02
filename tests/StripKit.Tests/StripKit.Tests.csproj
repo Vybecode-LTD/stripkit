@@ -26,7 +26,7 @@
     <PackageReference Include="Avalonia.Headless.XUnit" Version="11.3.0" />
     <!-- Used to synthesize a layered PSD fixture (write) and read it back through the importer, so
          the PSD path is round-trip-tested without a binary asset in the repo. x64 to match the app. -->
-    <PackageReference Include="Magick.NET-Q8-x64" Version="14.13.1" />
+    <PackageReference Include="Magick.NET-Q8-x64" Version="14.14.0" />
   </ItemGroup>
 
   <ItemGroup>

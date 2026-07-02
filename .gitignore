@@ -40,3 +40,9 @@ Thumbs.db
 
 # Stray versioner artifact
 /Version
+
+# Local tooling + press-kit drafts — kept out of the tree (files stay on disk, just untracked).
+# Decided during the 2026-07-02 audit after these lingered untracked across several sessions.
+.claude/launch.json
+/press/
+docs/PRESS-RELEASE.md
