@@ -64,6 +64,14 @@ public partial class BatchViewModel : ViewModelBase
     [ObservableProperty] private bool _exportAt2x = true;
     [ObservableProperty] private bool _exportManifest;
 
+    // Loader-code export (per strip) — mirrors the Create/Assemble tabs.
+    [ObservableProperty] private bool _exportCode;
+    [ObservableProperty] private bool _emitCodeJuce = true;
+    [ObservableProperty] private bool _emitCodeCss;
+    [ObservableProperty] private bool _emitCodeIPlug2;
+    [ObservableProperty] private bool _emitCodeHise;
+    [ObservableProperty] private bool _emitCodeReact;
+
     // ---- meter template (used when ComponentType is Meter) ----
     [ObservableProperty] private int _segmentCount = 12;
     [ObservableProperty] private MeterFillDirection _fillDirection = MeterFillDirection.Up;
@@ -141,6 +149,7 @@ public partial class BatchViewModel : ViewModelBase
             MeterSourceIsBackdrop = MeterSourceIsBackdrop,
             ExportAt2x = ExportAt2x,
             ExportManifest = ExportManifest,
+            CodeTargets = SelectedCodeTargets().ToArray(),
         };
 
         // Created on the UI thread → Report callbacks marshal back to the UI thread.
@@ -172,6 +181,16 @@ public partial class BatchViewModel : ViewModelBase
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel() => _cts?.Cancel();
+
+    private IEnumerable<CodeTarget> SelectedCodeTargets()
+    {
+        if (!ExportCode) yield break;
+        if (EmitCodeJuce) yield return CodeTarget.Juce;
+        if (EmitCodeCss) yield return CodeTarget.Css;
+        if (EmitCodeIPlug2) yield return CodeTarget.IPlug2;
+        if (EmitCodeHise) yield return CodeTarget.Hise;
+        if (EmitCodeReact) yield return CodeTarget.React;
+    }
 
     private FilmstripSettings BuildSettings()
     {

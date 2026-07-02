@@ -16,7 +16,7 @@ public class BatchProcessorTests : IDisposable
     readonly string _dir;
     readonly string _outDir;
     readonly BatchProcessor _processor =
-        new(new ImageLoadService(), new SkiaFilmstripRenderer(), new ExportService(), new ManifestService());
+        new(new ImageLoadService(), new SkiaFilmstripRenderer(), new ExportService(), new ManifestService(), new CodeSnippetService());
 
     public BatchProcessorTests()
     {
@@ -135,6 +135,26 @@ public class BatchProcessorTests : IDisposable
         File.Exists(Path.Combine(_outDir, "knob_8frames.png")).Should().BeTrue();
         File.Exists(Path.Combine(_outDir, "knob_8frames@2x.png")).Should().BeTrue();
         File.Exists(Path.Combine(_outDir, "knob.skin.json")).Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Emits_loader_code_per_strip_when_code_targets_are_requested()
+    {
+        var files = new[] { WriteKnob("knob.png") };
+        var options = new BatchOptions
+        {
+            InputFiles = files,
+            OutputDirectory = _outDir,
+            Settings = KnobTemplate(),
+            MatchKnobFrameToSource = true,
+            CodeTargets = new[] { CodeTarget.Juce, CodeTarget.React },
+        };
+
+        var result = await _processor.ProcessAsync(options, null);
+
+        result.SucceededCount.Should().Be(1);
+        File.Exists(Path.Combine(_outDir, "knob.juce.h")).Should().BeTrue();
+        File.Exists(Path.Combine(_outDir, "knob.jsx")).Should().BeTrue();
     }
 
     [Fact]

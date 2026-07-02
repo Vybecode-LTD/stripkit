@@ -9,14 +9,16 @@ public sealed class BatchProcessor : IBatchProcessor
     private readonly IFilmstripRenderer _renderer;
     private readonly IExportService _export;
     private readonly IManifestService _manifest;
+    private readonly ICodeSnippetService _codeSnippets;
 
     public BatchProcessor(IImageLoadService imageLoad, IFilmstripRenderer renderer,
-                          IExportService export, IManifestService manifest)
+                          IExportService export, IManifestService manifest, ICodeSnippetService codeSnippets)
     {
         _imageLoad = imageLoad;
         _renderer = renderer;
         _export = export;
         _manifest = manifest;
+        _codeSnippets = codeSnippets;
     }
 
     // The whole loop runs on a thread-pool thread (Task.Run), so every decode/render/
@@ -77,6 +79,15 @@ public sealed class BatchProcessor : IBatchProcessor
                     {
                         var manifest = _manifest.BuildSingleControl(settings, assetName, asset2xName, baseName, baseName);
                         await _manifest.SaveAsync(manifest, Path.Combine(options.OutputDirectory, baseName + ".skin.json"));
+                    }
+
+                    if (options.CodeTargets.Count > 0)
+                    {
+                        var request = new CodeSnippetRequest(settings.ComponentType, settings.FrameCount,
+                            settings.FrameWidth, settings.FrameHeight, settings.StackDirection,
+                            assetName, asset2xName, baseName, baseName);
+                        foreach (var target in options.CodeTargets)
+                            await _codeSnippets.SaveAsync(target, request, options.OutputDirectory);
                     }
 
                     results.Add(new BatchItemResult(input, true, outPath, null));

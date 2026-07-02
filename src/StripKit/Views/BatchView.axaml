@@ -76,7 +76,23 @@
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding StackDirections}" SelectedItem="{Binding StackDirection}" />
                     <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0" />
-                    <CheckBox Content="Also write a skin.json per strip" IsChecked="{Binding ExportManifest}" Margin="0,0,0,12" />
+                    <CheckBox Content="Also write a skin.json per strip" IsChecked="{Binding ExportManifest}" />
+
+                    <controls:SectionHeader Text="CODE EXPORT (per strip)" />
+                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}" />
+                    <StackPanel IsVisible="{Binding ExportCode}" Spacing="2" Margin="0,4,0,12">
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="JUCE" IsChecked="{Binding EmitCodeJuce}" />
+                            <CheckBox Grid.Column="1" Content="CSS / HTML" IsChecked="{Binding EmitCodeCss}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="iPlug2" IsChecked="{Binding EmitCodeIPlug2}" />
+                            <CheckBox Grid.Column="1" Content="HISE" IsChecked="{Binding EmitCodeHise}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="React / Web" IsChecked="{Binding EmitCodeReact}" />
+                        </Grid>
+                    </StackPanel>
 
                 </StackPanel>
             </ScrollViewer>

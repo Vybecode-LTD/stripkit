@@ -22,6 +22,9 @@ public sealed record BatchOptions
 
     public bool ExportAt2x { get; init; }
     public bool ExportManifest { get; init; }
+
+    /// <summary>Loader-code targets to emit per strip (JUCE / CSS / iPlug2 / HISE / React). Empty = none.</summary>
+    public IReadOnlyList<CodeTarget> CodeTargets { get; init; } = [];
 }
 
 /// <summary>Progress after each processed item (<paramref name="Completed"/> of <paramref name="Total"/>).</summary>
