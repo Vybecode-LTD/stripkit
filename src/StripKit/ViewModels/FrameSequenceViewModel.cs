@@ -128,6 +128,10 @@ public partial class FrameSequenceViewModel : ViewModelBase
     [ObservableProperty] private string _progressText = "";
     [ObservableProperty] private string _statusMessage = "Point at a folder of rendered frames to begin.";
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RevealExportCommand))]
+    private string? _lastExportPath;
+
     /// <summary>Single funnel (mirrors the Import tab): scrubbing the preview slider re-renders the
     /// previewed frame. Everything else only updates derived labels, so it's filtered out.</summary>
     protected override void OnPropertyChanged(PropertyChangedEventArgs e)
@@ -471,6 +475,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
                     }
                 }
 
+                LastExportPath = path;
                 WarningText = string.Join("\n", result.Warnings);
                 StatusMessage = $"Assembled {result.FrameCount}-frame filmstrip → {Path.GetFileName(path)}"
                               + (ExportAt2x ? " (+@2x)" : "")
@@ -492,6 +497,11 @@ public partial class FrameSequenceViewModel : ViewModelBase
 
     [RelayCommand(CanExecute = nameof(CanCancel))]
     private void Cancel() => _cts?.Cancel();
+
+    private bool CanReveal() => !string.IsNullOrEmpty(LastExportPath) && File.Exists(LastExportPath);
+
+    [RelayCommand(CanExecute = nameof(CanReveal))]
+    private void RevealExport() => ShellHelper.RevealInFolder(LastExportPath);
 
     /// <summary>Stream-decode each frame (reporting progress, honouring cancel) then hand the set to
     /// the assembler. Bitmaps are disposed as soon as the strip is built, so peak memory stays near

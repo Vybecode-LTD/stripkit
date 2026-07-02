@@ -1216,6 +1216,15 @@ public partial class MainWindowViewModel : ViewModelBase
     // imported state layers all render without a flat source image.
     private bool CanExport() => HasSource || IsMeter || HasBaseLayer || HasImportedLayers;
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RevealExportCommand))]
+    private string? _lastExportPath;
+
+    private bool CanReveal() => !string.IsNullOrEmpty(LastExportPath) && File.Exists(LastExportPath);
+
+    [RelayCommand(CanExecute = nameof(CanReveal))]
+    private void RevealExport() => ShellHelper.RevealInFolder(LastExportPath);
+
     [RelayCommand(CanExecute = nameof(CanExport))]
     private async Task ExportAsync()
     {
@@ -1279,6 +1288,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             }
 
+            LastExportPath = path;
             StatusMessage = $"Exported {FrameCount}-frame filmstrip → {Path.GetFileName(path)}"
                           + (ExportAt2x ? " (+@2x)" : "")
                           + (wroteManifest ? " (+skin.json)" : "")

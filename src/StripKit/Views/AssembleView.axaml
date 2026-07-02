@@ -178,7 +178,7 @@
         </Border>
 
         <!-- ===== RIGHT: preview + export ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+        <Grid Grid.Column="1" RowDefinitions="*,Auto,Auto" Margin="6,12,12,12">
 
             <!-- Preview doubles as a drop zone: drop a folder or a set of frames here. -->
             <Border Grid.Row="0" x:Name="FramesDropBorder" DragDrop.AllowDrop="True"
@@ -238,6 +238,10 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <Button Grid.Row="2" Content="Show in folder" HorizontalAlignment="Right" Margin="0,8,0,0"
+                    ToolTip.Tip="Reveal the exported filmstrip in Explorer."
+                    Command="{Binding RevealExportCommand}" />
         </Grid>
     </Grid>
 </UserControl>

@@ -399,7 +399,7 @@
         </Border>
 
         <!-- ===== RIGHT: preview + export ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+        <Grid Grid.Column="1" RowDefinitions="*,Auto,Auto" Margin="6,12,12,12">
 
             <!-- Preview doubles as a drop zone: drop a PNG here to load it as the
                  source (see MainWindow.axaml.cs). BorderBrush is flipped to the
@@ -476,6 +476,10 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <Button Grid.Row="2" Content="Show in folder" HorizontalAlignment="Right" Margin="0,8,0,0"
+                    ToolTip.Tip="Reveal the exported filmstrip in Explorer."
+                    Command="{Binding RevealExportCommand}" />
         </Grid>
             </Grid>
         </TabItem>
