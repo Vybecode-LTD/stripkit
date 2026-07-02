@@ -27,4 +27,11 @@ public sealed class AppSettings
     /// <summary>The user's saved prompt seeds (named style bundles) on the Generate tab. Built-in seeds
     /// are not stored here — only ones the user saved.</summary>
     public List<GenerationSeed> GenerateSeeds { get; set; } = new();
+
+    /// <summary>The main window's last size, restored on the next launch (null = use the default).</summary>
+    public double? WindowWidth { get; set; }
+    public double? WindowHeight { get; set; }
+
+    /// <summary>The tab the app was on when it last closed, reopened on the next launch.</summary>
+    public int LastTabIndex { get; set; }
 }

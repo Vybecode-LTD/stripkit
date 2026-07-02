@@ -12,6 +12,12 @@
         FontFamily="Verdana, Segoe UI, Arial, sans-serif"
         Background="{DynamicResource DepthBg}">
 
+    <!-- Ctrl-modified only, so text fields / checkboxes keep Space, arrows, and plain keys. -->
+    <Window.KeyBindings>
+        <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenSourceCommand}" />
+        <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCommand}" />
+    </Window.KeyBindings>
+
     <Panel>
         <!-- Solid Depth base (machined grey) — uniform across every tab. -->
 

@@ -61,9 +61,22 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            var window = new MainWindow
+            var mainVm = provider.GetRequiredService<MainWindowViewModel>();
+            var window = new MainWindow { DataContext = mainVm };
+
+            // Restore the last window size + open tab, then persist them on close (best-effort).
+            var settings = provider.GetRequiredService<ISettingsService>();
+            var saved = settings.Settings;
+            if (saved.WindowWidth is > 200 and < 20000) window.Width = saved.WindowWidth.Value;
+            if (saved.WindowHeight is > 200 and < 20000) window.Height = saved.WindowHeight.Value;
+            if (saved.LastTabIndex >= 0) mainVm.SelectedTabIndex = saved.LastTabIndex;
+
+            window.Closing += (_, _) =>
             {
-                DataContext = provider.GetRequiredService<MainWindowViewModel>(),
+                saved.WindowWidth = window.Bounds.Width;
+                saved.WindowHeight = window.Bounds.Height;
+                saved.LastTabIndex = mainVm.SelectedTabIndex;
+                settings.Save();
             };
 
             // Give the dialog service a top-level to host its file pickers.
