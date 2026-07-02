@@ -1,16 +1,20 @@
 # CHANGELOG — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
 ## [Unreleased]
 
-The **offline-3D / path-tracing pipeline** (P1 + P2) and a full **Depth UI rebrand**. P1 adds a sixth
-tab that turns a pre-rendered frame sequence into a plugin-ready filmstrip; P2 exports the render
-*recipe* that makes the offline frames line up with StripKit's frame math; the rebrand gives every tab
-one machined-grey, ember-accent look.
+Shipping as **v1.5.0**. The headline work is the **offline-3D / path-tracing pipeline** (P1–P5) and a
+full **Depth UI rebrand** — P1 adds a sixth tab that turns a pre-rendered frame sequence into a
+plugin-ready filmstrip; P2 exports the render *recipe* that makes the offline frames line up with
+StripKit's frame math; P3–P5 add render QC, HDR ingest, frame interpolation and an emission pass; and
+the rebrand gives every tab one machined-grey, ember-accent look. On top of that, a **batch of nine
+quality-of-life enhancements** (a React export target, dithered HDR de-band, window/tab persistence,
+keyboard shortcuts, Batch-tab loader code, a CI coverage gate, "show in folder", arbitrary @Nx HiDPI,
+and a meter peak-marker) rounds out the release.
 
 ### Website
 - **Path-traced (or any pre-rendered) frames → a filmstrip, in one step.** Rendered your knob as a
@@ -29,6 +33,10 @@ one machined-grey, ember-accent look.
 - **More of the path-tracing pipeline.** Assemble now reads **EXR / 16-bit HDR** frames straight from
   Blender / KeyShot / Octane (tone-mapped for you), can **blend in-between frames** to turn ~32 rendered
   frames into a smooth 64/128, and can **add an emission / glow pass** so lit parts read like real light.
+- **A batch of quality-of-life upgrades.** More export targets (now including **React** web components),
+  sharper HDR imports (banding cleaned up), StripKit **remembers your window size and last tab**,
+  **@3x / @4x** exports for the sharpest displays, a **meter peak marker**, keyboard shortcuts, loader code
+  straight from the Batch tab, and a **"Show in folder"** button after every export.
 
 ### Added
 - **Assemble tab.** Choose a folder (or drag-drop) of individually-rendered frames; StripKit
@@ -100,6 +108,43 @@ one machined-grey, ember-accent look.
     bitmaps, an auto-retry temp SVG, the provider `HttpResponseMessage`); and the Getting-Started tip box
     renders (it referenced `GlassFill`/`GlassBorder`, undefined after the Depth rebrand → `*Brush`).
   - **+8 tests (266 → 274), build clean.** See `docs/BUGS.md` (BUG-012…015).
+
+### v1.5 enhancements (nine quality-of-life items)
+
+A batch of nine small enhancements bundled into the v1.5.0 release. All landed on `origin/main`;
+**suite 280 → 288 green, build clean, ~79% line coverage.** Three further items (sprite-grid layout,
+parameter-law frame mapping, save/load presets) are deferred to a later pass.
+
+#### Added
+- **React / web-component code-export target.** A new `CodeTarget.React` emits a `.jsx` sprite
+  component driven by a `value` prop (0..1), following the same universal
+  `frame = clamp(round(value·(N−1)), 0, N−1)` rule as the other targets. Wired into the Create,
+  Assemble, **and** Batch code-export panels. **+3 tests (280 → 283).**
+- **Arbitrary HiDPI export scale (@2x / @3x / @4x).** A `HiDpiScale` property across the
+  Create / Assemble / Batch tabs (default 2) drives the export-filename suffix `@Nx`, the
+  render/upscale factor, and the manifest hi-res asset in lockstep — no longer fixed at @2x.
+  **+1 test.**
+- **Meter peak-marker.** A new `FilmstripSettings.ShowMeterPeak` + `PeakColorArgb` (mirrored in
+  `FilmstripEngine.cs`); `RenderMeterFrame` paints the direction-aware leading (peak) segment.
+  **Gated OFF by default, so every existing meter golden is byte-identical.** **+1 pixel-logic test
+  (→ 288).**
+- **Batch tab → loader code.** `BatchOptions.CodeTargets`; `BatchProcessor` takes
+  `ICodeSnippetService` and emits the JUCE / CSS / iPlug2 / HISE / React snippet(s) per strip —
+  parity with the Create and Assemble tabs. **+1 test.**
+- **"Show in folder" after export (Create + Assemble).** A new `Helpers/ShellHelper.RevealInFolder`
+  behind a `RevealExportCommand` + `LastExportPath` on the VMs. The button sits **outside** the
+  `TransportTile` Border to preserve the transport-tile-height invariant.
+- **Keyboard shortcuts.** `Ctrl+O` (open) / `Ctrl+E` (export) via `Window.KeyBindings`
+  (Ctrl-modified only).
+
+#### Changed
+- **Dithered HDR de-band (finishes path-tracing P3b).** A new `Helpers/MagickPixels.DitherDownTo8`
+  (an 8×8 Bayer ordered dither) runs in `ImageLoadService.LoadHdr`, so EXR / 16-bit ingest reduces to
+  8-bit without banding. **+2 tests.**
+- **Remember window size + last tab.** New `AppSettings.WindowWidth` / `WindowHeight` /
+  `LastTabIndex`, restored and persisted in `App.axaml.cs` at the composition root.
+- **CI coverage gate.** `.github/workflows/ci.yml` now collects coverage and **fails the build below
+  70% line coverage.**
 
 ## [1.3.0] — 2026-06-18
 

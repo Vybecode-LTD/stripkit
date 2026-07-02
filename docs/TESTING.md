@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
+> Version 1.3.0 (v1.5.0-dev, unreleased) · last-updated 2026-07-02 · last-audit 2026-07-02
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (280 tests)
+dotnet test                                      # whole suite (288 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **280 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **288 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (280)
+## Test inventory (288)
 
 ### Assemble tab (frame-sequence → filmstrip) — 32
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
@@ -128,11 +128,13 @@ Locks the renderer's pixel output against committed baselines.
 - `Vertical_fader_mid_frame_centres_the_cap`.
 - `Horizontal_slider_mid_frame_centres_the_cap`.
 
-### `MeterRenderTests.cs` — 9 (meter renderer)
+### `MeterRenderTests.cs` — 10 (meter renderer)
 - 5 golden baselines: `meter_proc_up_{empty,mid,full}`, `meter_proc_lr_mid`,
   `meter_layered_up_mid`.
 - 4 pixel-logic: procedural fills from the bottom (Up) / top (Down) / left
   (LeftToRight), and the layered reveal shows on-art only up to the fill.
+- **(v1.5)** pixel-logic: the **peak-marker** paints the direction-aware leading segment only when
+  `ShowMeterPeak` is enabled (gated OFF by default so every existing meter golden is byte-identical).
 
 ### `ValueArcRenderTests.cs` — 8 (value-arc / fill-ring renderer)
 - 4 golden baselines: `arc_knob_{min,mid,max}` (the lit arc growing across the sweep)
@@ -168,7 +170,7 @@ Button state-frame path, so the renderer goldens are unchanged.
   `[Static, Frame(off), Frame(on)]` stack, off still renders on frame 0 and on on frame 1 (ordinal
   matching, not absolute index).
 
-### `ImageLoadServiceTests.cs` — 5 (concrete decode path incl. HDR/EXR)
+### `ImageLoadServiceTests.cs` — 7 (concrete decode path incl. HDR/EXR)
 The real `ImageLoadService` decode used across the app: it peeks header dimensions via `SKCodec`
 and guards against a decompression-bomb (huge dimensions) before decoding.
 - `Decodes_a_valid_png_at_its_real_dimensions` (a control-art PNG decodes to its real size).
@@ -178,6 +180,9 @@ and guards against a decompression-bomb (huge dimensions) before decoding.
   decode it) loads via Magick, `Probe` reports its dims, and the colour survives the 16→8-bit downshift.
 - **(P3b)** `Loads_an_exr_frame_and_tone_maps_it_to_an_8bit_bitmap` — an EXR (OpenEXR bundled in
   Q16-HDRI) tone-maps to an 8-bit RGBA bitmap of the right size.
+- **(v1.5 / P3b de-band)** `DitherDownTo8` (`Helpers/MagickPixels`, an 8×8 Bayer ordered dither):
+  a mid HDR value spreads across the neighbouring 8-bit levels (kills EXR/16-bit ingest banding),
+  and an already-8-bit buffer passes through unchanged.
 
 ### `PointerExtractorTests.cs` — 3 (auto-pointer extraction, pure SkiaSharp)
 Splitting a flat knob into a symmetric base + the indicator via the radial-symmetry residual.
@@ -303,7 +308,7 @@ The Skin tab's multi-control manifest builder.
 - `Export_builds_a_manifest_with_every_control_and_the_globals` (all controls + skin metadata
   reach `BuildManifest`; the file is written as `<name>.skin.json`).
 
-### `CodeSnippetServiceTests.cs` — 18 (code/component export)
+### `CodeSnippetServiceTests.cs` — 21 (code/component export)
 Per-target loader-code generation (`CodeSnippetService`), all pure string assertions.
 - JUCE: knob → a rotary `LookAndFeel`; fader → a linear `LookAndFeel`; meter → a
   `Component` with `setLevel`; **toggle** → a latching `juce::Button`
@@ -314,6 +319,9 @@ Per-target loader-code generation (`CodeSnippetService`), all pure string assert
 - iPlug2: knob → `IBKnobControl`; fader → `IBSliderControl` with the right `EDirection`;
   **toggle** → `IBSwitchControl`.
 - HISE: a `ScriptPanel` paint routine (`loadImage` + `setPaintRoutine`).
+- **(v1.5)** React: a `.jsx` sprite component driven by a `value` prop (0..1) — the value→frame
+  index math + the embedded asset; the stack-axis flag drives the row-vs-column sprite offset; and
+  the `FileName` mapping resolves the `.jsx` extension.
 - Identifiers are sanitised; `FileName` maps each target (Theory, 4 rows); `SaveAsync`
   writes the snippet to disk matching `Generate`.
 
@@ -346,13 +354,18 @@ The recipe's per-frame table must match the renderer's law exactly, so an offlin
   transport tiles realize at the same `Bounds.Height` (the uniform-transport fix), measured headlessly
   rather than by screenshot.
 
-### `BatchProcessorTests.cs` — 5 (integration, real services + temp files)
+### `BatchProcessorTests.cs` — 7 (integration, real services + temp files)
 - `Renders_a_strip_for_each_input` (3 inputs → 3 correctly-sized strips; match-to-source).
 - `Records_a_failure_for_an_undecodable_file_and_keeps_going` (failure isolation).
 - `Honors_cancellation_between_items` (cancels after item 1 via a custom `IProgress`).
 - `Also_writes_at2x_and_manifest_when_requested`.
 - `Renders_meters_and_the_backdrop_toggle_changes_the_output` (both meter modes render at the
   right size; the layered vs backdrop toggle produces different pixels).
+- **(v1.5)** `Emits_loader_code_per_strip_when_requested` — with `BatchOptions.CodeTargets` set,
+  the processor (via `ICodeSnippetService`) writes the JUCE/CSS/iPlug2/HISE/React snippet alongside
+  each strip (parity with Create & Assemble).
+- **(v1.5)** `Writes_a_HiDpi_copy_at_the_requested_scale` — a `@3x` HiDPI copy is emitted at the
+  scaled dimensions.
 
 ### `BatchViewModelTests.cs` — 3 (`BatchViewModel`, NSubstitute + temp folder)
 - `Run_and_cancel_are_disabled_initially`.

@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
+> Version 1.3.0 (v1.5.0-dev, unreleased) · last-updated 2026-07-02 · last-audit 2026-07-02
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -17,7 +17,8 @@ does each thing live" companion.
 - `FilmstripEngine.cs` — standalone, copy-paste-portable renderer (namespace
   `StripKit.Engine`, SkiaSharp-only). **Not compiled by the app** — a hand-maintained
   mirror of `Services/SkiaFilmstripRenderer.cs` + the `Models`, for reuse in a CLI /
-  build step / another app. Includes the meter, value-arc, `RenderLayers` (base+pointer),
+  build step / another app. Includes the meter (incl. the direction-aware **peak-marker** segment —
+  `ShowMeterPeak` / `PeakColorArgb`, gated off by default), value-arc, `RenderLayers` (base+pointer),
   and **button/toggle state-frame** (`RenderButtonLayers` / `LayerBehavior.Frame`) paths —
   `Toggle` shares the `Button` state-frame path. Keep in sync if the renderer math changes.
 - `.gitignore` — .NET/Avalonia/test-output + packaging ignores (bin, obj, IDE,
@@ -35,7 +36,8 @@ does each thing live" companion.
   `docs/CHANGELOG.md` and (with `-Push`) publishes it to a forward-facing site's repo (auto-deploys).
   See `docs/PACKAGING.md`.
 - `.github/workflows/` — `ci.yml` (build + test on every push/PR to main, windows-latest,
-  .NET 9; `actions/checkout@v5` + `actions/setup-dotnet@v5`, Node 24) + `auto-release.yml`
+  .NET 9; `actions/checkout@v5` + `actions/setup-dotnet@v5`, Node 24; now also collects coverage and
+  **fails below 70% line coverage**) + `auto-release.yml`
   (Stage-2 CI release creator: VirusTotal scan + the sole `gh release create`, triggered by a
   pushed `releases/latest/*.exe`; `actions/checkout@v5`).
 - `.github/ISSUE_TEMPLATE/` — `bug_report.md` + `feature_request.md`.
@@ -44,7 +46,7 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (244): the **Assemble tab** (frame-sequence assembler +
+- `tests/StripKit.Tests/` — xUnit tests (288): the **Assemble tab** (frame-sequence assembler +
   natural-sort comparer + probe + VM + golden + headless view — `NaturalFileNameComparerTests`,
   `FrameSequenceAssemblerTests`, `FrameSequenceProbeTests`, `FrameSequenceViewModelTests`,
   `FrameSequenceAssemblerGoldenTests`, `AssembleViewTests`), renderer golden-image (with committed
@@ -72,7 +74,11 @@ does each thing live" companion.
   **composition root**: all DI registrations live here, and the
   `MainWindow` is created with its view model and given to the dialog service.
   `App.axaml.cs` also strips the framework's default data-validator
-  (`BindingPlugins.DataValidators.RemoveAt(0)`) so CommunityToolkit + Avalonia don't double-report.
+  (`BindingPlugins.DataValidators.RemoveAt(0)`) so CommunityToolkit + Avalonia don't double-report,
+  and **restores/persists the window size + last-selected tab** at the composition root (reads
+  `AppSettings.WindowWidth`/`WindowHeight`/`LastTabIndex` into the window on create, writes them back on
+  close). The `MainWindow` carries Ctrl+O / Ctrl+E `KeyBindings` (open source / export) wired to the
+  Create-tab commands.
 - `app.manifest` — Windows per-monitor-v2 DPI awareness.
 
 ### `Models/` — pure data, no UI or Skia dependencies
@@ -87,15 +93,18 @@ does each thing live" companion.
   layer is drawn in one frame (translate, draw size, rotation, pivot).
 - `FilmstripSettings.cs` — the full render contract (frame count/size, angles,
   pivot, content-centre alignment, margins, supersample, stack direction, meter
-  fields, the value-arc fields, and the `Layers` stack). Passed to the renderer.
+  fields (incl. the **peak-marker** `ShowMeterPeak` + `PeakColorArgb`, off by default),
+  the value-arc fields, and the `Layers` stack). Passed to the renderer.
 - `StripDetection.cs` — the inferred layout of an *existing* strip (count, frame
   size, orientation, classified kind, low-confidence flag). Output of the importer.
 - `SkinManifest.cs` — `SkinManifest` / `ManifestControl` / `ManifestBounds` records:
   the `skin.json` schema that binds an exported strip to a plugin parameter.
-- `BatchModels.cs` — `BatchOptions` (inputs/output/template), `BatchProgress`,
-  `BatchItemResult`, `BatchResult` for the Batch tab.
-- `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise`) +
-  `CodeSnippetRequest` record: the inputs for the code-export service.
+- `BatchModels.cs` — `BatchOptions` (inputs/output/template — now also carries `CodeTargets` (the
+  per-strip loader-code targets) + `HiDpiScale`), `BatchProgress`, `BatchItemResult`, `BatchResult`
+  for the Batch tab.
+- `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise` / **`React`** — a `.jsx`
+  sprite component driven by a 0..1 `value` prop) + `CodeSnippetRequest` record: the inputs for the
+  code-export service.
 - `RenderRecipeModels.cs` — the **render-recipe** (path-tracing P2) data: `RenderRecipeTarget` enum
   (`Blender` / `Csv` / `Json`), `RenderRecipeRequest` record (type + frame count + sweep angles +
   resolution + control id; `IsRotary`), and the `RecipeFrame` row (frame index, 0..1 value, angle°). No deps.
@@ -105,8 +114,9 @@ does each thing live" companion.
   `Frame` = shown only on the frame whose index matches the layer's index (button off/on
   state art). Skia-free; the layer's bitmap is passed alongside to the renderer.
 - `AppSettings.cs` — the persisted preferences (`HasSeenTutorial`; the Generate tab's last-used
-  `GenerateProvider` + per-provider model overrides; the custom-provider `GenerateCustomBaseUrl`; and
-  the user's saved prompt seeds `GenerateSeeds`), serialized by `SettingsService`. API keys are
+  `GenerateProvider` + per-provider model overrides; the custom-provider `GenerateCustomBaseUrl`; the
+  user's saved prompt seeds `GenerateSeeds`; and the restored **window size** `WindowWidth`/`WindowHeight`
+  + **last tab** `LastTabIndex`), serialized by `SettingsService`. API keys are
   **not** here — they live encrypted in the secret store.
 - `GenerationModels.cs` — the Generate-tab data: `AiProvider` enum (Claude/OpenAI/Gemini/**Custom** —
   any OpenAI-compatible endpoint), `GenerationStyle` enum, the `GenerationRequest` (now incl. an
@@ -154,8 +164,9 @@ does each thing live" companion.
   an image's header dimensions without decoding the pixels (used by the Assemble tab to report the
   frame-size spread before a large assemble). **HDR/EXR ingest (path-tracing P3b):** `.exr` / `.hdr` /
   16-bit `.tif` are routed through Magick.NET (Q16-HDRI) — a linear EXR is tone-mapped (linear → sRGB +
-  clamp) then reduced to 8-bit (depth-8 → PNG32 → Skia decode); `Probe` reads their header via
-  `MagickImageInfo`. Best-effort (null on failure), header-capped like the Skia path.
+  clamp) then reduced to 8-bit via `MagickPixels.DitherDownTo8` (the P3b Bayer de-band → PNG32 → Skia
+  decode); `Probe` reads their header via `MagickImageInfo`. Best-effort (null on failure), header-capped
+  like the Skia path.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / **open-images (multi-select)** /
   open-layered (SVG/PSD) / save-PNG / **save-SVG** / open-folder pickers via Avalonia `StorageProvider`.
   The concrete class holds the `Owner` window, set in `App.axaml.cs` after the window is created.
@@ -187,8 +198,9 @@ does each thing live" companion.
   tab) and `BuildManifest` (multi-control, from the Skin tab) binding strips to parameters.
   `MapType` lowercases the component type for the manifest (`Button` → "button", `Toggle` → "toggle").
 - `ICodeSnippetService.cs` / `CodeSnippetService.cs` — emit ready-to-paste loader code
-  (JUCE / CSS-HTML / iPlug2 / HISE) for an exported strip: `Generate` / `FileName` (pure)
-  + a thin `SaveAsync`. No Avalonia dependency.
+  (JUCE / CSS-HTML / iPlug2 / HISE / **React** — a `.jsx` sprite component driven by a 0..1 `value`
+  prop) for an exported strip: `Generate` / `FileName` (pure) + a thin `SaveAsync`. No Avalonia
+  dependency.
 - `IRenderRecipeService.cs` / `RenderRecipeService.cs` — the **render-recipe export** (path-tracing
   P2): emit a Blender `bpy` script / `frame,value,angle_deg` CSV / JSON so an offline render matches the
   runtime law. Pure string-gen mirroring `CodeSnippetService` (`Generate` / `FileName` + a thin
@@ -196,7 +208,9 @@ does each thing live" companion.
   `SkiaFilmstripRenderer.ComputeTransform`'s `t = i/(N−1)` / `angle = start + (end−start)·t`. No Avalonia dep.
 - `IBatchProcessor.cs` / `BatchProcessor.cs` — render a folder of sources into many
   strips off the UI thread (`Task.Run`), with per-item progress and between-item
-  cancellation; isolates per-file failures. No Avalonia dependency.
+  cancellation; isolates per-file failures. Now also takes `ICodeSnippetService` and, per
+  `BatchOptions.CodeTargets`, emits the JUCE/CSS/iPlug2/HISE/React loader snippet(s) alongside each
+  strip (parity with the Create & Assemble tabs). No Avalonia dependency.
 - `IAssetGenerationService.cs` / `AssetGenerationService.cs` — the **Generate tab** orchestrator:
   builds the StripKit-aware SVG prompt (type-aware — knob = `body`+`pointer`, button/toggle = `off`+`on`,
   fader/slider = a single `body` cap; square canvas, ~10% margin, pointer at 12 o'clock), dispatches
@@ -233,9 +247,14 @@ does each thing live" companion.
   Avalonia `IBrush`, backing the Generate tab's body/accent colour swatches (live as you type).
 - `MagickPixels.cs` — static: normalizes Magick.NET's `IPixelCollection.ToByteArray` RGBA bytes to 8-bit
   regardless of the build's quantum depth (at **Q16-HDRI** they're 16-bit / 8 bytes/pixel). Downshifts to
-  the high byte of each channel, inferring bytes-per-channel from the buffer length. Used by the PSD
-  reader (`LayeredImportService`) and the HDR ingest (`ImageLoadService`). No ImageMagick dependency —
+  the high byte of each channel, inferring bytes-per-channel from the buffer length. Also
+  **`DitherDownTo8`** — an 8×8 Bayer ordered dither that reduces 16-bit HDR channels to 8-bit without
+  banding (the P3b de-band, used by `ImageLoadService.LoadHdr`). Used by the PSD reader
+  (`LayeredImportService`) and the HDR ingest (`ImageLoadService`). No ImageMagick dependency —
   pure byte math.
+- `ShellHelper.cs` — static: `RevealInFolder` opens the OS file browser with the just-exported file
+  selected (backs the Create + Assemble tabs' "Show in folder" button, via `RevealExportCommand` /
+  `LastExportPath` on the VMs). Best-effort and app-safe — non-UI, no throw on failure.
 
 ### `Controls/`
 
@@ -257,13 +276,16 @@ does each thing live" companion.
   (`ImportLayeredFromPathAsync`, shared with the file picker) — **honouring the generated control
   type** (knob → body+pointer layers; button/toggle → off/on Frame layers; meter → background+source
   layers; fader/slider → flattened source). The layered file picker auto-detects an `off`/`on` pair as
-  a **toggle**.
+  a **toggle**. Also carries the selectable **HiDPI export scale** `HiDpiScale` (@2x/@3x/@4x — the
+  export suffix + render/upscale factor + manifest hi-res asset all follow it; default 2) and, after an
+  export, a `RevealExportCommand` + `LastExportPath` that "Show in folder" binds to (`ShellHelper`).
 - `ImporterViewModel.cs` — backs the **Import** tab: load an existing strip, run
   detection, scrub the detected frames, and extract / re-stack. Same preview-funnel
   pattern; holds no Avalonia UI types beyond the preview bitmap.
 - `BatchViewModel.cs` — backs the **Batch** tab: input/output folders + a render
-  template (now incl. the meter settings + the layered/backdrop toggle), run a folder export
-  off-thread with progress + cancel + a results summary. No Avalonia UI types.
+  template (now incl. the meter settings + the layered/backdrop toggle + the per-strip loader-code
+  targets `CodeTargets` and the HiDPI scale), run a folder export off-thread with progress + cancel +
+  a results summary. No Avalonia UI types.
 - `SkinViewModel.cs` — backs the **Skin** tab: a multi-control `skin.json` builder (a controls
   list, add-from-strip via `FilmstripImporter.Detect`/add-blank, a per-control detail editor,
   skin metadata, and export-to-folder); its `MapType` maps the component type for the manifest
@@ -300,10 +322,11 @@ does each thing live" companion.
 - `FrameSequenceViewModel.cs` — backs the **Assemble** tab: a `FrameItemRow` list (choose folder /
   add files / drop, natural-sorted via the assembler's probe; reorder + remove), the assembly options
   (component type, stack direction, `CellFit`, re-centre, optional resample target), the export options
-  (the Create-tab set: @2x, `skin.json` + parameter id, JUCE/CSS/iPlug2/HISE loader code), a scrubbed
-  on-demand frame preview, and the off-thread Assemble & export (stream-decode with progress + cancel →
-  `IFrameSequenceAssembler.Assemble` → save). Same funnel/threading shape as the Importer/Batch VMs;
-  no Avalonia UI types beyond the preview bitmap.
+  (the Create-tab set: the selectable **HiDPI scale** @2x/@3x/@4x, `skin.json` + parameter id,
+  JUCE/CSS/iPlug2/HISE/React loader code), a scrubbed on-demand frame preview, the off-thread Assemble &
+  export (stream-decode with progress + cancel → `IFrameSequenceAssembler.Assemble` → save), and a
+  post-export `RevealExportCommand` + `LastExportPath` ("Show in folder", via `ShellHelper`). Same
+  funnel/threading shape as the Importer/Batch VMs; no Avalonia UI types beyond the preview bitmap.
 - `FrameItemRow.cs` — the observable per-frame row the Assemble list binds to (path + 1-based
   display position; renumbered by the VM on reorder/remove). Holds no bitmap — frames decode on demand.
 

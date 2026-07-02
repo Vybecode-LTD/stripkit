@@ -1,6 +1,6 @@
 ---
 document: HANDOFF
-version: 1.4.0-dev
+version: 1.3.0 (v1.5.0-dev, unreleased)
 last-updated: 2026-07-02
 last-audit: 2026-07-02
 managed-by: session-orchestrator/handoff-builder
@@ -13,164 +13,127 @@ managed-by: session-orchestrator/handoff-builder
 StripKit is a C#/Avalonia desktop tool that renders transparent PNGs into animated filmstrip sprite
 sheets for audio-plugin GUI controls — **knobs, faders, sliders, meters, buttons, and toggles**. Stack:
 **.NET 9 / Avalonia 11.3 / SkiaSharp 3.119.2 / Inno Setup**. Public, MIT-licensed. Layered-source import +
-HDR frame ingest adds **Svg.Skia** (MIT) + **Magick.NET-Q16-HDRI-x64** (Apache-2.0, PSD + 16-bit/EXR
-frames); the **Generate** tab is an AI SVG-generation
-studio over the user's own OpenAI / Gemini / Claude key — or any **OpenAI-compatible custom endpoint** —
-with **DPAPI-encrypted** keys.
+HDR frame ingest adds **Svg.Skia** (MIT) + **Magick.NET-Q16-HDRI-x64** (Apache-2.0, PSD + 16-bit/EXR); the
+**Generate** tab is an AI SVG-generation studio over the user's own OpenAI / Gemini / Claude key (or any
+OpenAI-compatible endpoint), with DPAPI-encrypted keys.
 
-**Phase:** **v1.4.0-dev — UNRELEASED, on `main`.** The app is a **six-tab** `TabControl` —
-**Create | Import | Batch | Skin | Generate | Assemble** — plus a re-openable, per-tab **Getting Started**
-overlay. `main` is **several commits ahead of `origin/main`** (the whole v1.4.0 line is unpushed). **280
-tests green, build advisory-clean, 0 open bugs.** Last release shipped was **v1.3.0** (signed, live on GitHub Releases);
-`csproj <Version>` / `.iss` / CHANGELOG are still at **1.3.0** and bump to 1.4.0 only when the release
-script runs.
+**Phase:** **v1.5.0-dev — UNRELEASED, on `main` and PUSHED** (`origin/main` = `41fe792`). The app is a
+**six-tab** `TabControl` — **Create | Import | Batch | Skin | Generate | Assemble** — plus a per-tab Getting
+Started overlay. **288 tests green, build clean, ~79% line coverage, 0 open bugs.** Last release shipped was
+**v1.3.0**; `csproj <Version>` / `.iss` are at 1.3.0 and the release script bumps to **1.5.0** at release.
 
----
-
-## This Session (2026-07-02, later) — path-tracing P3b + P4 + P5
-
-Finished the remaining offline-3D / path-tracing phases, all on the Assemble tab, **no renderer change**.
-Suite **274 → 280 green, build advisory-clean.**
-- **P4 — frame interpolation** (`6840c93`): `FrameInterpolation` {Nearest, Crossfade}; Crossfade
-  cross-dissolves the two bracketing frames per output frame (the `(N−1)/(M−1)` law keeps endpoints
-  exact) so ~32 expensive frames ship as 64/128. A Method combo on the tab. Optical-flow (v2) deferred.
-- **P5 — AOV / emission pass** (`52726cf`): a second render pass (emission/glow AOV) additively
-  composited over the beauty frames; `EmissionFrames`/`EmissionIntensity`, a mismatched count warns.
-  Runtime toggle/value-track of the pass (needs loader+manifest) deferred.
-- **P3b — 16-bit / EXR HDR ingest** (`7f5057a`): **Magick.NET-Q8 → Q16-HDRI** (holds >8-bit; OpenEXR
-  bundled). `ImageLoadService` routes `.exr`/`.hdr`/16-bit `.tif` through Magick (linear→sRGB + clamp →
-  depth-8 → PNG32 → Skia); new `Helpers/MagickPixels` downshifts Q16's 16-bit `ToByteArray` — **the PSD
-  path relies on this** (revalidated). A dithered de-band + multi-layer EXR deferred.
-
-## This Session (2026-07-02, earlier) — full audit + 11 code/test fixes + docs reconcile
-
-A fine-tooth-comb audit of the unreleased v1.4.0 work (a 10-dimension, adversarially-verified multi-agent
-sweep) found 18 real items. The **11 code + test** findings were fixed and committed (`301b2b4`); the
-**7 docs/release** items were reconciled (this doc set). Suite **265 → 274 green**.
-
-### Fixed (commit `301b2b4`)
-- **BUG-012 (HIGH)** — `FrameSequenceAssembler.UnpremultiplyAlpha` returned a **Premul-tagged** bitmap
-  holding straight bytes, so the P3 "Un-premultiply alpha" halo fix **corrupted colours** on export. Now
-  returns an Unpremul-tagged bitmap. (The old test only read raw bytes, so it was green while broken.)
-- **BUG-013 (HIGH, security)** — the layered **SVG file-import** handed raw text to Svg.Skia without
-  `SvgSanitizer`, so an external `<image xlink:href="http://…">` (or `file://`) **fired an outbound
-  request** during rasterization — an SSRF / file-existence oracle on file open. **Verified live.**
-  `SvgSanitizer.Sanitize` is now public and runs before `FromSvg` on the import path. (AI-reply path was
-  already safe.)
-- **BUG-014 (MED)** — `RenderButtonLayers` matched `Frame` layers by absolute stack index, so a leading
-  `Static` border/shadow shifted and blanked button/toggle states. Now matches by **ordinal** among Frame
-  layers (renderer + `FilmstripEngine.cs` mirror), and the state-frame count ignores Static layers.
-- **BUG-015 (MED)** — `RegenerateSetItemAsync` reused a possibly-cancelled CTS (`??=`); fresh CTS now.
-- **BUG-016 (LOW batch)** — QC drift measured in absolute px (no phantom drift on mixed-size sequences);
-  three resource leaks closed (set/variation preview bitmaps, an auto-retry temp SVG, the provider
-  `HttpResponseMessage`); the tutorial tip box's undefined `GlassFill`/`GlassBorder` keys → `*Brush`.
-- **Tests:** +8 (266 → 274). 6 carry fail-before/pass-after regression guards (proven by stashing the
-  fixes and watching them go red); 2 are coverage-gap tests for already-correct code.
-
-### Repo hygiene + docs
-Deleted the redundant merged `feat/v1.4.0` branch; gitignored the long-standing strays
-(`.claude/launch.json`, `press/`, `docs/PRESS-RELEASE.md`). Reconciled CLAUDE / README / TESTING /
-CHANGELOG / BUGS / AUDIT-LOG (all now say **274**, six tabs, "on main").
-
-### The refuted findings (don't re-chase)
-The verifier killed 4: a hallucinated `ZZ_AuditProbeTests.cs`, a `<style>`/`@import` SSRF that did **not**
-reproduce under `FromSvg(string)` (proven by a live probe), and two that depended on the phantom file.
+**What the v1.5.0 release will bundle** (all unreleased, all on origin):
+1. **Path-tracing pipeline P1–P5** — the Assemble tab (frame-sequence → filmstrip), the render-recipe
+   export, render QC on import, crossfade interpolation, an emission/AOV pass, and 16-bit/EXR HDR ingest.
+2. **The 2026-07-02 fine-tooth-comb audit** — 11 bugs fixed (2 HIGH: the un-premultiply colour corruption
+   and the SVG-import SSRF), plus the Magick.NET-Q16-HDRI swap and a docs reconcile.
+3. **The Depth design-system rebrand** (machined-grey dark theme, ember accent).
+4. **The 9 v1.5 quality-of-life enhancements** (this session — below).
 
 ---
 
-## Prior v1.4.0-dev work already on `main` (context)
+## This Session (2026-07-02) — v1.5 enhancement wave (9 of 12), then a handoff
 
-- **Path-tracing pipeline P1–P5 (all done)** — the **Assemble** tab (stack a pre-rendered frame sequence
-  into a strip: natural-sort, size reconcile, re-centre, re-time, QC), the **render-recipe** export
-  (Blender `bpy` + CSV/JSON matching the `(N−1)` law) on Create *and* Assemble, **render QC on import**,
-  **crossfade interpolation** (P4), an **emission/glow AOV pass** (P5), and **16-bit/EXR HDR ingest**
-  (P3b). The only path-tracing follow-ups left are the deferred v2s (optical flow, dithered de-band,
-  runtime AOV toggle).
-- **Depth design-system rebrand** — the whole app moved to the vendored `Depth/Depth.axaml` tokens:
-  machined-grey surfaces, ember `#f25914` accent, recessed monospace-numeral wells, raised keycap
-  buttons, solid window (acrylic + glow removed). Verdana for labels/body; **monospace for numerics only**.
-- **Uniform preview transport** across tabs + the crosshair placement fix.
+The owner opted to bundle a batch of small enhancements and cut everything as **v1.5.0**. Twelve were
+planned; **9 are done, committed, and PUSHED**; **3 were deferred** for a careful follow-up pass. Suite
+**280 → 288 green.** Built safest-first in tested waves, renderer-touching last.
+
+### Shipped (9/12, on origin)
+1. **React / web-component export** (`6d6ba07`) — a 5th `CodeTarget.React` → a `.jsx` sprite component
+   (value prop 0..1); wired into Create + Assemble + Batch code-export panels. +3 tests.
+2. **Dithered HDR de-band** (`18a444b`, finishes path-tracing P3b) — `Helpers/MagickPixels.DitherDownTo8`
+   (Bayer 8×8) in `ImageLoadService.LoadHdr`, so EXR/16-bit ingest reduces to 8-bit without banding. +2.
+3. **Remember window size + last tab** (`99bdd22`) — `AppSettings.WindowWidth/Height/LastTabIndex`, wired
+   at the composition root in `App.axaml.cs`.
+4. **Ctrl+O / Ctrl+E shortcuts** (`99bdd22`) — `Window.KeyBindings` (Ctrl-only, so text fields keep plain keys).
+5. **Batch tab → loader code** (`94d431f`) — `BatchOptions.CodeTargets`; `BatchProcessor` takes
+   `ICodeSnippetService` and emits per-strip loader files (parity with Create & Assemble). +1.
+6. **CI coverage gate** (`3c9be86`) — `ci.yml` collects coverage and fails below 70% line (current ~79%).
+7. **"Show in folder" after export** (`a295f38`) — `Helpers/ShellHelper.RevealInFolder`, `RevealExportCommand`
+   + `LastExportPath`; the button is placed OUTSIDE the `TransportTile` Border (see the warning below).
+8. **Arbitrary HiDPI scale @2x/@3x/@4x** (`43a87c9`) — a `HiDpiScale` across Create/Assemble/Batch (the
+   `@Nx` suffix, the render/upscale factor, and the manifest hi-res asset all follow it; default 2). +1.
+9. **Meter peak-marker** (`41fe792`) — `FilmstripSettings.ShowMeterPeak` + `PeakColorArgb` (mirrored in
+   `FilmstripEngine.cs`); `RenderMeterFrame` paints the direction-aware leading segment, gated OFF by
+   default so every meter golden is byte-identical. +1 pixel-logic test.
+
+### Deferred (3/12 — the broadest / most golden-sensitive; do as a fresh, careful pass)
+- **Sprite-grid layout (R×C)** — rewrites `RenderStrip`'s output layout + the manifest + loader code.
+- **Parameter-law frame mapping (log/skew)** — remaps the sweep-`t` in `ComputeTransform` / meter / layers /
+  arc; gate to Linear default so goldens hold, keep the `(N−1)` law. Highest-touch, most golden-sensitive.
+- **Save / load render presets** — needs `ISettingsService` injected into `MainWindowViewModel` (a
+  constructor change that ripples into `TransportTileAlignmentTests` + `LoadPathTests` ctor calls) + a
+  `RenderPreset` model + save/apply/delete + Create UI. No renderer, but broad plumbing.
+
+### Docs
+Reconciled every managed doc to the v1.5 / 288 state (CHANGELOG / TESTING / ROADMAP / CLAUDE / SOURCE_MAP /
+AUDIT-LOG / README + this HANDOFF).
 
 ---
 
 ## Current State
 
 ### Working
-- **280/280 tests green, build advisory-clean, 0 open bugs.** CI runs on every push/PR.
-- Six tabs all functional. The renderer + `FilmstripEngine.cs` mirror are in sync (incl. the BUG-014
-  ordinal fix).
+- **288/288 tests green, build clean, ~79% coverage, 0 open bugs.** CI runs on every push/PR (now with the
+  70% coverage gate). `main` == `origin`.
+- Six tabs functional. The renderer + `FilmstripEngine.cs` mirror are in sync (incl. the meter peak-marker).
 
 ### Known issues / limitations (not bugs)
-- **AI generation can't be live-verified here.** Every Generate feature is unit-tested with a mocked
-  service + real importer + fake provider/network; the meter/toggle/set **art quality** still wants a
-  live eyeball with a real key — knob is the proven path.
-- **`FilmstripEngine.cs`** (repo root) mirrors the render math (incl. the Button/Toggle state-frame path
-  and the BUG-014 ordinal fix); app-only services stay out — by design.
-- **Magick.NET is now `Magick.NET-Q16-HDRI-x64` 14.14.0** (swapped from Q8 for P3b, so an EXR can be
-  tone-mapped before the 8-bit reduction; OpenEXR bundled). The 14.14.0 line also **cleared** the prior
-  HIGH/moderate NuGet advisories (NU1903/NU1902) — build is advisory-clean. Q16-HDRI adds a few MB to the
-  native payload/installer (accepted) and holds pixels at 16-bit, so `Helpers/MagickPixels` downshifts
-  `ToByteArray` to 8-bit — **any new Magick pixel read must go through it**, not a raw 4-bytes/pixel copy.
-- **Custom endpoint:** Bearer auth only (OpenRouter / Ollama / LM Studio); Azure OpenAI (api-key header)
-  unsupported. Vision needs a vision-capable model.
-- **Installer ~58 MB** (> GitHub's *recommended* 50 MB, under the 100 MB hard limit) — the ImageMagick
-  native, accepted for PSD support.
+- **Nothing has been eyeballed live this session** — the 9 enhancements are unit-tested (288 green) but not
+  yet run in the actual app. A live pass (esp. the meter peak marker, the @3x/@4x export, the React output,
+  EXR ingest) is worth doing before the release.
+- **AI generation** is exercised only through mocks/fakes; meter/toggle/set art quality wants a real key.
+- **Magick.NET-Q16-HDRI-x64 14.14.0** — the Q16 swap means `ToByteArray` is 16-bit; any Magick pixel read
+  must go through `Helpers/MagickPixels` (never a raw 4-bytes/pixel copy).
+- **Custom AI endpoint** is Bearer-only (no Azure OpenAI api-key header). Installer ~58 MB (accepted).
 
 ---
 
 ## The release pipeline (one creator = CI) — unchanged
 
-**Stage 1** `scripts/Invoke-Release.ps1` (Windows PowerShell 5.1; `az login`, signtool + Trusted Signing
-dlib, ISCC, gh auth): test-gate → integrity guard → bump → publish → **sign exe + installer** → ISCC →
-stage under `releases/latest/` → commit + tag + push. **Stage 2** `.github/workflows/auto-release.yml`
-(triggered by the tracked installer push): VirusTotal → the **sole** `gh release create`. **Stage 3** the
-website: `Publish-WebsiteChangelog.ps1 -WebsiteRepo ..\StripKit-Website -Version X.Y.Z -Push`.
+**Stage 1** `scripts/Invoke-Release.ps1` (Windows PowerShell 5.1; needs `az login`, signtool + the Trusted
+Signing dlib, ISCC, gh auth): test-gate → integrity guard → bump → publish → **sign exe + installer** → ISCC
+→ stage `releases/latest/` → commit + tag + push. **Stage 2** `.github/workflows/auto-release.yml`: VirusTotal
+→ the sole `gh release create`. **Stage 3** the website changelog.
 
-To ship v1.4.0: **push `main` first** (the 6 commits), then
-`powershell -ExecutionPolicy Bypass -File scripts\Invoke-Release.ps1 -Bump minor -WebsiteRepo ..\StripKit-Website`
-then `gh run watch`.
+To cut **v1.5.0**: `powershell -ExecutionPolicy Bypass -File scripts\Invoke-Release.ps1 -Bump minor
+-WebsiteRepo ..\StripKit-Website` then `gh run watch`. (This bumps 1.3.0 → 1.5.0.)
 
 ---
 
 ## Next Steps (priority order)
 
-1. **Push `main` to origin** (the v1.4.0 line is unpushed) and **release v1.4.0** via the pipeline above.
-2. **Live-eyeball** with a real key + a real path-traced EXR sequence: the Generate art quality AND the
-   new Assemble features (crossfade blend, emission pass, EXR ingest) — all are unit-tested but unseen in
-   the running app this session.
-3. **Path-tracing v2 follow-ups:** optical-flow interpolation (P4 v2, needs a CV dep); a dithered de-band
-   for HDR ingest (Magick `OrderedDither` posterizes — needs error-diffusion); a runtime toggle /
-   value-track of the emission AOV pass (P5 — needs loader + manifest); multi-layer/deep EXR.
-4. Website `stripkit.pro/getting-started/` guide · seeds → matching-set → auto-assemble a Skin · Azure
-   OpenAI auth · more code-export targets.
+1. **Finish the 3 deferred v1.5 items** (sprite-grid, parameter-law, presets) — each as a careful pass with
+   golden-baseline regen + the `FilmstripEngine.cs` mirror + tests. OR decide to ship v1.5.0 with the 9.
+2. **Live-eyeball** the running app (the 9 enhancements + a real path-traced EXR sequence + a real AI key).
+3. **Cut the v1.5.0 release** via the pipeline above.
+4. Deferred v2s: optical-flow interpolation, multi-layer EXR, stereo/dB meters, runtime AOV toggle, Unity/
+   Godot code targets, website getting-started guide.
 
 ---
 
 ## Warnings for the next agent
 
 - **Do NOT** rewrite `SkiaFilmstripRenderer`, change the `(N−1)` angle divisor, move VM logic into
-  code-behind, or reference Avalonia UI types from VMs (the preview `Bitmap` alias is the exception). Gate
-  new render paths behind defaults so prior goldens hold. **Toggle reuses Button's state-frame path** —
-  keep them together (both mirrored in `FilmstripEngine.cs`, incl. the ordinal Frame-matching fix).
-- **Untrusted SVG must go through `SafeXml.Parse` FIRST, then `SvgSanitizer.Sanitize`, before
-  `Svg.Skia.FromSvg`** — never a bare parse, and never skip the sanitizer on the file-import path
-  (BUG-013 was a live SSRF). Both callers now do this; keep it that way.
-- **When un-premultiplying / hand-building bitmaps, set the correct `SKAlphaType`** — a Premul tag on
-  straight bytes silently corrupts colour downstream (BUG-012). Round-trip through encode/decode in tests,
-  not just raw bytes.
-- **Release tooling:** Windows PowerShell 5.1 only; `az login` before a release; Trusted Signing via
-  signtool + the dlib (not AzureSignTool). CI is the **sole** release creator; commit feature work
-  **before** the release script (it stages only version files + the installer).
-- **House design:** **Depth** machined-grey dark theme, `#f25914` ember accent, Verdana-led sans + monospace
-  for numerics only. Reuse the mapped `*Brush` keys / Depth tokens — a typo'd `DynamicResource` key renders
-  blank without erroring (BUG-016 tip box).
+  code-behind, or reference Avalonia UI types from VMs (the preview `Bitmap` alias aside). **Gate new render
+  paths behind defaults so prior goldens stay byte-identical** (as the meter peak-marker does). Any renderer
+  math change must be mirrored in `FilmstripEngine.cs`.
+- **The `TransportTile` Border must render at an identical height across Create/Import/Assemble** —
+  `TransportTileAlignmentTests` asserts it. Do NOT add controls inside a `TransportTile`; put post-export
+  affordances OUTSIDE it (a new parent-grid row). It already caught one mistake this session.
+- **Untrusted SVG** goes through `SafeXml.Parse` then `SvgSanitizer.Sanitize` before `Svg.Skia.FromSvg`
+  (BUG-013 was a live SSRF). **Magick pixels** go through `Helpers/MagickPixels` (Q16 is 16-bit). **When
+  hand-building bitmaps, set the correct `SKAlphaType`** (BUG-012 was a Premul-tagged straight-bytes bug).
+- **Release tooling:** Windows PowerShell 5.1 only; `az login` first; Trusted Signing via signtool + the
+  dlib (not AzureSignTool). CI is the sole release creator; commit feature work before the release script.
+- **House design:** Depth machined-grey dark theme, `#f25914` ember accent, Verdana sans + monospace numerics.
 
 ---
 
 ## Files to Read First
 
 1. `CLAUDE.md` — project context, conventions, house rules, last task.
-2. `docs/SOURCE_MAP.md` — where everything lives (six tabs, all services).
+2. `docs/SOURCE_MAP.md` — where everything lives (six tabs, all services + the v1.5 helpers).
 3. `docs/ARCHITECTURE.md` — deep reference.
-4. `docs/BUGS.md` — the 16 resolved defects (BUG-012…016 are this session's).
-5. `docs/ROADMAP.md` — releases + the vNext backlog. `docs/PACKAGING.md` — the release pipeline.
+4. `docs/ROADMAP.md` — releases + the vNext backlog (incl. the 3 deferred v1.5 items).
+5. `docs/BUGS.md` (16 resolved) · `docs/PACKAGING.md` (the release pipeline).

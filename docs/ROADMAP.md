@@ -1,12 +1,14 @@
 # ROADMAP — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
+> Version 1.3.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and several
-further releases have shipped since (see **Releases** below). The **vNext — Future
-features** section captures the product-brainstorm backlog, grouped by theme and
-priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
+further releases have shipped since (see **Releases** below). The next release is
+**v1.5.0** (unreleased) — it bundles the whole **offline-3D / path-tracing pipeline P1–P5**, the
+**Depth** rebrand, a 2026-07-02 audit, and a **v1.5 enhancement wave** (9 of 12 items done + pushed to
+origin/main). The **vNext — Future features** section captures the product-brainstorm backlog, grouped by
+theme and priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
 layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/SVG import).
 
 **Status icons:** ✅ Done · 🔄 Active · ⏳ Next / queued · 🚫 Blocked · ❌ Cancelled.
@@ -70,6 +72,32 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   **OpenAI-compatible custom endpoint** (OpenRouter / Ollama / LM Studio). Security/hardening:
   **BUG-010** (SVG file-import billion-laughs DoS) fixed + input-size caps (PNG / SVG / PSD). Suite
   **172→216**.
+- **v1.4.0-dev → v1.5.0** (2026-07-02, **unreleased** — the whole path-tracing pipeline + a v1.5
+  enhancement wave, shipping together as **v1.5.0**) — the **six-tab, path-tracing** build. First the
+  full **offline-3D / path-tracing pipeline P1–P5** (the **Assemble** tab + render-recipe export + render
+  QC + EXR/HDR ingest + frame interpolation + AOV emission-pass; see the pipeline section below), a
+  **Depth design-system rebrand** (machined-grey dark theme, `#f25914` ember; vendored `Depth/Depth.axaml`
+  mapped in `App.axaml`), and a **2026-07-02 fine-tooth-comb audit** (11 bugs fixed). Then the owner
+  folded in a **v1.5 enhancement wave** — **9 of 12** planned items shipped + pushed to origin/main (tip
+  `41fe792`): **(1)** a **React / Web-Component code-export target** (`CodeTarget.React` → a `.jsx` sprite
+  component driven by a 0..1 `value` prop; wired into Create + Assemble + Batch); **(2)** **dithered HDR
+  de-band** (finishing path-tracing P3b — `Helpers/MagickPixels.DitherDownTo8`, an 8×8 Bayer ordered
+  dither, in `ImageLoadService.LoadHdr` so EXR/16-bit reduces to 8-bit without banding); **(3)** **remember
+  window size + last tab** (`AppSettings.WindowWidth/WindowHeight/LastTabIndex`, restored/persisted at the
+  composition root); **(4)** **Ctrl+O / Ctrl+E shortcuts** (`Window.KeyBindings`); **(5)** **Batch-tab
+  loader-code export** (`BatchOptions.CodeTargets`; `BatchProcessor` emits JUCE/CSS/iPlug2/HISE/React per
+  strip — parity with Create & Assemble); **(6)** a **CI coverage gate** (`ci.yml` fails below 70% line
+  coverage); **(7)** **"Show in folder" after export** (Create + Assemble — `Helpers/ShellHelper.RevealInFolder`
+  + `RevealExportCommand`/`LastExportPath`, outside the `TransportTile` Border to keep the transport-tile-height
+  invariant); **(8)** **arbitrary HiDPI scale @2x / @3x / @4x** (a `HiDpiScale` property across
+  Create/Assemble/Batch — suffix, render factor, and manifest hi-res asset all follow it; default 2); and
+  **(9)** a **meter peak-marker** (`FilmstripSettings.ShowMeterPeak` + `PeakColorArgb`, mirrored in
+  `FilmstripEngine.cs`; `RenderMeterFrame` paints the direction-aware leading peak segment; gated OFF by
+  default so every meter golden is byte-identical). Commits `6d6ba07` / `18a444b` / `99bdd22` / `94d431f` /
+  `3c9be86` / `a295f38` / `43a87c9` / `41fe792`. Suite **280→288**, build clean, coverage ~79%.
+  **Deferred** to a later careful v1.5 pass: **sprite-grid layout**, **parameter-law frame mapping**, and
+  **save/load render presets** (all ⏳ below). Not yet released (csproj/`.iss` `<Version>` still at 1.3.0;
+  the release script bumps to 1.5.0 at release).
 
 ---
 
@@ -247,9 +275,11 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   `Slider` / meter `Component`), **CSS/HTML** (`background-position` sprite + value setter),
   **iPlug2** (`IBKnobControl`/`IBSliderControl`/`IBitmapControl`), and **HISE** (`ScriptPanel`
   paint) — a pure `CodeSnippetService` mirroring `ManifestService`, a "CODE EXPORT" panel +
-  live preview/copy, +15 tests. **Remaining (P2):** a **React / Web Component** and
-  **Unity / Godot** targets. *(was P1, ★ — the second of the three ★ bets; the first two
-  targets were the recommended first wave, all four shipped.)*
+  live preview/copy, +15 tests. **Shipped v1.5.0:** a **React / Web-Component** target
+  (`CodeTarget.React` → a `.jsx` sprite component driven by a 0..1 `value` prop; wired into the
+  Create + Assemble + Batch code-export panels; +3 tests). **Remaining (P2):** **Unity / Godot**
+  targets. *(was P1, ★ — the second of the three ★ bets; the first two targets were the recommended
+  first wave.)*
 - ✅ **Multi-control manifests** (v0.8.0) — the **Skin tab** surfaces the model's
   multi-control capability: bind several strips to several parameters in one `skin.json`, with
   per-control bounds + value range and a skin-level window background. `SkinViewModel` +
@@ -286,7 +316,8 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
 
 - ⏳ **Parameter-law-aware frame mapping** — map parameter → frame via a curve (log
   / skew / custom easing) so the visual sweep matches the plugin's actual parameter
-  law (log frequency, dB) instead of a linear divisor. **(P2)**
+  law (log frequency, dB) instead of a linear divisor. **(P2)** *(queued for v1.5.0 — one of the
+  three v1.5 items deferred to a later careful pass.)*
 - ⏳ **Frame-budget optimizer** — perceptually recommend the minimum frame count
   that looks identical to the eye, and show the file-size saving. **(P3)**
 
@@ -299,6 +330,13 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   consistency (frame counts, cell sizes, sweep angles, alignment), diff old vs new
   exports to catch regressions, and flag bad frames with a wobble / jump detector.
   **(P2)**
+- ⏳ **Sprite-grid layout** — pack frames into an N-column grid (a 2D sprite atlas)
+  instead of a single vertical/horizontal strip, for loaders that expect a grid sheet.
+  **(P2)** *(queued for v1.5.0 — one of the three v1.5 items deferred to a later careful pass.)*
+- ⏳ **Save / load render presets** — persist a control's full render setup (type,
+  frames, sweep, resolution, meter/value-arc/layer settings) as a named preset and
+  reload it in one click. **(P2)** *(queued for v1.5.0 — one of the three v1.5 items deferred
+  to a later careful pass.)*
 
 ### QA (lock the output)
 
@@ -331,9 +369,12 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   **`ComponentType.Toggle`** — a dedicated on/off toggle across generate / import / create /
   code-export, distinct from Button but sharing its state-frame render path. *(Future: momentary vs
   latching semantics + multi-state selectors are a loader/manifest concern, not a render one.)*
-- ⏳ **Meter peak-hold / stereo** — peak-hold indicators, dual / stereo meters, dB
-  segment spacing, and per-segment colour ramps. **(P3)** *(carryover — deferred
-  from Phase 6.)*
+- 🔄 **Meter peak-hold / stereo** — peak-hold indicators, dual / stereo meters, dB
+  segment spacing, and per-segment colour ramps. **Shipped v1.5.0:** a **peak-marker**
+  (`FilmstripSettings.ShowMeterPeak` + `PeakColorArgb`, mirrored in `FilmstripEngine.cs`;
+  `RenderMeterFrame` paints the direction-aware leading peak segment; gated OFF by default so
+  existing meter goldens are byte-identical; +1 pixel-logic test). **Remaining (P3):** dual /
+  stereo meters, dB segment spacing, per-segment colour ramps. *(carryover — deferred from Phase 6.)*
 
 ### Onboarding & documentation
 

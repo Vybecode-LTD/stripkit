@@ -6,6 +6,56 @@
 
 ---
 
+## 2026-07-02 — v1.5 enhancement wave — 9/12 small items shipped (unreleased)
+
+**Type:** Feature/enhancement wave + documentation reconciliation. Work is on `main`, pushed to
+origin (tip `41fe792`); still **unreleased** (csproj/`.iss` `<Version>` at 1.3.0 — the release script
+bumps to **1.5.0** at release).
+
+**Framing:** the owner bundled a batch of small enhancements to ship together and release everything —
+the v1.4.0-dev path-tracing work + audit below **plus** these items — as **v1.5.0** (not v1.4.0). This
+entry adds the v1.5 enhancement layer on top of the accurate v1.4.0-dev record; that work is unchanged
+and is part of the same 1.5.0 release.
+
+**Shipped (9 of 12 planned v1.5 items; all 2026-07-02, on origin/main) — suite 280 → 288 green, build
+clean, ~79% line coverage:**
+- **React / web-component code-export target** — new `CodeTarget.React` → a `.jsx` sprite component
+  driven by a `value` prop (0..1); wired into the Create + Assemble + Batch code-export panels
+  (`6d6ba07`, +3 tests).
+- **Dithered HDR de-band** (finishes path-tracing P3b) — new `Helpers/MagickPixels.DitherDownTo8` (an
+  8×8 Bayer ordered dither) used in `ImageLoadService.LoadHdr`, so EXR / 16-bit ingest reduces to 8-bit
+  without banding (`18a444b`, +2 tests).
+- **Remember window size + last tab** — `AppSettings.WindowWidth`/`WindowHeight`/`LastTabIndex`,
+  restored/persisted in `App.axaml.cs` at the composition root (`99bdd22`).
+- **Ctrl+O / Ctrl+E shortcuts** — `Window.KeyBindings` (Ctrl-modified only) (`99bdd22`).
+- **Batch tab → loader code** — `BatchOptions.CodeTargets`; `BatchProcessor` takes
+  `ICodeSnippetService` and emits the JUCE/CSS/iPlug2/HISE/React snippets per strip (parity with Create
+  & Assemble) (`94d431f`, +1 test).
+- **CI coverage gate** — `.github/workflows/ci.yml` collects coverage and **fails the build below 70%
+  line coverage** (`3c9be86`).
+- **"Show in folder" after export** (Create + Assemble) — new `Helpers/ShellHelper.RevealInFolder`, a
+  `RevealExportCommand` + `LastExportPath` on the VMs; the button sits **outside** the `TransportTile`
+  `Border` to preserve the transport-tile-height invariant (`a295f38`).
+- **Arbitrary HiDPI scale @2x / @3x / @4x** — a `HiDpiScale` property across Create/Assemble/Batch (the
+  export suffix `@Nx` + the render/upscale factor + the manifest hi-res asset all follow it; default 2)
+  (`43a87c9`, +1 test).
+- **Meter peak-marker** — `FilmstripSettings.ShowMeterPeak` + `PeakColorArgb` (mirrored in
+  `FilmstripEngine.cs`); `RenderMeterFrame` paints the direction-aware leading (peak) segment; gated
+  **OFF by default** so every existing meter golden is byte-identical (`41fe792`, +1 pixel-logic test).
+
+**Caught + fixed pre-commit:** the meter peak-marker initially painted the wrong end of the fill for
+the reversed fill directions — the leading (peak) segment must be **direction-aware**; corrected before
+the commit landed, verified by the new pixel-logic test.
+
+**Deferred (3 of 12, held for a careful follow-up pass):** sprite-grid layout, parameter-law frame
+mapping, and save/load presets.
+
+**Reconciliation:** updated the managed docs this session — the v1.4.0-dev + audit content below is
+kept intact (accurate, and now part of the v1.5.0 release); this pass **adds** the v1.5 enhancement
+layer, moves the test count to **288**, and frames the next release as **v1.5.0**.
+
+---
+
 ## 2026-07-02 — v1.4.0-dev: full fine-tooth-comb audit + 11 code/test fixes + docs reconcile
 
 **Type:** Audit-driven fix wave (adversarially verified) + documentation reconciliation. Work is on

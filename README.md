@@ -69,9 +69,9 @@ Prefer a one-page overview with the live download and changelog? See **[stripkit
   with progress and a working cancel.
 - **`skin.json` manifest** — schema-valid output binding each strip to a parameter id (single
   control on export, or a multi-control skin from the **Skin** tab).
-- **Loader code export** — emit ready-to-paste JUCE / CSS-HTML / iPlug2 / HISE loader snippets.
+- **Loader code export** — emit ready-to-paste JUCE / CSS-HTML / iPlug2 / HISE / React loader snippets.
 - **Crisp rendering** — supersampling + a Mitchell cubic resampler keep rotated edges sharp;
-  one-toggle `@2x` HiDPI export.
+  selectable HiDPI export (`@2x` / `@3x` / `@4x`).
 - **Live preview** — scrub, play, or step frame-by-frame before you export.
 
 ## 🧰 Tech stack
@@ -103,7 +103,7 @@ Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 git clone https://github.com/Vybecode-LTD/stripkit.git
 cd stripkit
 dotnet run --project src/StripKit      # launch the app
-dotnet test                            # 280 tests
+dotnet test                            # 288 tests
 ```
 
 Build a self-contained Windows release:
@@ -127,8 +127,9 @@ StripKit is a six-tab app: **Create**, **Import**, **Batch**, **Skin**, **Genera
    the **frame count** (32 / 64 / 128 or custom; 64 is standard).
 3. Tune the per-type settings — rotary sweep & pivot, linear margins, meter segments &
    fill direction, or button states — and **align** the knob centre with auto-center or the crosshair.
-4. **Preview** (scrub / play / step), then **Export** the stacked PNG (+ optional `@2x`, a
-   `skin.json` manifest, and JUCE/CSS/iPlug2/HISE loader code).
+4. **Preview** (scrub / play / step), then **Export** the stacked PNG (+ optional HiDPI
+   `@2x`/`@3x`/`@4x`, a `skin.json` manifest, and JUCE/CSS/iPlug2/HISE/React loader code) — then
+   **Show in folder** to jump straight to the exported files.
 
 **Import — re-use an existing strip:** load a strip; StripKit detects its layout (editable —
 detection is a guess), scrub to confirm min → max, then extract a frame, re-stack the
@@ -149,11 +150,12 @@ to jump to the builder with the layers loaded — or Save / Copy the SVG.
 
 **Assemble — a pre-rendered frame sequence → one strip:** rendered your control offline (Blender,
 KeyShot, Octane, or any tool that emits a frame-per-image sequence)? Choose the folder (or drag-drop);
-StripKit natural-sorts the frames (`frame_2` before `frame_10`), reconciles odd sizes, optionally
-re-centres drifting content and re-times to 32 / 64 / 128, runs a render-QC pre-flight (drift, missing
-transparency, blank or premultiplied frames), and packs them into one filmstrip — plus the same @2x /
-`skin.json` / loader-code exports as Create. A **Render recipe** panel emits a Blender/CSV/JSON spec so
-the offline render lands each frame on StripKit's exact angle.
+StripKit natural-sorts the frames (`frame_2` before `frame_10`), reads EXR / 16-bit HDR frames (reduced
+to 8-bit with an ordered dither to avoid banding), reconciles odd sizes, optionally re-centres drifting
+content and re-times to 32 / 64 / 128, runs a render-QC pre-flight (drift, missing transparency, blank or
+premultiplied frames), and packs them into one filmstrip — plus the same HiDPI / `skin.json` /
+loader-code exports as Create. A **Render recipe** panel emits a Blender/CSV/JSON spec so the offline
+render lands each frame on StripKit's exact angle.
 
 **Quality tips:** give knob art ~10% transparent margin so corners don't clip on rotation;
 exported PNGs are 32-bit RGBA with a transparent background (the plugin paints the
@@ -168,7 +170,7 @@ Contributions are very welcome — bug reports, feature ideas, and pull requests
 
 **Workflow**
 1. Fork the repo and branch off `main`.
-2. Make your change and add/update tests — `dotnet test` must stay green (currently **280**).
+2. Make your change and add/update tests — `dotnet test` must stay green (currently **288**).
 3. Keep the house conventions:
    - Don't rewrite `Services/SkiaFilmstripRenderer.cs`; the rotation/supersampling math is
      deliberate (the `(N-1)` angle divisor is intentional — last frame lands exactly on max).

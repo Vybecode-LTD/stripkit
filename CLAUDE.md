@@ -40,13 +40,14 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **280 green.**
+  6.0.4). **288 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
   `.github/workflows/auto-release.yml` — see `docs/PACKAGING.md`.
 - CI: `.github/workflows/ci.yml` runs build + full test suite on every push and PR
-  (`actions/checkout@v5` + `actions/setup-dotnet@v5` — Node 24).
+  (`actions/checkout@v5` + `actions/setup-dotnet@v5` — Node 24); collects coverage and **fails below
+  70% line coverage**.
 
 ## OSS / Contributing
 
@@ -97,7 +98,8 @@ once), **Skin** (assemble a multi-control `skin.json`), **Generate** (AI-generat
 control art from your own OpenAI / Gemini / Claude key, then hand it to Create), and **Assemble**
 (stack a folder of pre-rendered frames — e.g. a path-traced PNG sequence — into one filmstrip).
 
-- `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract),
+- `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract — incl.
+  `ShowMeterPeak` + `PeakColorArgb`, mirrored in `FilmstripEngine.cs`),
   `FrameTransform`, `StripDetection` (importer output),
   `SkinManifest`/`ManifestControl`/`ManifestBounds`, `BatchModels`, `CodeModels`,
   `RenderLayer` (`LayerBehavior` {Static, Rotate, **Frame**} + per-layer pivot — the layered-knob /
@@ -106,7 +108,8 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
 - `Services/SkiaFilmstripRenderer.cs` — **the heart.** `ComputeTransform` does the
   rotary/linear math; `RenderFrame` composites one frame with supersampling +
   Mitchell cubic resampling (meters fill segments via `RenderMeterFrame` — procedural
-  or layered on/off-art reveal; knobs may get a value-tracking fill arc via
+  or layered on/off-art reveal, plus an optional direction-aware **peak marker** on the leading segment
+  when `settings.ShowMeterPeak`; knobs may get a value-tracking fill arc via
   `RenderValueArc`, or be composited from a base+pointer layer stack via `RenderLayers`
   when `settings.Layers` + `layerArt` are supplied; **buttons** composite discrete state
   art per frame via `RenderButtonLayers` — `Static` on every frame, `Frame` only on its
@@ -128,14 +131,18 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
 - `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json):
   `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
 - `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
-  iPlug2 / HISE) for an exported strip; pure string-gen mirroring `ManifestService`.
+  iPlug2 / HISE / **React** — `CodeTarget.React` → a `.jsx` sprite component driven by a 0..1 `value`
+  prop) for an exported strip; pure string-gen mirroring `ManifestService`. Wired into the Create,
+  Assemble, and **Batch** code-export panels (Batch emits per-strip snippets via `BatchOptions.CodeTargets`).
 - `Services/RenderRecipeService.cs` — the **Render recipe** (Create tab; path-tracing P2): emit a
   Blender `bpy` script + `frame,value,angle_deg` CSV/JSON so an offline render matches the runtime
   sweep law. Pure string-gen like `CodeSnippetService`; its static `BuildFrameTable` mirrors
   `SkiaFilmstripRenderer`'s `t = i/(N−1)` / `angle = start + (end−start)·t`, so recipe and renderer
   can't drift. App-only; not in `FilmstripEngine.cs`.
 - `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
-  UI thread (`Task.Run`), with per-item progress and a working cancel.
+  UI thread (`Task.Run`), with per-item progress and a working cancel; takes `ICodeSnippetService` and
+  emits the JUCE/CSS/iPlug2/HISE/React loader snippets per strip (`BatchOptions.CodeTargets` — parity
+  with Create & Assemble).
 - `Services/FrameSequenceAssembler.cs` (+ `NaturalFileNameComparer`) — the **Assemble** tab:
   natural-sort a folder of pre-rendered frames (`frame_2` before `frame_10`) and pack them into one
   stacked strip (reconcile odd sizes via `CellFit`, optional content re-centre, optional **un-premultiply**,
@@ -157,6 +164,10 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   `Services/AssetService.cs` — extract the bundled sample knob to a temp path for the tutorial (app-layer).
 - `Helpers/SkiaImageInterop.cs` — `SKBitmap` -> Avalonia `Bitmap` for preview.
   `Helpers/HexToColorBrushConverter.cs` — `#RRGGBB` → `IBrush` for the Generate colour swatches.
+  `Helpers/MagickPixels.cs` — downshift Q16-HDRI's 16-bit `ToByteArray` to 8-bit, with an 8×8 Bayer
+  **ordered dither** (`DitherDownTo8`) so EXR/16-bit HDR ingest reduces to 8-bit without banding (used
+  by `ImageLoadService.LoadHdr`). `Helpers/ShellHelper.cs` — `RevealInFolder` (the "Show in folder"
+  export action).
 - `Controls/SectionHeader.cs` — a `TemplatedControl` section label with a 3px accent divider
   (styled by a `ControlTheme` in `App.axaml`); used across the sidebars.
 - `ViewModels/MainWindowViewModel.cs` — Create-tab state + commands; a single
@@ -227,7 +238,9 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   divisor is deliberate — it lands the last frame exactly on the max. Not `N`.
 - Default sweep 270° (frame 0 at -135° / 7 o'clock, last at +135° / 5 o'clock).
 - 32-bit RGBA, transparent background. Standard frame counts: 32 / 64 / 128.
-- Ship `@2x` for HiDPI (the Export "Also export @2x" toggle).
+- Ship a HiDPI variant (the Export scale is selectable — `@2x` / `@3x` / `@4x` via the `HiDpiScale`
+  property; the export suffix, the render/upscale factor, and the manifest hi-res asset all follow it;
+  default 2).
 - Knob art should carry ~10% transparent margin so corners don't clip on rotation.
 - **Untrusted SVG** (AI replies, imported files) is parsed only through `SafeXml.Parse`
   (DTD prohibited) — never a bare `XDocument.Parse`.
@@ -259,6 +272,32 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-07-02 (v1.5.0-dev: enhancement wave — 9/12 shipped + pushed on `origin/main`; unreleased)** —
+  Rather than cut v1.4.0, the owner bundled a batch of small enhancements and **reframed the next release
+  as v1.5.0** (the path-tracing P1–P5 work + the fine-tooth-comb audit below are all part of it). **Nine of
+  twelve** planned items are done, committed, and **pushed to `origin/main` (tip `41fe792`)**: **(1)** a
+  **React / web-component code-export target** — `CodeTarget.React` → a `.jsx` sprite component driven by a
+  0..1 `value` prop, wired into the Create + Assemble + **Batch** export panels (`6d6ba07`, +3). **(2)**
+  **Dithered HDR de-band** (finishes path-tracing P3b) — `Helpers/MagickPixels.DitherDownTo8` (an 8×8 Bayer
+  ordered dither) in `ImageLoadService.LoadHdr`, so EXR/16-bit ingest reduces to 8-bit without banding
+  (`18a444b`, +2). **(3)** **Remember window size + last tab** — `AppSettings.WindowWidth/WindowHeight/
+  LastTabIndex`, restored/persisted in `App.axaml.cs` (`99bdd22`). **(4)** **Ctrl+O / Ctrl+E shortcuts** —
+  `Window.KeyBindings`, Ctrl-modified only (`99bdd22`). **(5)** **Batch tab → loader code** —
+  `BatchOptions.CodeTargets`; `BatchProcessor` takes `ICodeSnippetService` and emits per-strip
+  JUCE/CSS/iPlug2/HISE/React snippets, parity with Create & Assemble (`94d431f`, +1). **(6)** **CI coverage
+  gate** — `ci.yml` collects coverage and fails below **70% line** (`3c9be86`). **(7)** **"Show in folder"
+  after export** (Create + Assemble) — `Helpers/ShellHelper.RevealInFolder` + a `RevealExportCommand` /
+  `LastExportPath` on the VMs; the button sits **outside** the `TransportTile` Border to preserve the
+  transport-tile-height invariant (`a295f38`). **(8)** **Arbitrary HiDPI scale** — a `HiDpiScale` property
+  across Create/Assemble/Batch (`@2x`/`@3x`/`@4x`; the suffix + render/upscale factor + manifest hi-res
+  asset all follow it; default 2) (`43a87c9`, +1). **(9)** **Meter peak-marker** —
+  `FilmstripSettings.ShowMeterPeak` + `PeakColorArgb` (mirrored in `FilmstripEngine.cs`);
+  `RenderMeterFrame` paints the direction-aware leading (peak) segment, **gated OFF by default** so every
+  meter golden is byte-identical (`41fe792`, +1). **Suite 280 → 288 green, build clean, ~79% coverage.**
+  **Deferred to a later careful pass (3 of 12):** sprite-grid layout, parameter-law frame mapping,
+  save/load presets. **Still unreleased** — csproj/`.iss` `<Version>` at 1.3.0 (the release script bumps to
+  1.5.0 at release). **Next:** the 3 deferred items, then release **v1.5.0**.
 
 - **2026-07-02 (v1.4.0-dev: path-tracing P3b + P4 + P5 — HDR ingest, frame interpolation, AOV pass; on
   `main`, unreleased)** — Finished the remaining offline-3D / path-tracing phases, all on the Assemble
