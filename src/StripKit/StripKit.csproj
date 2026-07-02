@@ -60,14 +60,18 @@
          3.119.2 is the floor Svg.Skia 5.0.0 requires (a patch above Avalonia's). -->
     <PackageReference Include="SkiaSharp" Version="3.119.2" />
 
-    <!-- Layered-source import (★ #3 step 3), app-only, behind ILayeredImportService:
-         · Svg.Skia (MIT)             — rasterize SVG layers, SkiaSharp-native, no Avalonia dep.
-         · Magick.NET-Q8 (Apache-2.0) — read PSD/PSB raster layers (one image per layer + names).
+    <!-- Layered-source import (★ #3 step 3) + HDR/EXR frame ingest (path-tracing P3b), app-only:
+         · Svg.Skia (MIT)                  — rasterize SVG layers, SkiaSharp-native, no Avalonia dep.
+         · Magick.NET-Q16-HDRI (Apache-2.0) — read PSD/PSB raster layers AND high-dynamic-range frames
+           (.exr / 16-bit). Q16-HDRI (not Q8) is required to hold >8-bit values so an EXR can be
+           tone-mapped before it's dithered down to 8-bit RGBA; OpenEXR is bundled in the native, no
+           extra delegate. NOTE: at Q16, IPixelCollection.ToByteArray returns 16-bit (2 bytes/channel),
+           so pixels are downshifted to 8-bit via Helpers/MagickPixels — the PSD path relies on this.
          Both are permissive; neither is mirrored into the standalone FilmstripEngine.cs.
-         The Q8 x64 native (not -AnyCPU) is used because StripKit ships win-x64 only — it keeps the
+         The x64 native (not -AnyCPU) is used because StripKit ships win-x64 only — it keeps the
          self-contained publish from bundling every platform's ImageMagick binary. -->
     <PackageReference Include="Svg.Skia" Version="5.0.0" />
-    <PackageReference Include="Magick.NET-Q8-x64" Version="14.14.0" />
+    <PackageReference Include="Magick.NET-Q16-HDRI-x64" Version="14.14.0" />
   </ItemGroup>
 
 </Project>

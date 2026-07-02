@@ -224,7 +224,9 @@ public sealed class LayeredImportService : ILayeredImportService
 
             img.Alpha(AlphaOption.Set);
             using var pixels = img.GetPixels();
-            byte[] rgba = pixels.ToByteArray(PixelMapping.RGBA) ?? [];
+            // At Q16-HDRI, ToByteArray returns 16-bit channels (2 bytes each) — normalize to 8-bit RGBA
+            // first. The old direct copy assumed 4 bytes/pixel and corrupted layers under a Q16 build.
+            byte[] rgba = Helpers.MagickPixels.ToRgba8888(pixels.ToByteArray(PixelMapping.RGBA) ?? [], lw, lh);
             if (rgba.Length < lw * lh * 4) continue;
 
             using var layerOwnSize = new SKBitmap(new SKImageInfo(lw, lh, SKColorType.Rgba8888, SKAlphaType.Unpremul));

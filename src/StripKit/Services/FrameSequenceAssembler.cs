@@ -10,7 +10,8 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
     // assembled strip: a 512 MP output (e.g. 2048²×128 frames) is already ~2 GB of RGBA — refuse past it.
     private const long MaxOutputPixels = 512L * 1024 * 1024;
 
-    private static readonly string[] FrameExtensions = [".png", ".webp", ".bmp", ".jpg", ".jpeg"];
+    private static readonly string[] FrameExtensions =
+        [".png", ".webp", ".bmp", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff"];
 
     // 1:1 placement: nearest sampling, exact and cheap (frames are blitted at integer offsets).
     private static readonly SKSamplingOptions Blit = new(SKFilterMode.Nearest, SKMipmapMode.None);

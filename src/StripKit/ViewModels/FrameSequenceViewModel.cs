@@ -19,7 +19,8 @@ namespace StripKit.ViewModels;
 /// </summary>
 public partial class FrameSequenceViewModel : ViewModelBase
 {
-    private static readonly string[] AcceptedExtensions = [".png", ".webp", ".bmp", ".jpg", ".jpeg"];
+    private static readonly string[] AcceptedExtensions =
+        [".png", ".webp", ".bmp", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff"];
 
     private readonly IImageLoadService _imageLoad;
     private readonly IFrameSequenceAssembler _assembler;
