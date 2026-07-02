@@ -23,5 +23,16 @@ jobs:
       - name: Build
         run: dotnet build StripKit.sln -c Debug --nologo --no-restore
 
-      - name: Test
-        run: dotnet test StripKit.sln --nologo --no-build -c Debug
+      - name: Test (with coverage)
+        run: dotnet test StripKit.sln --nologo --no-build -c Debug --collect:"XPlat Code Coverage" --results-directory TestResults
+
+      - name: Coverage gate (line >= 70%)
+        shell: pwsh
+        run: |
+          $report = Get-ChildItem -Path TestResults -Recurse -Filter 'coverage.cobertura.xml' | Select-Object -First 1
+          if (-not $report) { Write-Error 'No coverage report was produced.'; exit 1 }
+          [xml]$doc = Get-Content $report.FullName -Raw
+          $rate = [double]$doc.coverage.'line-rate'
+          $pct = [math]::Round($rate * 100, 1)
+          Write-Host "Line coverage: $pct%"
+          if ($rate -lt 0.70) { Write-Error "Coverage $pct% is below the 70% gate."; exit 1 }
