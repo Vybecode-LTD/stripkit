@@ -62,6 +62,8 @@ public partial class BatchViewModel : ViewModelBase
     [ObservableProperty] private StackDirection _stackDirection = StackDirection.Vertical;
     [ObservableProperty] private bool _matchKnobFrameToSource = true;
     [ObservableProperty] private bool _exportAt2x = true;
+    public int[] HiDpiScales { get; } = [2, 3, 4];
+    [ObservableProperty] private int _hiDpiScale = 2;
     [ObservableProperty] private bool _exportManifest;
 
     // Loader-code export (per strip) — mirrors the Create/Assemble tabs.
@@ -148,6 +150,7 @@ public partial class BatchViewModel : ViewModelBase
             MatchKnobFrameToSource = MatchKnobFrameToSource,
             MeterSourceIsBackdrop = MeterSourceIsBackdrop,
             ExportAt2x = ExportAt2x,
+            HiDpiScale = HiDpiScale,
             ExportManifest = ExportManifest,
             CodeTargets = SelectedCodeTargets().ToArray(),
         };

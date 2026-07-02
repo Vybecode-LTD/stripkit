@@ -70,8 +70,8 @@ public sealed class BatchProcessor : IBatchProcessor
                     string? asset2xName = null;
                     if (options.ExportAt2x)
                     {
-                        asset2xName = $"{baseName}_{settings.FrameCount}frames@2x.png";
-                        using var strip2x = _renderer.RenderStrip(settings, renderSource, renderBackground, 2.0);
+                        asset2xName = $"{baseName}_{settings.FrameCount}frames@{options.HiDpiScale}x.png";
+                        using var strip2x = _renderer.RenderStrip(settings, renderSource, renderBackground, options.HiDpiScale);
                         await _export.SavePngAsync(strip2x, Path.Combine(options.OutputDirectory, asset2xName));
                     }
 

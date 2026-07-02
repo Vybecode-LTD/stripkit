@@ -112,8 +112,13 @@
 
                     <!-- Quality / output -->
                     <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
-                    <CheckBox Content="Also export @2x (HiDPI)" IsChecked="{Binding ExportAt2x}"
-                              ToolTip.Tip="Writes a 2× upscaled copy. For best quality, render your sequence at 2× instead." />
+                    <CheckBox Content="Also export a HiDPI copy" IsChecked="{Binding ExportAt2x}"
+                              ToolTip.Tip="Writes an upscaled copy at the chosen scale. For best quality, render your sequence at that scale instead." />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ExportAt2x}" Margin="0,4,0,0">
+                        <TextBlock Classes="label" Text="Scale" VerticalAlignment="Center" />
+                        <ComboBox ItemsSource="{Binding HiDpiScales}" SelectedItem="{Binding HiDpiScale}" MinWidth="70" />
+                        <TextBlock Classes="label" Text="× (e.g. @2x / @3x / @4x)" VerticalAlignment="Center" />
+                    </StackPanel>
 
                     <!-- Manifest -->
                     <controls:SectionHeader Text="MANIFEST (optional)" />

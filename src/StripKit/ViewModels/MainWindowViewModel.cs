@@ -200,6 +200,13 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private int _supersample = 4;
     [ObservableProperty] private StackDirection _stackDirection = StackDirection.Vertical;
     [ObservableProperty] private bool _exportAt2x = true;
+
+    /// <summary>HiDPI export scale (2× / 3× / 4×) used when "Also export @Nx" is on.</summary>
+    public int[] HiDpiScales { get; } = [2, 3, 4];
+    [ObservableProperty] private int _hiDpiScale = 2;
+    partial void OnHiDpiScaleChanged(int value) => UpdateReadouts();
+    private string HiDpiSuffix => $"@{HiDpiScale}x";
+
     [ObservableProperty] private bool _exportManifest = true;
     [ObservableProperty] private string _parameterId = "";
 
@@ -544,7 +551,7 @@ public partial class MainWindowViewModel : ViewModelBase
         int w = vertical ? FrameWidth : FrameWidth * n;
         int h = vertical ? FrameHeight * n : FrameHeight;
         StripDimensions = ExportAt2x
-            ? $"Strip: {w}×{h}px   ·   @2x: {w * 2}×{h * 2}px"
+            ? $"Strip: {w}×{h}px   ·   {HiDpiSuffix}: {w * HiDpiScale}×{h * HiDpiScale}px"
             : $"Strip: {w}×{h}px";
     }
 
@@ -1251,8 +1258,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (ExportAt2x)
             {
-                var path2x = AppendSuffix(path, "@2x");
-                using var strip2x = await Task.Run(() => _renderer.RenderStrip(settings, src, bg, 2.0, layerArt));
+                var path2x = AppendSuffix(path, HiDpiSuffix);
+                using var strip2x = await Task.Run(() => _renderer.RenderStrip(settings, src, bg, HiDpiScale, layerArt));
                 await _export.SavePngAsync(strip2x, path2x);
             }
 
@@ -1260,7 +1267,7 @@ public partial class MainWindowViewModel : ViewModelBase
             if (ExportManifest)
             {
                 var asset = Path.GetFileName(path);
-                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, "@2x")) : null;
+                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, HiDpiSuffix)) : null;
                 var controlId = Path.GetFileNameWithoutExtension(path);
                 var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? controlId : ParameterId.Trim();
 
@@ -1275,7 +1282,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 var dir = Path.GetDirectoryName(path) ?? "";
                 var asset = Path.GetFileName(path);
-                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, "@2x")) : null;
+                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, HiDpiSuffix)) : null;
                 var controlId = Path.GetFileNameWithoutExtension(path);
                 var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? controlId : ParameterId.Trim();
 
@@ -1290,7 +1297,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             LastExportPath = path;
             StatusMessage = $"Exported {FrameCount}-frame filmstrip → {Path.GetFileName(path)}"
-                          + (ExportAt2x ? " (+@2x)" : "")
+                          + (ExportAt2x ? $" (+{HiDpiSuffix})" : "")
                           + (wroteManifest ? " (+skin.json)" : "")
                           + (wroteCode > 0 ? $" (+{wroteCode} code file{(wroteCode == 1 ? "" : "s")})" : "");
         }

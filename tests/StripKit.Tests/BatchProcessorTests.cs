@@ -138,6 +138,26 @@ public class BatchProcessorTests : IDisposable
     }
 
     [Fact]
+    public async Task Exports_a_3x_hidpi_copy_when_the_scale_is_3()
+    {
+        var files = new[] { WriteKnob("knob.png") };
+        var options = new BatchOptions
+        {
+            InputFiles = files,
+            OutputDirectory = _outDir,
+            Settings = KnobTemplate(),
+            MatchKnobFrameToSource = true,
+            ExportAt2x = true,
+            HiDpiScale = 3,
+        };
+
+        var result = await _processor.ProcessAsync(options, null);
+
+        result.SucceededCount.Should().Be(1);
+        File.Exists(Path.Combine(_outDir, "knob_8frames@3x.png")).Should().BeTrue("the HiDPI copy uses the @3x suffix");
+    }
+
+    [Fact]
     public async Task Emits_loader_code_per_strip_when_code_targets_are_requested()
     {
         var files = new[] { WriteKnob("knob.png") };

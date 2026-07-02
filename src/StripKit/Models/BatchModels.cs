@@ -21,6 +21,10 @@ public sealed record BatchOptions
     public bool MeterSourceIsBackdrop { get; init; }
 
     public bool ExportAt2x { get; init; }
+
+    /// <summary>HiDPI upscale factor for the @Nx copy (2 / 3 / 4); used only when ExportAt2x is true.</summary>
+    public int HiDpiScale { get; init; } = 2;
+
     public bool ExportManifest { get; init; }
 
     /// <summary>Loader-code targets to emit per strip (JUCE / CSS / iPlug2 / HISE / React). Empty = none.</summary>

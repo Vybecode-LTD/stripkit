@@ -94,6 +94,9 @@ public partial class FrameSequenceViewModel : ViewModelBase
 
     // ---- export options (mirror the Create tab) ----
     [ObservableProperty] private bool _exportAt2x = true;
+    public int[] HiDpiScales { get; } = [2, 3, 4];
+    [ObservableProperty] private int _hiDpiScale = 2;
+    private string HiDpiSuffix => $"@{HiDpiScale}x";
     [ObservableProperty] private bool _exportManifest = true;
     [ObservableProperty] private string _parameterId = "";
     [ObservableProperty] private bool _exportCode;
@@ -433,15 +436,15 @@ public partial class FrameSequenceViewModel : ViewModelBase
 
                 if (ExportAt2x)
                 {
-                    var path2x = AppendSuffix(path, "@2x");
-                    using var strip2x = UpscaleStrip(result.Strip, 2);
+                    var path2x = AppendSuffix(path, HiDpiSuffix);
+                    using var strip2x = UpscaleStrip(result.Strip, HiDpiScale);
                     await _export.SavePngAsync(strip2x, path2x);
                 }
 
                 var controlId = Path.GetFileNameWithoutExtension(path);
                 var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? controlId : ParameterId.Trim();
                 var asset = Path.GetFileName(path);
-                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, "@2x")) : null;
+                var asset2x = ExportAt2x ? Path.GetFileName(AppendSuffix(path, HiDpiSuffix)) : null;
 
                 var settings = new FilmstripSettings
                 {
@@ -478,7 +481,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
                 LastExportPath = path;
                 WarningText = string.Join("\n", result.Warnings);
                 StatusMessage = $"Assembled {result.FrameCount}-frame filmstrip → {Path.GetFileName(path)}"
-                              + (ExportAt2x ? " (+@2x)" : "")
+                              + (ExportAt2x ? $" (+{HiDpiSuffix})" : "")
                               + (wroteManifest ? " (+skin.json)" : "")
                               + (wroteCode > 0 ? $" (+{wroteCode} code file{(wroteCode == 1 ? "" : "s")})" : "");
             }
