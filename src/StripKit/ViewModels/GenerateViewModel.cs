@@ -342,6 +342,7 @@ public partial class GenerateViewModel : ViewModelBase
                 if (attempt == 2 || !IsWeakStructure(GenerateControlType, preview.RotateCount, preview.FrameCount))
                     break;
                 StatusMessage = "The first take was missing its moving part — regenerating once…";
+                TryDelete(preview.Path);   // discard the rejected attempt's temp SVG — _lastSvgPath won't track it
             }
 
             GeneratedSvg = result.Svg;
@@ -787,7 +788,11 @@ public partial class GenerateViewModel : ViewModelBase
         int index = SetResults.IndexOf(item);
         if (index < 0) return;
 
-        _setCts ??= new CancellationTokenSource();
+        // A fresh source every time — reusing _setCts with ??= keeps a source a prior CancelSet already
+        // cancelled, which would make this regenerate abort immediately (a silent no-op).
+        _setCts?.Cancel();
+        _setCts?.Dispose();
+        _setCts = new CancellationTokenSource();
         var ct = _setCts.Token;
         IsGeneratingSet = true;
         try
@@ -801,7 +806,12 @@ public partial class GenerateViewModel : ViewModelBase
             SetStatus = $"Regenerating the {item.Label.ToLowerInvariant()}…";
             var result = await _generation.GenerateAsync(req, SelectedProvider, ApiKey, model, ct);
             var rebuilt = await Task.Run(() => BuildSetResult(new GenerationSetItem(item.ComponentType, result), index), ct);
-            if (index < SetResults.Count) SetResults[index] = rebuilt;
+            if (index < SetResults.Count)
+            {
+                var outgoing = SetResults[index];
+                SetResults[index] = rebuilt;
+                outgoing.PreviewImage?.Dispose();   // free the replaced preview's native Skia bitmap
+            }
             SetStatus = rebuilt.IsSuccess ? $"Regenerated the {item.Label.ToLowerInvariant()}." : rebuilt.StatusMessage;
         }
         catch (OperationCanceledException) { SetStatus = "Regeneration cancelled."; }
@@ -890,8 +900,12 @@ public partial class GenerateViewModel : ViewModelBase
 
     private void ClearSetResults()
     {
+        // Unbind first (Clear notifies the UI to drop its references), then dispose the native Skia-backed
+        // preview bitmaps — up to N per run — instead of leaving them for GC finalization.
+        var outgoing = SetResults.ToList();
         SetResults.Clear();
         HasSetResults = false;
+        foreach (var r in outgoing) r.PreviewImage?.Dispose();
         foreach (var p in _setSvgPaths) TryDelete(p);
         _setSvgPaths.Clear();
     }

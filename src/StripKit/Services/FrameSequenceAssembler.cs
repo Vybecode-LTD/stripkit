@@ -167,23 +167,43 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
     /// </summary>
     public static SKBitmap UnpremultiplyAlpha(SKBitmap src)
     {
-        var dst = src.ColorType == SKColorType.Rgba8888 ? src.Copy() : src.Copy(SKColorType.Rgba8888);
-        int w = dst.Width, h = dst.Height, rb = dst.RowBytes;
-        var buf = dst.Bytes;
+        int w = src.Width, h = src.Height;
+
+        // Read the source's raw RGBA bytes (premultiplied byte values when the frame is premultiplied —
+        // the usual decode). .Bytes returns a copy, so reading never mutates the source; Copy() to
+        // Rgba8888 preserves the byte values when the source uses another colour type.
+        using var rgba = src.ColorType == SKColorType.Rgba8888 ? null : src.Copy(SKColorType.Rgba8888);
+        var source = rgba ?? src;
+        int srb = source.RowBytes;
+        var sbuf = source.Bytes;
+
+        // The destination MUST be tagged Unpremul: we write STRAIGHT (un-premultiplied) RGB, and a Premul
+        // tag would make every downstream consumer (the canvas blit into the strip, the PNG encode)
+        // re-interpret the bytes as premultiplied and corrupt the colour. Tagging it Unpremul is the fix.
+        var dst = new SKBitmap(new SKImageInfo(w, h, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+        int drb = dst.RowBytes;
+        var dbuf = new byte[drb * h];
         for (int y = 0; y < h; y++)
         {
-            int row = y * rb;
+            int srow = y * srb, drow = y * drb;
             for (int x = 0; x < w; x++)
             {
-                int i = row + x * 4;
-                int a = buf[i + 3];
-                if (a == 0 || a == 255) continue;
-                buf[i]     = (byte)Math.Min(255, (buf[i]     * 255 + a / 2) / a);
-                buf[i + 1] = (byte)Math.Min(255, (buf[i + 1] * 255 + a / 2) / a);
-                buf[i + 2] = (byte)Math.Min(255, (buf[i + 2] * 255 + a / 2) / a);
+                int si = srow + x * 4, di = drow + x * 4;
+                byte a = sbuf[si + 3];
+                dbuf[di + 3] = a;
+                if (a == 0 || a == 255)
+                {
+                    dbuf[di] = sbuf[si]; dbuf[di + 1] = sbuf[si + 1]; dbuf[di + 2] = sbuf[si + 2];
+                }
+                else
+                {
+                    dbuf[di]     = (byte)Math.Min(255, (sbuf[si]     * 255 + a / 2) / a);
+                    dbuf[di + 1] = (byte)Math.Min(255, (sbuf[si + 1] * 255 + a / 2) / a);
+                    dbuf[di + 2] = (byte)Math.Min(255, (sbuf[si + 2] * 255 + a / 2) / a);
+                }
             }
         }
-        System.Runtime.InteropServices.Marshal.Copy(buf, 0, dst.GetPixels(), buf.Length);
+        System.Runtime.InteropServices.Marshal.Copy(dbuf, 0, dst.GetPixels(), dbuf.Length);
         return dst;
     }
 
@@ -195,10 +215,7 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
     /// </summary>
     public static RenderQcReport AnalyzeQc(IReadOnlyList<SKBitmap> frames)
     {
-        int refW = 0, refH = 0;
-        foreach (var f in frames) { refW = Math.Max(refW, f.Width); refH = Math.Max(refH, f.Height); }
-
-        double minCx = double.MaxValue, maxCx = double.MinValue, minCy = double.MaxValue, maxCy = double.MinValue;
+        double minAx = double.MaxValue, maxAx = double.MinValue, minAy = double.MaxValue, maxAy = double.MinValue;
         int opaque = 0, empty = 0, premultVotes = 0, withContent = 0;
 
         foreach (var f in frames)
@@ -212,13 +229,18 @@ public sealed class FrameSequenceAssembler : IFrameSequenceAssembler
             }
             withContent++;
             var (cx, cy) = ContentAnalysis.DetectContentCenter(f);
-            minCx = Math.Min(minCx, cx); maxCx = Math.Max(maxCx, cx);
-            minCy = Math.Min(minCy, cy); maxCy = Math.Max(maxCy, cy);
+            // Drift is measured in ABSOLUTE pixels: DetectContentCenter normalizes to each frame's own
+            // size, so multiply back by THIS frame's dimensions before taking the spread. (Scaling a
+            // mixed-normalization spread by the largest cell — the old approach — over-reported drift for
+            // non-uniform sequences, where an object at the same absolute pixel looked like it had moved.)
+            double ax = cx * f.Width, ay = cy * f.Height;
+            minAx = Math.Min(minAx, ax); maxAx = Math.Max(maxAx, ax);
+            minAy = Math.Min(minAy, ay); maxAy = Math.Max(maxAy, ay);
             if (premultEdge) premultVotes++;
         }
 
-        double driftX = withContent > 1 ? (maxCx - minCx) * refW : 0.0;
-        double driftY = withContent > 1 ? (maxCy - minCy) * refH : 0.0;
+        double driftX = withContent > 1 ? (maxAx - minAx) : 0.0;
+        double driftY = withContent > 1 ? (maxAy - minAy) : 0.0;
         // Conservative: only flag when EVERY content frame's soft edges are premultiplied-consistent,
         // so we never recommend a fix that would brighten the edges of a straight-alpha render.
         bool premultSuspected = withContent > 0 && premultVotes == withContent;

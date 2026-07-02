@@ -74,9 +74,12 @@ public static class SvgSanitizer
         return true;
     }
 
-    /// <summary>Removes active / external content in place: forbidden elements, event-handler
-    /// attributes, and any non-local <c>href</c>/<c>xlink:href</c> reference.</summary>
-    private static void Sanitize(XElement root)
+    /// <summary>Removes active / external content in place: forbidden elements (script /
+    /// foreignObject / image), event-handler attributes, and any non-local <c>href</c>/<c>xlink:href</c>
+    /// reference. Public so the layered-file import path can run the same gate before handing an
+    /// arbitrary user SVG to Svg.Skia (svg-net resolves an external <c>&lt;image href&gt;</c> over the
+    /// network/disk during rasterization — an SSRF vector on the file picker).</summary>
+    public static void Sanitize(XElement root)
     {
         // Drop forbidden elements (descendants first so removal never skips siblings).
         foreach (var el in root.DescendantsAndSelf().Where(e => StripElements.Contains(e.Name.LocalName)).ToList())

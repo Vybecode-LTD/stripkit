@@ -77,17 +77,22 @@ public abstract class HttpAssetGenerationProvider(HttpClient http) : IAssetGener
             throw new GenerationException($"Couldn't reach {Provider} ({ex.Message}). Check your connection.");
         }
 
-        var body = await response.Content.ReadAsStringAsync(ct);
-        if (!response.IsSuccessStatusCode)
-            throw new GenerationException(FriendlyError(response.StatusCode, body));
+        // Dispose the response (and its content) on every return/throw path — the body is fully buffered
+        // to a string below, so a plain using is sufficient.
+        using (response)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            if (!response.IsSuccessStatusCode)
+                throw new GenerationException(FriendlyError(response.StatusCode, body));
 
-        try
-        {
-            return JsonDocument.Parse(body);
-        }
-        catch
-        {
-            throw new GenerationException($"{Provider} returned an unreadable response.");
+            try
+            {
+                return JsonDocument.Parse(body);
+            }
+            catch
+            {
+                throw new GenerationException($"{Provider} returned an unreadable response.");
+            }
         }
     }
 

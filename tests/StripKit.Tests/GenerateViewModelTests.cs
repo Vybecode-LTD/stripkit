@@ -457,6 +457,31 @@ public class GenerateViewModelTests
     }
 
     [Fact]
+    public async Task Regenerating_a_set_item_after_a_cancel_still_works_and_does_not_abort()
+    {
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubSet(gen, LayeredKnobSvg);
+            StubReply(gen, GenerationResult.Ok(LayeredKnobSvg));   // Regenerate uses GenerateAsync
+            vm.ApiKey = "sk-test";
+
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+            var item = vm.SetResults.First();
+
+            // A prior cancel leaves the shared set-CTS cancelled. Before the fix, Regenerate reused it
+            // (??=) so this new action aborted immediately with "Regeneration cancelled."
+            vm.CancelSetCommand.Execute(null);
+
+            await vm.RegenerateSetItemCommand.ExecuteAsync(item);
+
+            vm.SetStatus.Should().NotContainEquivalentOf("cancelled");
+            vm.SetResults.Should().Contain(r => r.IsSuccess);
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
     public async Task Using_a_set_item_hands_off_its_own_path_and_type()
     {
         var (vm, gen, _, temps) = Build();

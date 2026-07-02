@@ -88,10 +88,18 @@ public sealed class LayeredImportService : ILayeredImportService
         var root = doc.Root;
         if (root is null) return null;
 
+        // Strip active/external content (script / <image> / <foreignObject> / on* handlers / non-'#'
+        // href) BEFORE the text reaches Svg.Skia. svg-net resolves an external <image xlink:href="http…">
+        // (or file://) over the network/disk during rasterization, so an imported file could otherwise
+        // beacon out or probe local files (SSRF) — and the file picker accepts arbitrary user SVG. The
+        // AI-reply path is already sanitized upstream; this brings the file-import path to the same gate.
+        SvgSanitizer.Sanitize(root);
+        var safeSvg = root.ToString(SaveOptions.DisableFormatting);
+
         // Render the whole document once to fix the canonical canvas box + coordinate origin, so
-        // each isolated layer lands in exactly the same place. Safe now that the DTD gate passed.
+        // each isolated layer lands in exactly the same place. Safe now that the DTD gate + sanitize passed.
         using var full = new SvgSkia();
-        full.FromSvg(text);
+        full.FromSvg(safeSvg);
         if (full.Picture is null) return null;
         var cull = full.Picture.CullRect;
         if (cull.Width <= 0 || cull.Height <= 0) return null;

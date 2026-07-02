@@ -1,3 +1,5 @@
+using System.Net;
+using System.Net.Sockets;
 using FluentAssertions;
 using ImageMagick;
 using ImageMagick.Drawing;
@@ -43,6 +45,43 @@ public class LayeredImportServiceTests
         var path = Path.Combine(Path.GetTempPath(), $"stripkit_test_{Guid.NewGuid():N}{ext}");
         File.WriteAllText(path, contents);
         return path;
+    }
+
+    [Fact]
+    public void Svg_import_does_not_fetch_an_external_image_reference()
+    {
+        // svg-net resolves an <image xlink:href="http://…"> over the network during rasterization, so a
+        // crafted SVG opened via the file picker could beacon out or probe local files (SSRF) — verified
+        // live. The import path must strip <image> before Svg.Skia sees it. Bind a loopback listener and
+        // assert nothing connects, while the safe <g id="body"> layer still imports.
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        int port = ((IPEndPoint)listener.LocalEndpoint).Port;
+        bool connected = false;
+        var accept = Task.Run(async () =>
+        {
+            try { using var c = await listener.AcceptTcpClientAsync(); connected = true; }
+            catch { /* listener stopped */ }
+        });
+
+        var svg =
+            "<svg xmlns='http://www.w3.org/2000/svg' xmlns:xlink='http://www.w3.org/1999/xlink' width='32' height='32'>" +
+            "<g id='body'><rect width='32' height='32' fill='red'/></g>" +
+            $"<g id='beacon'><image xlink:href='http://127.0.0.1:{port}/x' width='32' height='32'/></g></svg>";
+        var path = WriteTemp(svg, ".svg");
+        try
+        {
+            var result = _import.Import(path);
+            accept.Wait(1000);
+
+            connected.Should().BeFalse("importing an SVG must not resolve external <image> references (SSRF)");
+            result.Should().NotBeNull("the safe body layer still imports after the <image> is stripped");
+        }
+        finally
+        {
+            listener.Stop();
+            try { File.Delete(path); } catch { /* best-effort */ }
+        }
     }
 
     [Fact]

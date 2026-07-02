@@ -53,8 +53,8 @@
                             Command="{Binding LoadSampleCommand}" />
 
                     <Border IsVisible="{Binding CurrentHasTip}"
-                            Background="{DynamicResource GlassFill}"
-                            BorderBrush="{DynamicResource GlassBorder}" BorderThickness="1"
+                            Background="{DynamicResource GlassFillBrush}"
+                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1"
                             CornerRadius="6" Padding="10,8">
                         <StackPanel Orientation="Horizontal" Spacing="8">
                             <TextBlock Text="💡" FontSize="13" VerticalAlignment="Top" />

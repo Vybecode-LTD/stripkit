@@ -926,11 +926,13 @@ public partial class MainWindowViewModel : ViewModelBase
         _suspendRefresh = true;
         if (stateFrames)
         {
-            // Discrete state frames (off/on, …): one frame per layer, no rotation axis, keep the canvas size.
+            // Discrete state frames (off/on, …): one frame per STATE layer, no rotation axis, keep the
+            // canvas size. Count only Frame-behavior layers so a shared Static border/shadow layer doesn't
+            // inflate the frame count (and the renderer matches states by ordinal, not absolute index).
             ComponentType = resolvedType;
             FrameWidth = result.CanvasWidth;
             FrameHeight = result.CanvasHeight;
-            FrameCount = Math.Max(2, ImportedLayers.Count);
+            FrameCount = Math.Max(2, result.Layers.Count(l => l.SuggestedBehavior == LayerBehavior.Frame));
         }
         else
         {

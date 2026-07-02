@@ -503,15 +503,27 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         float fh = settings.FrameHeight;
         int count = Math.Min(settings.Layers.Count, layerArt.Count);
 
+        int frameOrdinal = 0;   // counts Frame-behavior layers so a leading Static layer can't shift the states
         for (int i = 0; i < count; i++)
         {
             var layer = settings.Layers[i];
             var art = layerArt[i];
-            if (art is null || art.Width <= 0 || art.Height <= 0) continue;
 
-            bool show = layer.Behavior == LayerBehavior.Static
-                     || (layer.Behavior == LayerBehavior.Frame && i == frameIndex);
+            // Frame layers match by their ORDINAL position among Frame layers, not their absolute stack
+            // index — so a preceding Static layer (a shared border/shadow) doesn't shift the off/on states.
+            // Ordinal 0 = off, 1 = on, …
+            bool show;
+            if (layer.Behavior == LayerBehavior.Frame)
+            {
+                show = frameOrdinal == frameIndex;
+                frameOrdinal++;
+            }
+            else
+            {
+                show = layer.Behavior == LayerBehavior.Static;
+            }
             if (!show) continue;
+            if (art is null || art.Width <= 0 || art.Height <= 0) continue;
 
             var (drawW, drawH) = Contain(art.Width, art.Height, fw, fh);
             float drawX = (fw - drawW) / 2f;
