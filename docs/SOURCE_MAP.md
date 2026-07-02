@@ -149,10 +149,13 @@ does each thing live" companion.
   files): `DtdProcessing.Prohibit`, no `XmlResolver`, `MaxCharactersFromEntities = 0` — closes
   entity-expansion DoS ("billion laughs") + external-entity / SSRF. Used by `SvgSanitizer` and
   `LayeredImportService`. BCL only (`System.Xml`); app-only.
-- `IImageLoadService.cs` / `ImageLoadService.cs` — decode a PNG to an `SKBitmap`, capping the decoded
+- `IImageLoadService.cs` / `ImageLoadService.cs` — decode an image to an `SKBitmap`, capping the decoded
   dimensions via `SKCodec` first (a decompression-bomb guard against a hostile image). `Probe` peeks
   an image's header dimensions without decoding the pixels (used by the Assemble tab to report the
-  frame-size spread before a large assemble).
+  frame-size spread before a large assemble). **HDR/EXR ingest (path-tracing P3b):** `.exr` / `.hdr` /
+  16-bit `.tif` are routed through Magick.NET (Q16-HDRI) — a linear EXR is tone-mapped (linear → sRGB +
+  clamp) then reduced to 8-bit (depth-8 → PNG32 → Skia decode); `Probe` reads their header via
+  `MagickImageInfo`. Best-effort (null on failure), header-capped like the Skia path.
 - `IFileDialogService.cs` / `FileDialogService.cs` — open-image / **open-images (multi-select)** /
   open-layered (SVG/PSD) / save-PNG / **save-SVG** / open-folder pickers via Avalonia `StorageProvider`.
   The concrete class holds the `Owner` window, set in `App.axaml.cs` after the window is created.
@@ -228,6 +231,11 @@ does each thing live" companion.
   `WriteableBitmap` path if preview performance ever matters.
 - `HexToColorBrushConverter.cs` — an `IValueConverter` that turns a `#RRGGBB` hex string into an
   Avalonia `IBrush`, backing the Generate tab's body/accent colour swatches (live as you type).
+- `MagickPixels.cs` — static: normalizes Magick.NET's `IPixelCollection.ToByteArray` RGBA bytes to 8-bit
+  regardless of the build's quantum depth (at **Q16-HDRI** they're 16-bit / 8 bytes/pixel). Downshifts to
+  the high byte of each channel, inferring bytes-per-channel from the buffer length. Used by the PSD
+  reader (`LayeredImportService`) and the HDR ingest (`ImageLoadService`). No ImageMagick dependency —
+  pure byte math.
 
 ### `Controls/`
 

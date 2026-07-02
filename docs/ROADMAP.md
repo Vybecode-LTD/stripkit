@@ -195,15 +195,26 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   landed the **Assemble-tab render-recipe entry-point** (plan a render right where you assemble).
   **Deferred → P3b:** 16-bit / EXR HDR ingest + tone-map + dithered de-band — needs the Magick.NET
   **Q8 → Q16-HDRI** swap (Q8 can't hold >8-bit), so it's its own piece. **(P2)**
-- ⏳ **P3b — 16-bit / EXR HDR ingest** — accept `.exr` / 16-bit frames (via a Magick.NET Q16-HDRI
-  loader), tone-map HDR → SDR, and **dither** down to 8-bit RGBA to kill the banding 8-bit renders show
-  on smooth metal/glass. Split out of P3 because it needs the quantum-depth dependency swap. **(P3)**
-- ⏳ **P4 — Frame interpolation ("render fewer, ship more")** — render ~32 expensive frames and
-  synthesise 64/128: crossfade-blend (v1, cheap — good for slow rotation) then optical-flow (v2). A
-  new resample mode in the assembler; directly attacks the "path tracing is expensive" cost. **(P2)**
-- ⏳ **P5 — AOV / multi-pass layer ingest** — ingest separate render passes (beauty + emission/glow)
-  into the **existing** `RenderLayer` stack so a knob's LED/glow can be toggled or value-tracked at
-  runtime without re-rendering. Extends `LayeredImportService`; no renderer change. **(P3)**
+- ✅ **P3b — 16-bit / EXR HDR ingest** *(unreleased; v1.4.0)* — the Assemble tab ingests `.exr` / `.hdr` /
+  16-bit `.tif` frames (the native output of most path tracers). Swapped **Magick.NET-Q8 → Q16-HDRI**
+  (holds >8-bit so an EXR is tone-mapped before the 8-bit reduction; OpenEXR is bundled — no extra
+  delegate). `ImageLoadService` routes HDR formats through Magick (linear → sRGB + clamp → depth-8 →
+  PNG32 → Skia decode); new `Helpers/MagickPixels` downshifts Q16's 16-bit `ToByteArray` to 8-bit (the
+  PSD path relies on this, and was revalidated). +2 tests (278 → 280). *(A dithered de-band — Magick's
+  `OrderedDither` posterizes, so it needs error-diffusion — and multi-layer/deep EXR are deferred.)* **(P3)**
+- ✅ **P4 — Frame interpolation ("render fewer, ship more")** *(unreleased; v1.4.0)* — **v1 (crossfade)
+  done:** a new interpolation mode in the assembler cross-dissolves the two bracketing frames per output
+  frame (the `(N−1)/(M−1)` law keeps the real endpoints exact), so ~32 expensive frames can ship as
+  64/128 for slow, smooth motion. `FrameInterpolation` {Nearest, Crossfade} + a Method combo on the
+  Assemble tab. +2 tests (274 → 276). *(Optical-flow (v2) is deferred — it needs a CV dependency; the
+  mode enum leaves room.)* **(P2)**
+- ✅ **P5 — AOV / emission-pass ingest** *(unreleased; v1.4.0)* — the Assemble tab takes a second render
+  pass (an emission/glow AOV, one frame per beauty frame) and **additively composites** it over the
+  beauty frames, so a path-traced glow reads like emitted light instead of being baked flat.
+  `FrameSequenceOptions.EmissionFrames` / `EmissionIntensity`; a folder picker + intensity slider on the
+  tab; a mismatched count is ignored with a warning. +2 tests (276 → 278). *(Interpreted for the
+  frame-sequence workflow — AOVs arrive as sequences; the glow is baked into the strip, and a runtime
+  toggle / value-track of the pass needs loader + manifest support, deferred.)* **(P3)**
 
 ### Close the loop (asset → working control)
 

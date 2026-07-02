@@ -26,6 +26,9 @@ one machined-grey, ember-accent look.
 - **Reliability + polish.** The playback transport now looks and behaves the same on every tab, and a
   pre-release audit hardened file import (a crafted SVG can no longer make the app phone home), fixed a
   colour shift in the un-premultiply cleanup, and squared away layered button/toggle state art.
+- **More of the path-tracing pipeline.** Assemble now reads **EXR / 16-bit HDR** frames straight from
+  Blender / KeyShot / Octane (tone-mapped for you), can **blend in-between frames** to turn ~32 rendered
+  frames into a smooth 64/128, and can **add an emission / glow pass** so lit parts read like real light.
 
 ### Added
 - **Assemble tab.** Choose a folder (or drag-drop) of individually-rendered frames; StripKit
@@ -62,6 +65,21 @@ one machined-grey, ember-accent look.
   brandmark + wordmark header.
 - **Crosshair fix.** Enabling the alignment crosshair keeps the image stationary while you drag the
   mark onto the knob's true centre; on release, playback rotates about that point.
+- **Frame interpolation — "render fewer, ship more" (path-tracing P4).** A new re-time method on the
+  Assemble tab: **Crossfade** cross-dissolves the two bracketing frames to synthesise in-betweens (the
+  `(N−1)/(M−1)` law keeps the real endpoints), so ~32 expensive path-traced frames can ship as 64/128 for
+  slow, smooth motion. `FrameInterpolation` {Nearest, Crossfade} + a Method combo. +2 tests (274 → 276).
+  *(Optical-flow interpolation is a future v2.)*
+- **Emission / glow AOV pass (path-tracing P5).** The Assemble tab can take a second render pass — an
+  emission/glow AOV, one frame per beauty frame — and additively composite it over the beauty frames, so
+  a path-traced glow (a knob LED, a lit screen) reads like emitted light instead of baked-flat. A folder
+  picker + intensity slider; a mismatched frame count is ignored with a warning. +2 tests (276 → 278).
+- **16-bit / EXR HDR frame ingest (path-tracing P3b).** The Assemble tab ingests `.exr` / `.hdr` / 16-bit
+  `.tif` frames — the native output of most path tracers. Swapped **Magick.NET-Q8 → Q16-HDRI** so an EXR
+  is tone-mapped (linear → sRGB + clamp) before the 8-bit reduction; OpenEXR is bundled (no extra
+  install). New `Helpers/MagickPixels` downshifts Magick's 16-bit pixels to 8-bit (also fixes the PSD
+  reader under the new quantum depth). +2 tests (278 → 280). *(A dithered de-band and multi-layer EXR are
+  future work.)*
 
 ### Fixed
 - **Uniform preview transport across every tab** (Create / Import / Assemble render the play/scrub

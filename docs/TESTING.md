@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (274 tests)
+dotnet test                                      # whole suite (280 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **274 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **280 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,18 +45,21 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (274)
+## Test inventory (280)
 
-### Assemble tab (frame-sequence → filmstrip) — 28
+### Assemble tab (frame-sequence → filmstrip) — 32
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
 golden images) plus one golden lock.
 - `NaturalFileNameComparerTests.cs` — 7: numbered names sort numerically (`frame_2` before
   `frame_10`), leading zeros compare equal, an unpadded sequence sorts into render order, and
   non-numeric names fall back to case-insensitive text.
-- `FrameSequenceAssemblerTests.cs` — 9: vertical/horizontal stacking dimensions; placed cells equal
+- `FrameSequenceAssemblerTests.cs` — 13: vertical/horizontal stacking dimensions; placed cells equal
   the source frames pixel-for-pixel; pad-to-largest pads + warns; crop-to-smallest; strict throws on a
   mismatch; <2 frames throws; resample retimes to the target and keeps the endpoints (via the importer);
-  content re-centre moves an off-centre block to the cell centre.
+  content re-centre moves an off-centre block to the cell centre. **(P4)** crossfade resample hits the
+  target count + keeps the endpoints exact, and its midpoint is a genuine ~50/50 blend. **(P5)** an
+  emission pass additively brightens the beauty frames, and a mismatched emission count is ignored with a
+  warning (the beauty left untouched).
 - `FrameSequenceProbeTests.cs` — 2 (integration): a real `ImageLoadService` + the assembler probe
   natural-sort on-disk PNGs and report uniform vs mixed sizes (header-only, no full decode).
 - `FrameSequenceViewModelTests.cs` — 8: export gated until ≥2 frames; a single frame isn't enough;
@@ -165,12 +168,16 @@ Button state-frame path, so the renderer goldens are unchanged.
   `[Static, Frame(off), Frame(on)]` stack, off still renders on frame 0 and on on frame 1 (ordinal
   matching, not absolute index).
 
-### `ImageLoadServiceTests.cs` — 3 (concrete PNG decode path)
+### `ImageLoadServiceTests.cs` — 5 (concrete decode path incl. HDR/EXR)
 The real `ImageLoadService` decode used across the app: it peeks header dimensions via `SKCodec`
 and guards against a decompression-bomb (huge dimensions) before decoding.
 - `Decodes_a_valid_png_at_its_real_dimensions` (a control-art PNG decodes to its real size).
 - `Returns_null_for_a_missing_file`.
 - `Returns_null_for_non_image_content` (a file with no decodable header).
+- **(P3b)** `Loads_a_16bit_tiff_frame_and_downshifts_to_8bit_rgba` — a 16-bit TIFF (SkiaSharp can't
+  decode it) loads via Magick, `Probe` reports its dims, and the colour survives the 16→8-bit downshift.
+- **(P3b)** `Loads_an_exr_frame_and_tone_maps_it_to_an_8bit_bitmap` — an EXR (OpenEXR bundled in
+  Q16-HDRI) tone-maps to an 8-bit RGBA bitmap of the right size.
 
 ### `PointerExtractorTests.cs` — 3 (auto-pointer extraction, pure SkiaSharp)
 Splitting a flat knob into a symmetric base + the indicator via the radial-symmetry residual.

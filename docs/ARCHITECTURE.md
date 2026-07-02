@@ -60,7 +60,7 @@ Microsoft.Extensions.DependencyInjection 9.0.0, SkiaSharp 3.119.2 (the floor Svg
 warns of a conflict), and `Avalonia.Controls.ColorPicker` 11.3.0 (the Generate colour swatches).
 
 **Layered-import / Generate packages (app-only, not in `FilmstripEngine.cs`):** `Svg.Skia` 5.0.0
-(MIT, SVG layers), `Magick.NET-Q8-x64` 14.14.0 (Apache-2.0, PSD/PSB layers), and
+(MIT, SVG layers), `Magick.NET-Q16-HDRI-x64` 14.14.0 (Apache-2.0, PSD/PSB layers + 16-bit/EXR HDR frames), and
 `System.Security.Cryptography.ProtectedData` 9.0.0 (Windows DPAPI for the encrypted AI keys).
 
 ---
@@ -528,9 +528,10 @@ runs `ILayeredImportService.Import(path)` off the UI thread.
     root + shared `<defs>` + that one group) and rasterize it through the same transform, so the
     isolated groups register pixel-for-pixel. Names come from `inkscape:label` / `id` / `data-name`;
     document order = paint order = bottom-first.
-  - **`.psd` / `.psb`** — read layers with **Magick.NET-Q8** (Apache-2.0). ImageMagick returns
+  - **`.psd` / `.psb`** — read layers with **Magick.NET-Q16-HDRI** (Apache-2.0). ImageMagick returns
     `[merged composite, layer, layer, …]`; the unlabeled composite is dropped, each named layer's
-    RGBA pixels are blitted onto a full-canvas bitmap at its page offset (so layers register).
+    RGBA pixels are blitted onto a full-canvas bitmap at its page offset (so layers register). At
+    Q16-HDRI the pixel bytes are 16-bit, so they're downshifted to 8-bit RGBA via `Helpers/MagickPixels`.
   - Each `ImportedLayer` carries a **name-guessed behaviour** (an indicator-like name —
     pointer/needle/indicator/tick… — → `Rotate`, else `Static`), a starting guess the user overrides.
   - The service is **not** mirrored into `FilmstripEngine.cs` (render math only); it's pure

@@ -103,7 +103,7 @@ Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 git clone https://github.com/Vybecode-LTD/stripkit.git
 cd stripkit
 dotnet run --project src/StripKit      # launch the app
-dotnet test                            # 274 tests
+dotnet test                            # 280 tests
 ```
 
 Build a self-contained Windows release:
@@ -168,7 +168,7 @@ Contributions are very welcome — bug reports, feature ideas, and pull requests
 
 **Workflow**
 1. Fork the repo and branch off `main`.
-2. Make your change and add/update tests — `dotnet test` must stay green (currently **274**).
+2. Make your change and add/update tests — `dotnet test` must stay green (currently **280**).
 3. Keep the house conventions:
    - Don't rewrite `Services/SkiaFilmstripRenderer.cs`; the rotation/supersampling math is
      deliberate (the `(N-1)` angle divisor is intentional — last frame lands exactly on max).

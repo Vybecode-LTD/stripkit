@@ -29,8 +29,10 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 
 - .NET 9, Avalonia 11.3, CommunityToolkit.Mvvm 8.4 (source generators),
   SkiaSharp 3.119.2. `Avalonia.Controls.ColorPicker` 11.3.0 (Generate colour swatches).
-- Layered-source import (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) + **Magick.NET-Q8-x64**
-  14.14.0 (Apache-2.0, PSD/PSB layers). Both permissive; not in `FilmstripEngine.cs`.
+- Layered-source import + HDR frame ingest (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) +
+  **Magick.NET-Q16-HDRI-x64** 14.14.0 (Apache-2.0, PSD/PSB layers + 16-bit/EXR HDR frames — Q16-HDRI
+  so an EXR tone-maps before the 8-bit reduction; `Helpers/MagickPixels` downshifts its 16-bit
+  `ToByteArray`). Both permissive; not in `FilmstripEngine.cs`.
 - AI SVG generation (Generate tab, app-only): OpenAI / Gemini / Claude — plus any **OpenAI-compatible
   custom endpoint** (`AiProvider.Custom`: OpenRouter / Ollama / LM Studio) — over a shared `HttpClient`,
   incl. **vision** (`DescribeImageAsync`) for reference-image matching; user API keys encrypted at rest
@@ -38,7 +40,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **274 green.**
+  6.0.4). **280 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -257,6 +259,23 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-07-02 (v1.4.0-dev: path-tracing P3b + P4 + P5 — HDR ingest, frame interpolation, AOV pass; on
+  `main`, unreleased)** — Finished the remaining offline-3D / path-tracing phases, all on the Assemble
+  tab with no renderer change. **P4 — frame interpolation** (`6840c93`): a `FrameInterpolation`
+  {Nearest, Crossfade} mode; Crossfade cross-dissolves the two bracketing frames per output frame (the
+  `(N−1)/(M−1)` law keeps the endpoints exact) so ~32 expensive frames ship as 64/128. **P5 — AOV /
+  emission pass** (`52726cf`): the tab takes a second render pass (an emission/glow AOV) and additively
+  composites it over the beauty frames; `FrameSequenceOptions.EmissionFrames` / `EmissionIntensity`, a
+  mismatched count warns rather than throws. **P3b — 16-bit / EXR HDR ingest** (`7f5057a`): swapped
+  **Magick.NET-Q8 → Q16-HDRI** (holds >8-bit; OpenEXR bundled); `ImageLoadService` routes `.exr` / `.hdr`
+  / 16-bit `.tif` through Magick (linear → sRGB + clamp → depth-8 → PNG32 → Skia), and new
+  `Helpers/MagickPixels` downshifts Q16's 16-bit `ToByteArray` to 8-bit — the PSD path relies on this and
+  was revalidated. +6 tests. **Suite 274 → 280 green, build advisory-clean.** Docs reconciled (ROADMAP
+  P3b/P4/P5 → ✅; CLAUDE / HANDOFF / TESTING 280 / CHANGELOG). **Deferred:** optical-flow interpolation
+  (P4 v2 — needs a CV dep); a dithered de-band (Magick `OrderedDither` posterizes to 2 levels) +
+  multi-layer/deep EXR (P3b); runtime toggle/value-track of the AOV pass (P5 — needs loader + manifest).
+  **Next:** push + release v1.4.0.
 
 - **2026-07-02 (v1.4.0-dev: full fine-tooth-comb audit + 11 code/test fixes; on `main`, unreleased)** —
   A 10-dimension, adversarially-verified audit of the unreleased v1.4.0 work found 18 real items; the 11
