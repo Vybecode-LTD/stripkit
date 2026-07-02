@@ -1,5 +1,6 @@
 using ImageMagick;
 using SkiaSharp;
+using StripKit.Helpers;
 
 namespace StripKit.Services;
 
@@ -86,13 +87,18 @@ public sealed class ImageLoadService : IImageLoadService
 
             img.Clamp();                 // HDRI allows values past the quantum max — clamp before quantizing
             img.Alpha(AlphaOption.Set);  // guarantee an RGBA channel
-            img.Depth = 8;               // reduce 16-bit → 8-bit (the PNG32 write does the quantization)
 
-            // (A dithered 16→8 reduction to kill banding on smooth gradients is a future refinement —
-            // Magick's OrderedDither("o8x8") posterizes to 2 levels per channel, so it isn't the right
-            // tool here; a per-channel error-diffusion pass would be.)
-            byte[] png = img.ToByteArray(MagickFormat.Png32);   // 8-bit RGBA
-            return SKBitmap.Decode(png);
+            // Reduce 16-bit → 8-bit with an ordered (Bayer) dither on RGB, so smooth gradients (metal,
+            // glass) don't band into 8-bit steps. We do the reduction ourselves: Magick's OrderedDither
+            // posterizes to 2 levels, and a plain Depth=8 just truncates (which bands).
+            using var pixels = img.GetPixels();
+            byte[] raw = pixels.ToByteArray(PixelMapping.RGBA) ?? [];
+            byte[] rgba = MagickPixels.DitherDownTo8(raw, pw, ph);
+            if (rgba.Length < (long)pw * ph * 4) return null;
+
+            var bmp = new SKBitmap(new SKImageInfo(pw, ph, SKColorType.Rgba8888, SKAlphaType.Unpremul));
+            System.Runtime.InteropServices.Marshal.Copy(rgba, 0, bmp.GetPixels(), pw * ph * 4);
+            return bmp;
         }
         catch
         {

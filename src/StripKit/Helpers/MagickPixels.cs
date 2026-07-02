@@ -35,4 +35,57 @@ public static class MagickPixels
             dst[i] = src[i * bytesPerChannel + hi];
         return dst;
     }
+
+    // Standard 8×8 Bayer ordered-dither threshold matrix, values 0..63.
+    private static readonly int[] Bayer8 =
+    {
+         0, 32,  8, 40,  2, 34, 10, 42,
+        48, 16, 56, 24, 50, 18, 58, 26,
+        12, 44,  4, 36, 14, 46,  6, 38,
+        60, 28, 52, 20, 62, 30, 54, 22,
+         3, 35, 11, 43,  1, 33,  9, 41,
+        51, 19, 59, 27, 49, 17, 57, 25,
+        15, 47,  7, 39, 13, 45,  5, 37,
+        63, 31, 55, 23, 61, 29, 53, 21,
+    };
+
+    /// <summary>
+    /// Reduce a 16-bit RGBA buffer (Magick's <c>ToByteArray(RGBA)</c> at Q16-HDRI) to 8-bit RGBA with an
+    /// ordered (Bayer 8×8) dither on the RGB channels — spreads the rounding spatially so smooth gradients
+    /// (metal, glass) don't band into 8-bit steps (path-tracing P3b de-band). Alpha is truncated, not
+    /// dithered, to avoid speckling anti-aliased edges. An already-8-bit buffer is returned unchanged.
+    /// </summary>
+    public static byte[] DitherDownTo8(byte[] src, int width, int height)
+    {
+        long pixelCount = (long)width * height;
+        if (pixelCount <= 0) return src;
+
+        long channels = pixelCount * 4;
+        if (channels == 0 || src.Length % channels != 0) return src;
+
+        int bytesPerChannel = (int)(src.Length / channels);
+        if (bytesPerChannel <= 1) return src;   // already 8-bit — nothing to dither
+
+        var dst = new byte[channels];
+        for (int y = 0; y < height; y++)
+        {
+            int row = (y & 7) * 8;
+            for (int x = 0; x < width; x++)
+            {
+                int threshold = Bayer8[row + (x & 7)] * 4;   // 0..252
+                long p = (long)y * width + x;
+                int si = (int)(p * 4 * bytesPerChannel);
+                int di = (int)(p * 4);
+                for (int c = 0; c < 4; c++)
+                {
+                    int lo = src[si + c * bytesPerChannel];                    // low byte (LE remainder)
+                    int hi = src[si + c * bytesPerChannel + bytesPerChannel - 1];  // high byte = truncated 8-bit
+                    dst[di + c] = c == 3
+                        ? (byte)hi                                            // alpha: no dither
+                        : (byte)(lo > threshold ? Math.Min(255, hi + 1) : hi);
+                }
+            }
+        }
+        return dst;
+    }
 }

@@ -84,6 +84,31 @@ public class ImageLoadServiceTests
     }
 
     [Fact]
+    public void DitherDownTo8_spreads_a_mid_value_across_neighbouring_8bit_levels()
+    {
+        // A 16×16 buffer of a 16-bit grey with a nonzero low byte (hi 0x80, lo 0x80). A naive truncation
+        // gives a flat 0x80 (banding); the ordered dither must produce BOTH 0x80 and 0x81 across the tile —
+        // that spatial mix is what removes the band.
+        int w = 16, h = 16;
+        var src = new byte[w * h * 4 * 2];   // 16-bit little-endian, 8 bytes/pixel
+        for (int i = 0; i < w * h * 4; i++) { src[i * 2] = 0x80; src[i * 2 + 1] = 0x80; }
+
+        var dst = StripKit.Helpers.MagickPixels.DitherDownTo8(src, w, h);
+
+        dst.Length.Should().Be(w * h * 4);
+        var reds = new HashSet<byte>();
+        for (int p = 0; p < w * h; p++) reds.Add(dst[p * 4]);
+        reds.Should().Contain((byte)0x80).And.Contain((byte)0x81, "ordered dither spreads the remainder");
+    }
+
+    [Fact]
+    public void DitherDownTo8_passes_an_already_8bit_buffer_through_unchanged()
+    {
+        var src = new byte[] { 10, 20, 30, 255 };
+        StripKit.Helpers.MagickPixels.DitherDownTo8(src, 1, 1).Should().BeSameAs(src);
+    }
+
+    [Fact]
     public void Loads_an_exr_frame_and_tone_maps_it_to_an_8bit_bitmap()
     {
         var path = Path.Combine(Path.GetTempPath(), $"stripkit_hdr_{Guid.NewGuid():N}.exr");
