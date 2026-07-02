@@ -42,6 +42,32 @@ public class MeterRenderTests
         return bmp;
     }
 
+    static int CountBluePixels(SKBitmap b)
+    {
+        int count = 0;
+        for (int y = 0; y < b.Height; y++)
+        for (int x = 0; x < b.Width; x++)
+        {
+            var p = b.GetPixel(x, y);
+            if (p.Blue > 180 && p.Red < 80 && p.Green < 80 && p.Alpha > 200) count++;
+        }
+        return count;
+    }
+
+    [Fact]
+    public void Peak_marker_paints_the_leading_segment_only_when_enabled()
+    {
+        var withPeakSettings = Meter(MeterFillDirection.Up);
+        withPeakSettings.ShowMeterPeak = true;
+        withPeakSettings.PeakColorArgb = 0xFF0000FF;   // blue — distinct from the orange on-colour
+
+        using var withPeak = _renderer.RenderFrame(withPeakSettings, null, null, 32);
+        using var without = _renderer.RenderFrame(Meter(MeterFillDirection.Up), null, null, 32);
+
+        CountBluePixels(withPeak).Should().BeGreaterThan(20, "the peak segment is painted in the peak colour");
+        CountBluePixels(without).Should().Be(0, "no peak marker (and existing meter output) when the toggle is off");
+    }
+
     // ---- golden-image baselines ----
 
     [Fact]

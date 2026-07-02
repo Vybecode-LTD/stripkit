@@ -216,6 +216,8 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _continuousFill;
     [ObservableProperty] private string _onColorHex = "#FFE8440A";
     [ObservableProperty] private string _offColorHex = "#FF2A2A2A";
+    [ObservableProperty] private bool _showMeterPeak;
+    [ObservableProperty] private string _peakColorHex = "#FFFFFFFF";
 
     // ---- value arc / fill ring (knob) ----
     [ObservableProperty] private bool _showValueArc;
@@ -470,6 +472,8 @@ public partial class MainWindowViewModel : ViewModelBase
             ContinuousFill = ContinuousFill,
             OnColorArgb = ParseArgb(OnColorHex, 0xFFE8440A),
             OffColorArgb = ParseArgb(OffColorHex, 0xFF2A2A2A),
+            ShowMeterPeak = ShowMeterPeak,
+            PeakColorArgb = ParseArgb(PeakColorHex, 0xFFFFFFFF),
             ShowValueArc = ShowValueArc,
             ArcRadius = ArcRadius,
             ArcThickness = ArcThickness,

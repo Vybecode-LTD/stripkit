@@ -80,6 +80,14 @@ public sealed class FilmstripSettings
     /// <summary>Procedural meter unlit-segment colour, packed <c>0xAARRGGBB</c>.</summary>
     public uint OffColorArgb { get; set; } = 0xFF2A2A2A;   // dim
 
+    /// <summary>Highlight the topmost lit segment in <see cref="PeakColorArgb"/> as a peak marker (the
+    /// filmstrip form of a peak indicator; true temporal peak-hold is a runtime/loader concern). Off by
+    /// default so existing meter output is byte-identical. Procedural meters only.</summary>
+    public bool ShowMeterPeak { get; set; }
+
+    /// <summary>Peak-marker colour, packed <c>0xAARRGGBB</c> (used only when <see cref="ShowMeterPeak"/> is set).</summary>
+    public uint PeakColorArgb { get; set; } = 0xFFFFFFFF;   // bright peak tick
+
     // ---- Value arc / fill ring (rotary knob only) ----
 
     /// <summary>When true, a Serum/Vital-style fill arc that tracks the value is composited

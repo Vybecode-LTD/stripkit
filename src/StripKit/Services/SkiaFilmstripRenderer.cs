@@ -405,6 +405,18 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         for (int k = 0; k < segments; k++)
             canvas.DrawRect(SegmentRect(k, vertical, segLen, gap, workW, workH), onPaint);
         canvas.Restore();
+
+        // Peak marker: paint the leading (peak) segment of the fill in the peak colour (off by default).
+        // Segment 0 sits at the top/left; Up and RightToLeft fill from the far end, so the leading segment
+        // is counted from the other side.
+        if (settings.ShowMeterPeak && fill > 0)
+        {
+            int litCount = Math.Clamp((int)Math.Ceiling(fill * segments), 1, segments);
+            bool reversed = settings.FillDirection is MeterFillDirection.Up or MeterFillDirection.RightToLeft;
+            int peakIdx = Math.Clamp(reversed ? segments - litCount : litCount - 1, 0, segments - 1);
+            using var peakPaint = new SKPaint { Color = FromArgb(settings.PeakColorArgb), IsAntialias = true, Style = SKPaintStyle.Fill };
+            canvas.DrawRect(SegmentRect(peakIdx, vertical, segLen, gap, workW, workH), peakPaint);
+        }
     }
 
     /// <summary>The lit region of the frame for a given fill fraction and direction.</summary>

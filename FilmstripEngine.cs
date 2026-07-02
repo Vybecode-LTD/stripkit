@@ -172,6 +172,12 @@ public sealed class FilmstripSettings
     /// <summary>Procedural unlit-segment colour, 0xAARRGGBB.</summary>
     public uint OffColorArgb { get; set; } = 0xFF2A2A2A;
 
+    /// <summary>Highlight the topmost lit segment in <see cref="PeakColorArgb"/> as a peak marker
+    /// (off by default; procedural meters only).</summary>
+    public bool ShowMeterPeak { get; set; }
+    /// <summary>Peak-marker colour, 0xAARRGGBB (used only when <see cref="ShowMeterPeak"/> is set).</summary>
+    public uint PeakColorArgb { get; set; } = 0xFFFFFFFF;
+
     // ---- Value arc / fill ring (rotary knob only) ----
     /// <summary>Composite a Serum/Vital-style value-tracking fill arc onto each knob frame
     /// (off by default; ignored for non-knob types).</summary>
@@ -579,6 +585,17 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         for (int k = 0; k < segments; k++)
             canvas.DrawRect(SegmentRect(k, vertical, segLen, gap, workW, workH), onPaint);
         canvas.Restore();
+
+        // Peak marker: paint the leading (peak) segment of the fill in the peak colour (off by default).
+        // Segment 0 sits at the top/left; Up and RightToLeft fill from the far end.
+        if (settings.ShowMeterPeak && fill > 0)
+        {
+            int litCount = Math.Clamp((int)Math.Ceiling(fill * segments), 1, segments);
+            bool reversed = settings.FillDirection is MeterFillDirection.Up or MeterFillDirection.RightToLeft;
+            int peakIdx = Math.Clamp(reversed ? segments - litCount : litCount - 1, 0, segments - 1);
+            using var peakPaint = new SKPaint { Color = FromArgb(settings.PeakColorArgb), IsAntialias = true, Style = SKPaintStyle.Fill };
+            canvas.DrawRect(SegmentRect(peakIdx, vertical, segLen, gap, workW, workH), peakPaint);
+        }
     }
 
     private static SKRect FillRect(MeterFillDirection direction, float fill, int workW, int workH) => direction switch

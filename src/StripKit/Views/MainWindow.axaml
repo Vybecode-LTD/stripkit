@@ -308,6 +308,11 @@
                                 <TextBox Text="{Binding OffColorHex}" />
                             </StackPanel>
                         </Grid>
+                        <CheckBox Content="Peak marker (highlight the top segment)" IsChecked="{Binding ShowMeterPeak}" Margin="0,6,0,0" />
+                        <StackPanel IsVisible="{Binding ShowMeterPeak}" Margin="0,4,0,0">
+                            <TextBlock Classes="label" Text="Peak colour (#AARRGGBB)" />
+                            <TextBox Text="{Binding PeakColorHex}" />
+                        </StackPanel>
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="Procedural segments by default. Load a source image (on-state) — and optionally a background (off-state) — for a layered meter instead." />
                     </StackPanel>
