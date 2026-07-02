@@ -101,6 +101,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
     [ObservableProperty] private bool _emitCodeCss;
     [ObservableProperty] private bool _emitCodeIPlug2;
     [ObservableProperty] private bool _emitCodeHise;
+    [ObservableProperty] private bool _emitCodeReact;
 
     // ---- render recipe (plan the offline render that feeds this tab) ----
     public RenderRecipeTarget[] RecipeTargets { get; } =
@@ -555,6 +556,7 @@ public partial class FrameSequenceViewModel : ViewModelBase
         if (EmitCodeCss) yield return CodeTarget.Css;
         if (EmitCodeIPlug2) yield return CodeTarget.IPlug2;
         if (EmitCodeHise) yield return CodeTarget.Hise;
+        if (EmitCodeReact) yield return CodeTarget.React;
     }
 
     /// <summary>A clean base name for the output, derived from the first frame's name with its trailing

@@ -148,6 +148,29 @@ public class CodeSnippetServiceTests
         code.Should().Contain("g.drawImage(\"filmstrip\", [0, 0, 80, 80], 0, frame * 80)");
     }
 
+    // ---- React ----
+
+    [Fact]
+    public void React_emits_a_value_driven_sprite_component()
+    {
+        var code = _svc.Generate(CodeTarget.React, Req());
+        code.Should().Contain("import React from 'react';");
+        code.Should().Contain("export default function FilterCutoff(");
+        code.Should().Contain("value = 0");
+        code.Should().Contain("const FRAMES = 64;");
+        code.Should().Contain("Math.round(value * (FRAMES - 1))");
+        code.Should().Contain("backgroundImage: `url(\"filterCutoff_64frames.png\")`");
+    }
+
+    [Fact]
+    public void React_background_axis_follows_the_stack_direction()
+    {
+        _svc.Generate(CodeTarget.React, Req(stack: StackDirection.Vertical))
+            .Should().Contain("const HORIZONTAL = false;");
+        _svc.Generate(CodeTarget.React, Req(stack: StackDirection.Horizontal))
+            .Should().Contain("const HORIZONTAL = true;");
+    }
+
     // ---- identifiers / file names / I/O ----
 
     [Fact]
@@ -165,6 +188,7 @@ public class CodeSnippetServiceTests
     [InlineData(CodeTarget.Css, "filterCutoff.html")]
     [InlineData(CodeTarget.IPlug2, "filterCutoff.iplug2.cpp")]
     [InlineData(CodeTarget.Hise, "filterCutoff.hise.js")]
+    [InlineData(CodeTarget.React, "filterCutoff.jsx")]
     public void FileName_maps_each_target(CodeTarget target, string expected) =>
         _svc.FileName(target, "filterCutoff").Should().Be(expected);
 

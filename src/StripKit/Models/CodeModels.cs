@@ -14,6 +14,10 @@ public enum CodeTarget
 
     /// <summary>HISE — a <c>ScriptPanel</c> with a filmstrip paint routine.</summary>
     Hise,
+
+    /// <summary>React — a `.jsx` sprite component driven by a <c>value</c> prop (0..1). Framework-web /
+    /// WebView plugin GUIs (JUCE WebView, iPlug2 WebUI, Cmajor).</summary>
+    React,
 }
 
 /// <summary>

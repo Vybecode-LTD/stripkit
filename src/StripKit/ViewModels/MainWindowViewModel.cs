@@ -156,7 +156,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public int[] SupersampleOptions { get; } = [1, 2, 4, 8];
 
     public CodeTarget[] CodeTargets { get; } =
-        [CodeTarget.Juce, CodeTarget.Css, CodeTarget.IPlug2, CodeTarget.Hise];
+        [CodeTarget.Juce, CodeTarget.Css, CodeTarget.IPlug2, CodeTarget.Hise, CodeTarget.React];
 
     // ---- source / background ----
     [ObservableProperty] private string _sourceInfo = "";
@@ -251,6 +251,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty] private bool _emitCodeCss = true;
     [ObservableProperty] private bool _emitCodeIPlug2;
     [ObservableProperty] private bool _emitCodeHise;
+    [ObservableProperty] private bool _emitCodeReact;
     [ObservableProperty] private CodeTarget _codePreviewTarget = CodeTarget.Juce;
     [ObservableProperty] private string _generatedCode = "";
 
@@ -354,6 +355,7 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(EmitCodeCss):
             case nameof(EmitCodeIPlug2):
             case nameof(EmitCodeHise):
+            case nameof(EmitCodeReact):
                 return;
         }
 
@@ -593,6 +595,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (EmitCodeCss) yield return CodeTarget.Css;
         if (EmitCodeIPlug2) yield return CodeTarget.IPlug2;
         if (EmitCodeHise) yield return CodeTarget.Hise;
+        if (EmitCodeReact) yield return CodeTarget.React;
     }
 
     // ---- commands ----

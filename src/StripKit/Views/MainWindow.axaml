@@ -346,6 +346,9 @@
                             <CheckBox Grid.Column="0" Content="iPlug2" IsChecked="{Binding EmitCodeIPlug2}" />
                             <CheckBox Grid.Column="1" Content="HISE" IsChecked="{Binding EmitCodeHise}" />
                         </Grid>
+                        <Grid ColumnDefinitions="*,*">
+                            <CheckBox Grid.Column="0" Content="React / Web" IsChecked="{Binding EmitCodeReact}" />
+                        </Grid>
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,2,0,0"
                                    Text="Writes a loader file per ticked target next to the PNG (.juce.h / .html / .iplug2.cpp / .hise.js). The code loads the strip and shows one frame per value." />
                     </StackPanel>
