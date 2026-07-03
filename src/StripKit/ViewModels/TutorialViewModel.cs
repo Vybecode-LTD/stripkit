@@ -160,6 +160,7 @@ public partial class TutorialViewModel : ViewModelBase
                  + "arc, and layered art (a static body plus a separate rotating pointer) keeps the "
                  + "body crisp while only the pointer moves — load the two layers by hand, auto-extract "
                  + "them from a flat image, or “Import layered file (SVG / PSD)…” directly.",
+            Tip = "STATIC BACKGROUND (optional) lets you composite a fixed layer — a knob well, a meter housing — behind everything else, drawn once and never transformed.",
         },
         new TutorialStep
         {
