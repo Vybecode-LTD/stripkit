@@ -28,6 +28,12 @@ public sealed class ManifestService : IManifestService
             FrameWidth = settings.FrameWidth,
             FrameHeight = settings.FrameHeight,
             Stack = settings.StackDirection == StackDirection.Vertical ? "vertical" : "horizontal",
+            Layout = settings.Layout == StripLayout.Grid ? "grid" : null,
+            // Clamp defensively (mirrors the renderer's own Math.Max(1, ...) guard) so an unclamped
+            // upstream value (a hand-built FilmstripSettings, or a preset saved before validation
+            // existed) can never serialize a non-positive gridColumns, which would violate the
+            // plugin-asset-manifest JSON Schema's minimum: 1.
+            GridColumns = settings.Layout == StripLayout.Grid ? Math.Max(1, settings.GridColumns) : null,
             // Default the on-screen bounds to one frame at the origin; the skin author
             // repositions in their real layout (bounds are base-resolution pixels).
             Bounds = new ManifestBounds(0, 0, settings.FrameWidth, settings.FrameHeight),

@@ -35,4 +35,23 @@ static class TestFakes
             Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(),
             Substitute.For<IManifestService>(), Substitute.For<ICodeSnippetService>(),
             new RenderRecipeService());
+
+    /// <summary>A fully-wired <see cref="MainWindowViewModel"/> from substitutes, taking the
+    /// caller's <see cref="ISettingsService"/> so preset save/load can be exercised against a
+    /// known settings instance (or a fresh temp one via <see cref="TempSettings"/>).</summary>
+    public static MainWindowViewModel MainVm(ISettingsService settings)
+    {
+        var importer = new ImporterViewModel(Substitute.For<IImageLoadService>(), Substitute.For<IFilmstripImporter>(),
+                                             Substitute.For<IFileDialogService>(), Substitute.For<IExportService>());
+        var batch = new BatchViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IBatchProcessor>());
+        var skin = new SkinViewModel(Substitute.For<IFileDialogService>(), Substitute.For<IImageLoadService>(),
+                                     Substitute.For<IFilmstripImporter>(), Substitute.For<IManifestService>());
+        var tutorial = new TutorialViewModel(TempSettings());
+
+        return new MainWindowViewModel(Substitute.For<IImageLoadService>(), Substitute.For<IFilmstripRenderer>(),
+            Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(), Substitute.For<IManifestService>(),
+            new CodeSnippetService(), new RenderRecipeService(), new LayeredImportService(), Substitute.For<IAssetService>(),
+            settings,
+            importer, batch, skin, tutorial, GenerateVm(), AssembleVm());
+    }
 }

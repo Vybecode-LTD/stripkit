@@ -33,8 +33,13 @@ public sealed record CodeSnippetRequest(
     string AssetFileName,
     string? Asset2xFileName,
     string ControlId,
-    string ParameterId)
+    string ParameterId,
+    StripLayout Layout = StripLayout.Strip,
+    int GridColumns = 1)
 {
     /// <summary>True when frames are laid out left-to-right (a horizontal strip).</summary>
     public bool FramesAreHorizontal => Stack == StackDirection.Horizontal;
+
+    /// <summary>True when the asset is an R×C sprite atlas rather than a single strip.</summary>
+    public bool IsGrid => Layout == StripLayout.Grid;
 }

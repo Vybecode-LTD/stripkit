@@ -3,6 +3,7 @@
         xmlns:vm="clr-namespace:StripKit.ViewModels"
         xmlns:views="clr-namespace:StripKit.Views"
         xmlns:controls="clr-namespace:StripKit.Controls"
+        xmlns:models="clr-namespace:StripKit.Models"
         x:Class="StripKit.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="StripKit — Animated Control Filmstrip Maker"
@@ -36,6 +37,29 @@
                     <Border Classes="divider" />
                     <TextBlock Text="Single image → animated knob / fader / slider / meter / button filmstrip"
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
+
+                    <!-- Render presets -->
+                    <controls:SectionHeader Text="PRESETS" />
+                    <ListBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" MaxHeight="120">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate x:DataType="models:RenderPreset">
+                                <TextBlock Text="{Binding Name}" />
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+                    <Grid ColumnDefinitions="*,6,*" Margin="0,4,0,0">
+                        <Button Grid.Column="0" Content="Apply" HorizontalAlignment="Stretch"
+                                Command="{Binding ApplyPresetCommand}"
+                                ToolTip.Tip="Restores this preset's full render setup (type, frames, sweep, layout, meter/arc, export options) — not any loaded art." />
+                        <Button Grid.Column="2" Content="Delete" HorizontalAlignment="Stretch"
+                                Command="{Binding DeletePresetCommand}" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                        <TextBox Grid.Column="0" Text="{Binding NewPresetName}" Watermark="New preset name…" />
+                        <Button Grid.Column="1" Content="Save" Margin="6,0,0,0" Command="{Binding SavePresetCommand}" />
+                    </Grid>
+                    <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,12"
+                               Text="Saves the current render setup as a reusable named preset (not the loaded art)." />
 
                     <!-- Source -->
                     <controls:SectionHeader Text="SOURCE IMAGE" />
@@ -331,15 +355,41 @@
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding SupersampleOptions}"
                               SelectedItem="{Binding Supersample}" />
-                    <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" />
+                    <TextBlock Classes="label" Text="Sprite layout" Margin="0,6,0,0" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding StripLayouts}"
+                              SelectedItem="{Binding Layout}"
+                              ToolTip.Tip="Strip: a single 1×N strip along the stack direction below. Grid: an R×C sprite atlas for loaders that expect one." />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsGridLayout}" Margin="0,4,0,0">
+                        <TextBlock Classes="label" Text="Grid columns" VerticalAlignment="Center" />
+                        <NumericUpDown Value="{Binding GridColumns}" Minimum="1" Maximum="512" Increment="1" MinWidth="110" />
+                    </StackPanel>
+                    <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" IsVisible="{Binding !IsGridLayout}" />
                     <ComboBox HorizontalAlignment="Stretch"
                               ItemsSource="{Binding StackDirections}"
-                              SelectedItem="{Binding StackDirection}" />
+                              SelectedItem="{Binding StackDirection}"
+                              IsVisible="{Binding !IsGridLayout}" />
                     <CheckBox Content="Also export a HiDPI copy" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0" />
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ExportAt2x}" Margin="0,4,0,0">
                         <TextBlock Classes="label" Text="Scale" VerticalAlignment="Center" />
                         <ComboBox ItemsSource="{Binding HiDpiScales}" SelectedItem="{Binding HiDpiScale}" MinWidth="70" />
                         <TextBlock Classes="label" Text="× (e.g. @2x / @3x / @4x)" VerticalAlignment="Center" />
+                    </StackPanel>
+
+                    <!-- Parameter-law frame mapping -->
+                    <controls:SectionHeader Text="PARAMETER LAW (advanced)" />
+                    <TextBlock Classes="label" Text="Frame mapping curve" />
+                    <ComboBox HorizontalAlignment="Stretch"
+                              ItemsSource="{Binding MappingCurves}"
+                              SelectedItem="{Binding MappingCurve}"
+                              ToolTip.Tip="Remaps each frame's position in the sweep so it matches the plugin's actual parameter law (e.g. a log frequency taper) instead of a straight linear divisor. Linear leaves every render unchanged." />
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsSkewMapping}" Margin="0,4,0,0">
+                        <TextBlock Classes="label" Text="Skew exponent" VerticalAlignment="Center" />
+                        <NumericUpDown Value="{Binding MappingSkew}" Minimum="0.1" Maximum="10" Increment="0.1" FormatString="0.00" MinWidth="110" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLogMapping}" Margin="0,4,0,0">
+                        <TextBlock Classes="label" Text="Log base" VerticalAlignment="Center" />
+                        <NumericUpDown Value="{Binding MappingLogBase}" Minimum="1.1" Maximum="1000" Increment="1" FormatString="0.0" MinWidth="110" />
                     </StackPanel>
 
                     <!-- Manifest -->

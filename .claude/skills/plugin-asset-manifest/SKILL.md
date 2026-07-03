@@ -53,6 +53,8 @@ Each control:
 | `frames` | Frame count in the strip. |
 | `frameWidth`, `frameHeight` | One frame's 1x pixel size. |
 | `stack` | `vertical` \| `horizontal` — frame layout in the PNG. |
+| `layout` | Optional. Absent = a single Stack-direction strip; `"grid"` = an R×C sprite atlas. |
+| `gridColumns` | Present only when `layout` is `"grid"` — column count; rows = `ceil(frames / gridColumns)`. |
 | `bounds` | `{ x, y, w, h }` in base-resolution pixels. |
 | `background` | Optional per-control static layer drawn behind the strip. |
 | `valueMin`, `valueMax`, `valueDefault` | Parameter range mapping (optional; many hosts already normalize). |
@@ -102,6 +104,8 @@ Each control:
           "frameWidth": { "type": "integer", "minimum": 1 },
           "frameHeight": { "type": "integer", "minimum": 1 },
           "stack": { "enum": ["vertical", "horizontal"], "default": "vertical" },
+          "layout": { "enum": ["grid"] },
+          "gridColumns": { "type": "integer", "minimum": 1 },
           "background": { "type": "string" },
           "bounds": {
             "type": "object",
@@ -170,6 +174,14 @@ frameIndex = round(value01 * (frames - 1))     // (frames-1): last frame = max
 srcRect    = vertical ? (0, frameIndex*frameHeight, frameWidth, frameHeight)
                       : (frameIndex*frameWidth, 0, frameWidth, frameHeight)
 drawScale  = displayScale                        // 1x asset on a 2x display => 0.5 source-to-dest, or load asset2x
+```
+
+When `layout` is `"grid"`, ignore `stack` and index by column/row instead:
+
+```
+col     = frameIndex % gridColumns
+row     = frameIndex / gridColumns             // integer division
+srcRect = (col*frameWidth, row*frameHeight, frameWidth, frameHeight)
 ```
 
 A JUCE `LookAndFeel` reads the manifest once at construction, loads each asset

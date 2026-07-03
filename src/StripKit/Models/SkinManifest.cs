@@ -49,6 +49,15 @@ public sealed record ManifestControl
     /// <summary>Frame layout in the PNG: vertical or horizontal.</summary>
     public string Stack { get; init; } = "vertical";
 
+    /// <summary>Sprite packing: omitted (a single Stack-direction strip) or <c>"grid"</c> (an
+    /// R×C sprite atlas; see <see cref="GridColumns"/>). Absent by default so prior manifests
+    /// are unchanged.</summary>
+    public string? Layout { get; init; }
+
+    /// <summary>Grid column count — present only when <see cref="Layout"/> is <c>"grid"</c>;
+    /// rows are <c>ceil(frames / gridColumns)</c>.</summary>
+    public int? GridColumns { get; init; }
+
     /// <summary>Optional per-control static layer drawn behind the strip.</summary>
     public string? Background { get; init; }
 

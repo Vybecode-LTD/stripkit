@@ -21,6 +21,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IRenderRecipeService _recipes;
     private readonly ILayeredImportService _layeredImport;
     private readonly IAssetService _assets;
+    private readonly ISettingsService _settings;
 
     private SKBitmap? _source;
     private SKBitmap? _background;
@@ -49,6 +50,7 @@ public partial class MainWindowViewModel : ViewModelBase
                                IManifestService manifest, ICodeSnippetService codeSnippets,
                                IRenderRecipeService recipes,
                                ILayeredImportService layeredImport, IAssetService assets,
+                               ISettingsService settings,
                                ImporterViewModel importer, BatchViewModel batch, SkinViewModel skin,
                                TutorialViewModel tutorial, GenerateViewModel generate,
                                FrameSequenceViewModel assemble)
@@ -62,6 +64,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _recipes = recipes;
         _layeredImport = layeredImport;
         _assets = assets;
+        _settings = settings;
         Importer = importer;
         Batch = batch;
         Skin = skin;
@@ -70,6 +73,9 @@ public partial class MainWindowViewModel : ViewModelBase
         Assemble = assemble;
         Tutorial.LoadSampleRequested += OnTutorialLoadSampleRequested;
         Generate.UseInCreateRequested += OnGenerateUseInCreate;
+
+        foreach (var preset in _settings.Settings.RenderPresets)
+            Presets.Add(preset);
 
         SourceInfo = "No image loaded.";
         BackgroundInfo = "None.";
@@ -150,6 +156,12 @@ public partial class MainWindowViewModel : ViewModelBase
     public StackDirection[] StackDirections { get; } =
         [StackDirection.Vertical, StackDirection.Horizontal];
 
+    public StripLayout[] StripLayouts { get; } =
+        [StripLayout.Strip, StripLayout.Grid];
+
+    public FrameMappingCurve[] MappingCurves { get; } =
+        [FrameMappingCurve.Linear, FrameMappingCurve.Skew, FrameMappingCurve.Logarithmic];
+
     public MeterFillDirection[] FillDirections { get; } =
         [MeterFillDirection.Up, MeterFillDirection.Down, MeterFillDirection.LeftToRight, MeterFillDirection.RightToLeft];
 
@@ -199,6 +211,27 @@ public partial class MainWindowViewModel : ViewModelBase
     // ---- quality / output ----
     [ObservableProperty] private int _supersample = 4;
     [ObservableProperty] private StackDirection _stackDirection = StackDirection.Vertical;
+
+    /// <summary>Sprite packing: a single Stack-direction strip (default) or an R×C grid atlas.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsGridLayout))]
+    private StripLayout _layout = StripLayout.Strip;
+
+    /// <summary>Grid column count, used only when <see cref="Layout"/> is <see cref="StripLayout.Grid"/>.</summary>
+    [ObservableProperty] private int _gridColumns = 8;
+
+    public bool IsGridLayout => Layout == StripLayout.Grid;
+
+    // ---- parameter-law frame mapping ----
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsSkewMapping), nameof(IsLogMapping))]
+    private FrameMappingCurve _mappingCurve = FrameMappingCurve.Linear;
+    [ObservableProperty] private double _mappingSkew = 1.0;
+    [ObservableProperty] private double _mappingLogBase = 9.0;
+
+    public bool IsSkewMapping => MappingCurve == FrameMappingCurve.Skew;
+    public bool IsLogMapping => MappingCurve == FrameMappingCurve.Logarithmic;
+
     [ObservableProperty] private bool _exportAt2x = true;
 
     /// <summary>HiDPI export scale (2× / 3× / 4×) used when "Also export @Nx" is on.</summary>
@@ -269,6 +302,18 @@ public partial class MainWindowViewModel : ViewModelBase
         [RenderRecipeTarget.Blender, RenderRecipeTarget.Csv, RenderRecipeTarget.Json];
     [ObservableProperty] private RenderRecipeTarget _recipePreviewTarget = RenderRecipeTarget.Blender;
     [ObservableProperty] private string _generatedRecipe = "";
+
+    // ---- render presets (save / load the full Create-tab render setup) ----
+
+    /// <summary>Saved presets, loaded from <see cref="ISettingsService"/> at startup and kept in
+    /// sync with it on every save/delete.</summary>
+    public ObservableCollection<RenderPreset> Presets { get; } = [];
+
+    [ObservableProperty] private string _newPresetName = "";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(ApplyPresetCommand), nameof(DeletePresetCommand))]
+    private RenderPreset? _selectedPreset;
 
     // ---- preview ----
     [ObservableProperty] private double _previewValue = 0.5;
@@ -347,6 +392,9 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(IsToggle):
             case nameof(IsStateFrames):
             case nameof(ShowLoadHint):
+            case nameof(IsGridLayout):
+            case nameof(IsSkewMapping):
+            case nameof(IsLogMapping):
             case nameof(IsPlaying):
             case nameof(SelectedTabIndex):
             case nameof(IsAboutOpen):
@@ -359,6 +407,8 @@ public partial class MainWindowViewModel : ViewModelBase
             case nameof(ImportInfo):
             case nameof(GeneratedCode):
             case nameof(GeneratedRecipe):
+            case nameof(NewPresetName):
+            case nameof(SelectedPreset):
             case nameof(ExportCode):
             case nameof(EmitCodeJuce):
             case nameof(EmitCodeCss):
@@ -467,6 +517,11 @@ public partial class MainWindowViewModel : ViewModelBase
             CapCrossOffset = CapCrossOffset,
             Supersample = Supersample,
             StackDirection = StackDirection,
+            Layout = Layout,
+            GridColumns = GridColumns,
+            MappingCurve = MappingCurve,
+            MappingSkew = MappingSkew,
+            MappingLogBase = MappingLogBase,
             SegmentCount = SegmentCount,
             FillDirection = FillDirection,
             ContinuousFill = ContinuousFill,
@@ -545,15 +600,28 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         int n = Math.Max(1, FrameCount);
         int idx = Math.Clamp((int)Math.Round(PreviewValue * (n - 1)), 0, n - 1);
-        double t = n > 1 ? (double)idx / (n - 1) : 0.0;
+        double linearT = n > 1 ? (double)idx / (n - 1) : 0.0;
+        // Mirrors what the renderer actually draws for this frame (MapT is a no-op for Linear).
+        double t = BuildSettings().MapT(linearT);
 
         PreviewReadout = IsRotary
             ? $"Frame {idx + 1}/{n} · {StartAngleDegrees + (EndAngleDegrees - StartAngleDegrees) * t:0.0}°"
             : $"Frame {idx + 1}/{n} · {t * 100:0}%";
 
-        bool vertical = StackDirection == StackDirection.Vertical;
-        int w = vertical ? FrameWidth : FrameWidth * n;
-        int h = vertical ? FrameHeight * n : FrameHeight;
+        int w, h;
+        if (Layout == StripLayout.Grid)
+        {
+            int cols = Math.Max(1, GridColumns);
+            int rows = (n + cols - 1) / cols;
+            w = FrameWidth * cols;
+            h = FrameHeight * rows;
+        }
+        else
+        {
+            bool vertical = StackDirection == StackDirection.Vertical;
+            w = vertical ? FrameWidth : FrameWidth * n;
+            h = vertical ? FrameHeight * n : FrameHeight;
+        }
         StripDimensions = ExportAt2x
             ? $"Strip: {w}×{h}px   ·   {HiDpiSuffix}: {w * HiDpiScale}×{h * HiDpiScale}px"
             : $"Strip: {w}×{h}px";
@@ -570,7 +638,8 @@ public partial class MainWindowViewModel : ViewModelBase
         var asset2x = ExportAt2x ? AppendSuffix(asset, "@2x") : null;
         var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? baseName : ParameterId.Trim();
         return new CodeSnippetRequest(ComponentType, FrameCount, FrameWidth, FrameHeight,
-                                      StackDirection, asset, asset2x, baseName, parameterId);
+                                      StackDirection, asset, asset2x, baseName, parameterId,
+                                      Layout, GridColumns);
     }
 
     private void UpdateCodePreview() =>
@@ -607,6 +676,177 @@ public partial class MainWindowViewModel : ViewModelBase
         if (EmitCodeIPlug2) yield return CodeTarget.IPlug2;
         if (EmitCodeHise) yield return CodeTarget.Hise;
         if (EmitCodeReact) yield return CodeTarget.React;
+    }
+
+    // ---- render presets ----
+
+    /// <summary>Snapshots the current Create-tab render setup into a named preset. No loaded art —
+    /// a preset is a reusable style, not an asset bundle.</summary>
+    private RenderPreset ToPreset(string name) => new()
+    {
+        Name = name,
+        ComponentType = ComponentType,
+        FrameCount = FrameCount,
+        FrameWidth = FrameWidth,
+        FrameHeight = FrameHeight,
+        SweepDegrees = SweepDegrees,
+        RotationClockwise = RotationClockwise,
+        StartAngleDegrees = StartAngleDegrees,
+        EndAngleDegrees = EndAngleDegrees,
+        PivotOffsetX = PivotOffsetX,
+        PivotOffsetY = PivotOffsetY,
+        SourceCenterX = SourceCenterX,
+        SourceCenterY = SourceCenterY,
+        EdgeMargin = EdgeMargin,
+        CapCrossOffset = CapCrossOffset,
+        Supersample = Supersample,
+        StackDirection = StackDirection,
+        Layout = Layout,
+        GridColumns = GridColumns,
+        MappingCurve = MappingCurve,
+        MappingSkew = MappingSkew,
+        MappingLogBase = MappingLogBase,
+        SegmentCount = SegmentCount,
+        FillDirection = FillDirection,
+        ContinuousFill = ContinuousFill,
+        OnColorHex = OnColorHex,
+        OffColorHex = OffColorHex,
+        ShowMeterPeak = ShowMeterPeak,
+        PeakColorHex = PeakColorHex,
+        ShowValueArc = ShowValueArc,
+        ArcRadius = ArcRadius,
+        ArcThickness = ArcThickness,
+        ArcRoundCaps = ArcRoundCaps,
+        ArcColorHex = ArcColorHex,
+        ArcGradient = ArcGradient,
+        ArcColor2Hex = ArcColor2Hex,
+        ArcTrack = ArcTrack,
+        ArcTrackColorHex = ArcTrackColorHex,
+        ArcGlow = ArcGlow,
+        ArcGlowSize = ArcGlowSize,
+        ExportAt2x = ExportAt2x,
+        HiDpiScale = HiDpiScale,
+        ExportManifest = ExportManifest,
+        ExportCode = ExportCode,
+        EmitCodeJuce = EmitCodeJuce,
+        EmitCodeCss = EmitCodeCss,
+        EmitCodeIPlug2 = EmitCodeIPlug2,
+        EmitCodeHise = EmitCodeHise,
+        EmitCodeReact = EmitCodeReact,
+    };
+
+    private bool CanSavePreset() => !string.IsNullOrWhiteSpace(NewPresetName);
+
+    /// <summary>Saves (or overwrites, by case-insensitive name) the current render setup as a
+    /// named preset, persisted immediately via <see cref="ISettingsService"/>.</summary>
+    [RelayCommand(CanExecute = nameof(CanSavePreset))]
+    private void SavePreset()
+    {
+        var name = NewPresetName.Trim();
+        var preset = ToPreset(name);
+
+        int existingIndex = -1;
+        for (int i = 0; i < Presets.Count; i++)
+            if (string.Equals(Presets[i].Name, name, StringComparison.OrdinalIgnoreCase)) { existingIndex = i; break; }
+
+        if (existingIndex >= 0)
+            Presets[existingIndex] = preset;
+        else
+            Presets.Add(preset);
+
+        _settings.Settings.RenderPresets.Clear();
+        _settings.Settings.RenderPresets.AddRange(Presets);
+        _settings.Save();
+
+        SelectedPreset = preset;
+        NewPresetName = "";
+        StatusMessage = $"Saved preset \"{name}\".";
+    }
+
+    private bool CanUseSelectedPreset() => SelectedPreset is not null;
+
+    /// <summary>Restores every field a preset carries in one shot, suppressing the preview funnel
+    /// while assigning so type-default recomputation doesn't clobber the saved values (mirrors the
+    /// Generate "Use in Create" handoff's bulk-assign pattern).</summary>
+    [RelayCommand(CanExecute = nameof(CanUseSelectedPreset))]
+    private void ApplyPreset()
+    {
+        var p = SelectedPreset;
+        if (p is null) return;
+
+        _suspendRefresh = true;
+        ComponentType = p.ComponentType;
+        FrameCount = p.FrameCount;
+        FrameWidth = p.FrameWidth;
+        FrameHeight = p.FrameHeight;
+        SweepDegrees = p.SweepDegrees;
+        RotationClockwise = p.RotationClockwise;
+        StartAngleDegrees = p.StartAngleDegrees;
+        EndAngleDegrees = p.EndAngleDegrees;
+        PivotOffsetX = p.PivotOffsetX;
+        PivotOffsetY = p.PivotOffsetY;
+        SourceCenterX = p.SourceCenterX;
+        SourceCenterY = p.SourceCenterY;
+        EdgeMargin = p.EdgeMargin;
+        CapCrossOffset = p.CapCrossOffset;
+        Supersample = p.Supersample;
+        StackDirection = p.StackDirection;
+        Layout = p.Layout;
+        GridColumns = p.GridColumns;
+        MappingCurve = p.MappingCurve;
+        MappingSkew = p.MappingSkew;
+        MappingLogBase = p.MappingLogBase;
+        SegmentCount = p.SegmentCount;
+        FillDirection = p.FillDirection;
+        ContinuousFill = p.ContinuousFill;
+        OnColorHex = p.OnColorHex;
+        OffColorHex = p.OffColorHex;
+        ShowMeterPeak = p.ShowMeterPeak;
+        PeakColorHex = p.PeakColorHex;
+        ShowValueArc = p.ShowValueArc;
+        ArcRadius = p.ArcRadius;
+        ArcThickness = p.ArcThickness;
+        ArcRoundCaps = p.ArcRoundCaps;
+        ArcColorHex = p.ArcColorHex;
+        ArcGradient = p.ArcGradient;
+        ArcColor2Hex = p.ArcColor2Hex;
+        ArcTrack = p.ArcTrack;
+        ArcTrackColorHex = p.ArcTrackColorHex;
+        ArcGlow = p.ArcGlow;
+        ArcGlowSize = p.ArcGlowSize;
+        ExportAt2x = p.ExportAt2x;
+        HiDpiScale = p.HiDpiScale;
+        ExportManifest = p.ExportManifest;
+        ExportCode = p.ExportCode;
+        EmitCodeJuce = p.EmitCodeJuce;
+        EmitCodeCss = p.EmitCodeCss;
+        EmitCodeIPlug2 = p.EmitCodeIPlug2;
+        EmitCodeHise = p.EmitCodeHise;
+        EmitCodeReact = p.EmitCodeReact;
+        _suspendRefresh = false;
+
+        UpdateReadouts();
+        UpdateCodePreview();
+        UpdateRecipePreview();
+        RefreshPreview();
+        StatusMessage = $"Applied preset \"{p.Name}\".";
+    }
+
+    [RelayCommand(CanExecute = nameof(CanUseSelectedPreset))]
+    private void DeletePreset()
+    {
+        var p = SelectedPreset;
+        if (p is null) return;
+
+        // Reference-based removal on both sides (not a name match) so the two collections can't
+        // desync if the settings file ever contains duplicate-named presets (e.g. hand-edited) —
+        // Presets and RenderPresets share the same object references from load and from SavePreset.
+        Presets.Remove(p);
+        _settings.Settings.RenderPresets.Remove(p);
+        _settings.Save();
+
+        SelectedPreset = null;
+        StatusMessage = $"Deleted preset \"{p.Name}\".";
     }
 
     // ---- commands ----
@@ -1291,7 +1531,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 var parameterId = string.IsNullOrWhiteSpace(ParameterId) ? controlId : ParameterId.Trim();
 
                 var request = new CodeSnippetRequest(ComponentType, FrameCount, FrameWidth, FrameHeight,
-                                                     StackDirection, asset, asset2x, controlId, parameterId);
+                                                     StackDirection, asset, asset2x, controlId, parameterId,
+                                                     Layout, GridColumns);
                 foreach (var target in SelectedCodeTargets())
                 {
                     await _codeSnippets.SaveAsync(target, request, dir);

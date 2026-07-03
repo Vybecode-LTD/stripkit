@@ -59,6 +59,46 @@ public sealed class FilmstripSettings
 
     public StackDirection StackDirection { get; set; } = StackDirection.Vertical;
 
+    /// <summary>How frames are packed into the exported PNG: a single <see cref="StripLayout.Strip"/>
+    /// (default, follows <see cref="StackDirection"/>) or a <see cref="StripLayout.Grid"/> — an R×C
+    /// sprite atlas for loaders that expect one. Strip by default so existing exports are unchanged.</summary>
+    public StripLayout Layout { get; set; } = StripLayout.Strip;
+
+    /// <summary>Grid column count, used only when <see cref="Layout"/> is <see cref="StripLayout.Grid"/>.
+    /// Rows are <c>ceil(FrameCount / GridColumns)</c>.</summary>
+    public int GridColumns { get; set; } = 8;
+
+    // ---- Parameter-law frame mapping ----
+
+    /// <summary>How a frame's linear position in the strip is remapped before it drives rotation
+    /// angle, meter fill, or layer pivot — so the sweep can match a plugin's actual parameter law
+    /// (e.g. a logarithmic frequency taper). Linear by default, so existing renders are
+    /// byte-identical; see <see cref="MapT"/>.</summary>
+    public FrameMappingCurve MappingCurve { get; set; } = FrameMappingCurve.Linear;
+
+    /// <summary>Power-law exponent used when <see cref="MappingCurve"/> is <see cref="FrameMappingCurve.Skew"/>
+    /// (the JUCE <c>NormalisableRange</c> skew-factor convention: <c>t' = t ^ MappingSkew</c>).</summary>
+    public double MappingSkew { get; set; } = 1.0;
+
+    /// <summary>Compression base used when <see cref="MappingCurve"/> is <see cref="FrameMappingCurve.Logarithmic"/>
+    /// (must be &gt; 1; higher compresses the low end more aggressively).</summary>
+    public double MappingLogBase { get; set; } = 9.0;
+
+    /// <summary>
+    /// Remaps a linear 0..1 strip position through <see cref="MappingCurve"/>. The frame count and
+    /// spacing never change — only the angle/fill/pivot value assigned to a given frame index does.
+    /// <see cref="FrameMappingCurve.Linear"/> (the default) returns <paramref name="linearT"/>
+    /// completely unchanged (no clamp, no arithmetic), so every existing render stays byte-identical.
+    /// </summary>
+    public double MapT(double linearT) => MappingCurve switch
+    {
+        FrameMappingCurve.Skew => Math.Pow(Math.Clamp(linearT, 0.0, 1.0), MappingSkew > 0 ? MappingSkew : 1.0),
+        FrameMappingCurve.Logarithmic => LogMap(Math.Clamp(linearT, 0.0, 1.0), MappingLogBase > 1.0 ? MappingLogBase : 9.0),
+        _ => linearT,
+    };
+
+    private static double LogMap(double t, double logBase) => Math.Log(1 + t * (logBase - 1)) / Math.Log(logBase);
+
     // ---- Meter ----
 
     /// <summary>Number of segments (LED bars). Used by meters; the fill snaps to these

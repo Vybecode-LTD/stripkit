@@ -72,7 +72,43 @@ public class ManifestServiceTests
 
         json.Should().NotContain("asset2x");   // no @2x exported → omitted
         json.Should().NotContain("author");    // null metadata → omitted
+        json.Should().NotContain("layout");    // Strip is the default → omitted
+        json.Should().NotContain("gridColumns");
         AssertConformsToSchema(json);
+    }
+
+    [Fact]
+    public void BuildSingleControl_carries_grid_layout_and_columns_only_when_grid()
+    {
+        var s = Settings(ComponentType.RotaryKnob, frames: 8);
+        s.Layout = StripLayout.Grid;
+        s.GridColumns = 4;
+
+        var c = _svc.BuildSingleControl(s, "knob_8.png", null, "cutoff", "filterCutoff").Controls[0];
+
+        c.Layout.Should().Be("grid");
+        c.GridColumns.Should().Be(4);
+
+        var json = _svc.Serialize(_svc.BuildSingleControl(s, "knob_8.png", null, "cutoff", "filterCutoff"));
+        json.Should().Contain("\"layout\": \"grid\"").And.Contain("\"gridColumns\": 4");
+        AssertConformsToSchema(json);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-3)]
+    public void BuildSingleControl_clamps_a_non_positive_grid_columns_to_one(int badColumns)
+    {
+        // GridColumns can reach here unclamped (a hand-built FilmstripSettings, or a preset saved
+        // before validation existed) — the manifest must never violate the schema's minimum: 1.
+        var s = Settings(ComponentType.RotaryKnob, frames: 8);
+        s.Layout = StripLayout.Grid;
+        s.GridColumns = badColumns;
+
+        var c = _svc.BuildSingleControl(s, "knob_8.png", null, "cutoff", "filterCutoff").Controls[0];
+        c.GridColumns.Should().Be(1);
+
+        AssertConformsToSchema(_svc.Serialize(_svc.BuildSingleControl(s, "knob_8.png", null, "cutoff", "filterCutoff")));
     }
 
     [Fact]

@@ -20,8 +20,13 @@ public class CodeSnippetServiceTests
         string id = "filterCutoff",
         string param = "filterCutoff",
         string? asset2x = null,
-        int frames = 64) =>
-        new(type, frames, 80, 80, stack, $"{id}_{frames}frames.png", asset2x, id, param);
+        int frames = 64,
+        StripLayout layout = StripLayout.Strip,
+        int gridColumns = 1) =>
+        new(type, frames, 80, 80, stack, $"{id}_{frames}frames.png", asset2x, id, param, layout, gridColumns);
+
+    static CodeSnippetRequest GridReq(ComponentType type = ComponentType.RotaryKnob, int frames = 8, int cols = 4) =>
+        Req(type, frames: frames, layout: StripLayout.Grid, gridColumns: cols);
 
     // ---- JUCE ----
 
@@ -169,6 +174,79 @@ public class CodeSnippetServiceTests
             .Should().Contain("const HORIZONTAL = false;");
         _svc.Generate(CodeTarget.React, Req(stack: StackDirection.Horizontal))
             .Should().Contain("const HORIZONTAL = true;");
+    }
+
+    // ---- Grid layout ----
+
+    [Fact]
+    public void Juce_knob_grid_computes_column_and_row_from_the_frame()
+    {
+        var code = _svc.Generate(CodeTarget.Juce, GridReq());
+        code.Should().Contain("const int cols   = 4;");
+        code.Should().Contain("(frame % cols) * frameW, (frame / cols) * frameH");
+    }
+
+    [Fact]
+    public void Juce_meter_and_fader_grid_also_declare_cols()
+    {
+        _svc.Generate(CodeTarget.Juce, GridReq(ComponentType.Meter)).Should().Contain("const int cols   = 4;");
+        _svc.Generate(CodeTarget.Juce, GridReq(ComponentType.VerticalFader)).Should().Contain("const int cols   = 4;");
+    }
+
+    [Fact]
+    public void Juce_non_grid_output_is_unaffected_by_the_new_grid_fields()
+    {
+        // Layout defaults to Strip — output must stay byte-identical to the pre-grid snippet.
+        _svc.Generate(CodeTarget.Juce, Req()).Should().NotContain("cols");
+    }
+
+    [Fact]
+    public void Css_grid_uses_col_and_row_custom_properties()
+    {
+        var code = _svc.Generate(CodeTarget.Css, GridReq());
+        code.Should().Contain("calc(var(--col, 0) * -80px) calc(var(--row, 0) * -80px)");
+        code.Should().Contain("const cols = 4;");
+        code.Should().Contain("el.style.setProperty('--col', frame % cols);");
+        code.Should().Contain("el.style.setProperty('--row', Math.floor(frame / cols));");
+        code.Should().NotContain("--frame");
+    }
+
+    [Fact]
+    public void Css_non_grid_still_uses_the_single_frame_variable()
+    {
+        var code = _svc.Generate(CodeTarget.Css, Req());
+        code.Should().Contain("--frame");
+        code.Should().NotContain("--col").And.NotContain("--row");
+    }
+
+    [Fact]
+    public void Hise_grid_computes_column_and_row_offsets()
+    {
+        var code = _svc.Generate(CodeTarget.Hise, GridReq());
+        code.Should().Contain("(frame % 4) * 80");
+        code.Should().Contain("Math.floor(frame / 4) * 80");
+    }
+
+    [Fact]
+    public void React_grid_computes_column_and_row_in_the_background_position()
+    {
+        var code = _svc.Generate(CodeTarget.React, GridReq());
+        code.Should().Contain("const GRID_COLS = 4;");
+        code.Should().Contain("frame % GRID_COLS");
+        code.Should().Contain("Math.floor(frame / GRID_COLS)");
+    }
+
+    [Fact]
+    public void IPlug2_grid_warns_that_the_builtin_bitmap_control_cannot_read_a_2d_atlas()
+    {
+        var code = _svc.Generate(CodeTarget.IPlug2, GridReq());
+        code.Should().Contain("NOTE").And.Contain("Grid layout").And.Contain("iPlug2");
+    }
+
+    [Fact]
+    public void IPlug2_non_grid_has_no_grid_warning()
+    {
+        _svc.Generate(CodeTarget.IPlug2, Req()).Should().NotContain("NOTE:");
     }
 
     // ---- identifiers / file names / I/O ----

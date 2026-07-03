@@ -34,4 +34,7 @@ public sealed class AppSettings
 
     /// <summary>The tab the app was on when it last closed, reopened on the next launch.</summary>
     public int LastTabIndex { get; set; }
+
+    /// <summary>The user's saved Create-tab render presets (named full render setups).</summary>
+    public List<RenderPreset> RenderPresets { get; set; } = new();
 }

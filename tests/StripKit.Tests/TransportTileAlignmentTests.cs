@@ -35,6 +35,7 @@ public class TransportTileAlignmentTests
         return new MainWindowViewModel(Substitute.For<IImageLoadService>(), Substitute.For<IFilmstripRenderer>(),
             Substitute.For<IFileDialogService>(), Substitute.For<IExportService>(), Substitute.For<IManifestService>(),
             new CodeSnippetService(), new RenderRecipeService(), new LayeredImportService(), Substitute.For<IAssetService>(),
+            TestFakes.TempSettings(),
             importer, batch, skin, tutorial, TestFakes.GenerateVm(), TestFakes.AssembleVm());
     }
 

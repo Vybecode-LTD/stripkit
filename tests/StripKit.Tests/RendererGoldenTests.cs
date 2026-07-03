@@ -62,6 +62,51 @@ public class RendererGoldenTests
     }
 
     [Fact]
+    public void Knob_grid_layout_packs_frames_into_an_r_by_c_atlas()
+    {
+        var s = Knob(8);
+        s.Layout = StripLayout.Grid;
+        s.GridColumns = 4;
+
+        using var src = TestImages.Knob();
+        using var strip = _renderer.RenderStrip(s, src, null, 1.0);
+
+        // 8 frames at 4 columns -> 2 rows.
+        Assert.Equal(80 * 4, strip.Width);
+        Assert.Equal(80 * 2, strip.Height);
+        ImageAssert.MatchesBaseline(strip, "knob_grid8x4");
+    }
+
+    [Fact]
+    public void Grid_layout_rounds_up_partial_rows()
+    {
+        var s = Knob(10);
+        s.Layout = StripLayout.Grid;
+        s.GridColumns = 4;
+
+        using var src = TestImages.Knob();
+        using var strip = _renderer.RenderStrip(s, src, null, 1.0);
+
+        // 10 frames at 4 columns -> ceil(10/4) = 3 rows (the last row is partly empty).
+        Assert.Equal(80 * 4, strip.Width);
+        Assert.Equal(80 * 3, strip.Height);
+    }
+
+    [Fact]
+    public void Default_layout_is_strip_so_grid_columns_are_ignored()
+    {
+        var s = Knob(8);
+        Assert.Equal(StripLayout.Strip, s.Layout);
+
+        using var src = TestImages.Knob();
+        using var strip = _renderer.RenderStrip(s, src, null, 1.0);
+
+        // Unaffected by the (unused) GridColumns default — same as the plain vertical strip.
+        Assert.Equal(80, strip.Width);
+        Assert.Equal(80 * 8, strip.Height);
+    }
+
+    [Fact]
     public void Vertical_fader_mid_frame_centres_the_cap()
     {
         using var src = TestImages.Cap(30, 18);

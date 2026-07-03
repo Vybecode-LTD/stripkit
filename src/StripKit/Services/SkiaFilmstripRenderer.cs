@@ -27,7 +27,9 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
 
         // t runs 0 -> 1 across the strip. The (n - 1) divisor lands the final
         // frame exactly on the maximum position; using n would fall short.
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        // MapT then remaps that linear position through the parameter-law curve
+        // (Linear is a no-op, so byte-identical by default).
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
 
         float fw = settings.FrameWidth;
         float fh = settings.FrameHeight;
@@ -207,9 +209,22 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         int fw = Math.Max(1, (int)Math.Round(settings.FrameWidth * scale));
         int fh = Math.Max(1, (int)Math.Round(settings.FrameHeight * scale));
 
+        bool grid = settings.Layout == StripLayout.Grid;
+        int cols = grid ? Math.Max(1, settings.GridColumns) : 0;
         bool vertical = settings.StackDirection == StackDirection.Vertical;
-        int stripW = vertical ? fw : fw * n;
-        int stripH = vertical ? fh * n : fh;
+
+        int stripW, stripH;
+        if (grid)
+        {
+            int rows = (n + cols - 1) / cols;
+            stripW = fw * cols;
+            stripH = fh * rows;
+        }
+        else
+        {
+            stripW = vertical ? fw : fw * n;
+            stripH = vertical ? fh * n : fh;
+        }
 
         var strip = new SKBitmap(stripW, stripH, SKColorType.Rgba8888, SKAlphaType.Premul);
         using (var canvas = new SKCanvas(strip))
@@ -222,8 +237,17 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             for (int i = 0; i < n; i++)
             {
                 using var frame = RenderFrame(settings, source, background, i, scale, layerArt);
-                int x = vertical ? 0 : i * fw;
-                int y = vertical ? i * fh : 0;
+                int x, y;
+                if (grid)
+                {
+                    x = (i % cols) * fw;
+                    y = (i / cols) * fh;
+                }
+                else
+                {
+                    x = vertical ? 0 : i * fw;
+                    y = vertical ? i * fh : 0;
+                }
                 canvas.DrawBitmap(frame, x, y); // 1:1 blit, no resampling needed
             }
         }
@@ -256,7 +280,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         float fh = settings.FrameHeight;
 
         int n = Math.Max(1, settings.FrameCount);
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
         float angle = (float)(settings.StartAngleDegrees
                               + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t);
 
@@ -366,7 +390,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                                          int frameIndex, double px, int workW, int workH)
     {
         int n = Math.Max(1, settings.FrameCount);
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
         int segments = Math.Max(1, settings.SegmentCount);
 
         // Fraction of the axis that is lit. Discrete snaps to whole segments.
@@ -450,7 +474,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                                        int frameIndex, double px, int workW, int workH)
     {
         int n = Math.Max(1, settings.FrameCount);
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
 
         // Concentric with the knob's rotation pivot (its content centre + any nudge).
         float cx = tf.PivotX * (float)px;

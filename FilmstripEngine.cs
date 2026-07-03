@@ -78,6 +78,28 @@ public enum StackDirection
     Horizontal,
 }
 
+/// <summary>How frames are packed into the exported filmstrip PNG.</summary>
+public enum StripLayout
+{
+    /// <summary>A single 1×N (or N×1) strip along <see cref="StackDirection"/>. Default.</summary>
+    Strip,
+    /// <summary>An R×C grid: <see cref="FilmstripSettings.GridColumns"/> wide, rows =
+    /// ceil(FrameCount / GridColumns).</summary>
+    Grid,
+}
+
+/// <summary>How a frame's linear position in the strip is remapped before it drives rotation
+/// angle, meter fill, or layer pivot — so the sweep can match a plugin's actual parameter law.</summary>
+public enum FrameMappingCurve
+{
+    /// <summary>No remapping — frame <c>i</c> gets exactly <c>i / (FrameCount - 1)</c>. Default.</summary>
+    Linear,
+    /// <summary>A power-law skew (JUCE <c>NormalisableRange</c> convention): <c>t' = t ^ MappingSkew</c>.</summary>
+    Skew,
+    /// <summary>A true logarithmic taper: <c>t' = log(1 + t·(MappingLogBase − 1)) / log(MappingLogBase)</c>.</summary>
+    Logarithmic,
+}
+
 /// <summary>
 /// Per-frame placement of the source layer inside one frame cell, in 1x frame
 /// units (before export scale / supersampling). The renderer scales these up.
@@ -158,6 +180,34 @@ public sealed class FilmstripSettings
     public int Supersample { get; set; } = 4;
 
     public StackDirection StackDirection { get; set; } = StackDirection.Vertical;
+
+    /// <summary>How frames are packed into the exported PNG: <see cref="StripLayout.Strip"/> (default,
+    /// follows <see cref="StackDirection"/>) or <see cref="StripLayout.Grid"/> (an R×C sprite atlas).</summary>
+    public StripLayout Layout { get; set; } = StripLayout.Strip;
+
+    /// <summary>Grid column count, used only when <see cref="Layout"/> is <see cref="StripLayout.Grid"/>.</summary>
+    public int GridColumns { get; set; } = 8;
+
+    // ---- Parameter-law frame mapping ----
+    /// <summary>How a frame's linear position is remapped before it drives rotation/fill/pivot.
+    /// Linear by default, so existing renders are byte-identical; see <see cref="MapT"/>.</summary>
+    public FrameMappingCurve MappingCurve { get; set; } = FrameMappingCurve.Linear;
+    /// <summary>Power-law exponent for <see cref="FrameMappingCurve.Skew"/>.</summary>
+    public double MappingSkew { get; set; } = 1.0;
+    /// <summary>Compression base (&gt; 1) for <see cref="FrameMappingCurve.Logarithmic"/>.</summary>
+    public double MappingLogBase { get; set; } = 9.0;
+
+    /// <summary>Remaps a linear 0..1 strip position through <see cref="MappingCurve"/>. Linear (the
+    /// default) returns <paramref name="linearT"/> completely unchanged, so existing renders are
+    /// byte-identical.</summary>
+    public double MapT(double linearT) => MappingCurve switch
+    {
+        FrameMappingCurve.Skew => Math.Pow(Math.Clamp(linearT, 0.0, 1.0), MappingSkew > 0 ? MappingSkew : 1.0),
+        FrameMappingCurve.Logarithmic => LogMap(Math.Clamp(linearT, 0.0, 1.0), MappingLogBase > 1.0 ? MappingLogBase : 9.0),
+        _ => linearT,
+    };
+
+    private static double LogMap(double t, double logBase) => Math.Log(1 + t * (logBase - 1)) / Math.Log(logBase);
 
     // ---- Meter ----
     /// <summary>Number of segments (LED bars); fill snaps to these unless continuous.</summary>
@@ -240,7 +290,8 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
 
         // t runs 0 -> 1 across the strip. The (n - 1) divisor lands the final
         // frame exactly on the maximum position; using n would fall short.
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        // MapT then remaps that linear position through the parameter-law curve.
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
 
         float fw = settings.FrameWidth;
         float fh = settings.FrameHeight;
@@ -413,9 +464,22 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         int fw = Math.Max(1, (int)Math.Round(settings.FrameWidth * scale));
         int fh = Math.Max(1, (int)Math.Round(settings.FrameHeight * scale));
 
+        bool grid = settings.Layout == StripLayout.Grid;
+        int cols = grid ? Math.Max(1, settings.GridColumns) : 0;
         bool vertical = settings.StackDirection == StackDirection.Vertical;
-        int stripW = vertical ? fw : fw * n;
-        int stripH = vertical ? fh * n : fh;
+
+        int stripW, stripH;
+        if (grid)
+        {
+            int rows = (n + cols - 1) / cols;
+            stripW = fw * cols;
+            stripH = fh * rows;
+        }
+        else
+        {
+            stripW = vertical ? fw : fw * n;
+            stripH = vertical ? fh * n : fh;
+        }
 
         var strip = new SKBitmap(stripW, stripH, SKColorType.Rgba8888, SKAlphaType.Premul);
         using (var canvas = new SKCanvas(strip))
@@ -427,8 +491,17 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
             for (int i = 0; i < n; i++)
             {
                 using var frame = RenderFrame(settings, source, background, i, scale, layerArt);
-                int x = vertical ? 0 : i * fw;
-                int y = vertical ? i * fh : 0;
+                int x, y;
+                if (grid)
+                {
+                    x = (i % cols) * fw;
+                    y = (i / cols) * fh;
+                }
+                else
+                {
+                    x = vertical ? 0 : i * fw;
+                    y = vertical ? i * fh : 0;
+                }
                 canvas.DrawBitmap(frame, x, y); // 1:1 blit, no resampling needed
             }
         }
@@ -456,7 +529,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
         float fh = settings.FrameHeight;
 
         int n = Math.Max(1, settings.FrameCount);
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
         float angle = (float)(settings.StartAngleDegrees
                               + (settings.EndAngleDegrees - settings.StartAngleDegrees) * t);
 
@@ -550,7 +623,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                                          int frameIndex, double px, int workW, int workH)
     {
         int n = Math.Max(1, settings.FrameCount);
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
         int segments = Math.Max(1, settings.SegmentCount);
 
         double fill = settings.ContinuousFill ? t : Math.Round(t * segments) / segments;
@@ -627,7 +700,7 @@ public sealed class SkiaFilmstripRenderer : IFilmstripRenderer
                                        int frameIndex, double px, int workW, int workH)
     {
         int n = Math.Max(1, settings.FrameCount);
-        double t = n > 1 ? (double)frameIndex / (n - 1) : 0.0;
+        double t = settings.MapT(n > 1 ? (double)frameIndex / (n - 1) : 0.0);
 
         float cx = tf.PivotX * (float)px;
         float cy = tf.PivotY * (float)px;
