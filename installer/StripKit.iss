@@ -7,7 +7,7 @@
 ; ============================================================================
 
 #define MyAppName "StripKit"
-#define MyAppVersion "1.4.0"
+#define MyAppVersion "1.5.0"
 #define MyAppPublisher "VybeCode Software"
 #define MyAppURL "https://stripkit.pro"
 #define MyAppExeName "StripKit.exe"

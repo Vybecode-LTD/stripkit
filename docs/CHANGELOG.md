@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.5.0] — 2026-07-03
 
 Shipping as **v1.5.0**. The headline work is the **offline-3D / path-tracing pipeline** (P1–P5) and a
 full **Depth UI rebrand** — P1 adds a sixth tab that turns a pre-rendered frame sequence into a
