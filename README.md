@@ -72,6 +72,12 @@ Prefer a one-page overview with the live download and changelog? See **[stripkit
 - **Loader code export** — emit ready-to-paste JUCE / CSS-HTML / iPlug2 / HISE / React loader snippets.
 - **Crisp rendering** — supersampling + a Mitchell cubic resampler keep rotated edges sharp;
   selectable HiDPI export (`@2x` / `@3x` / `@4x`).
+- **Sprite-grid layout** — pack frames into an R×C grid atlas instead of a single strip, for
+  loaders that expect a 2D sprite sheet.
+- **Parameter-law frame mapping** — a linear, skew, or logarithmic curve remaps the sweep so it
+  matches your plugin's actual parameter law (e.g. a log frequency taper) instead of a straight divisor.
+- **Render presets** — save a control's full render setup (type, frames, sweep, layout, meter/arc
+  styling, export options) as a named preset and reload it in one click.
 - **Live preview** — scrub, play, or step frame-by-frame before you export.
 
 ## 🧰 Tech stack
@@ -97,13 +103,11 @@ copy-paste-portable copy of the renderer.
 Requires the [**.NET 9 SDK**](https://dotnet.microsoft.com/download). Builds and runs on
 Windows, macOS, and Linux (Avalonia); Windows is the primary target.
 
-> **Note:** The frosted acrylic glass effect is Windows-only. macOS and Linux use a solid dark fallback — the app is fully functional but visually different.
-
 ```bash
 git clone https://github.com/Vybecode-LTD/stripkit.git
 cd stripkit
 dotnet run --project src/StripKit      # launch the app
-dotnet test                            # 288 tests
+dotnet test                            # 331 tests
 ```
 
 Build a self-contained Windows release:
@@ -170,7 +174,7 @@ Contributions are very welcome — bug reports, feature ideas, and pull requests
 
 **Workflow**
 1. Fork the repo and branch off `main`.
-2. Make your change and add/update tests — `dotnet test` must stay green (currently **288**).
+2. Make your change and add/update tests — `dotnet test` must stay green (currently **331**).
 3. Keep the house conventions:
    - Don't rewrite `Services/SkiaFilmstripRenderer.cs`; the rotation/supersampling math is
      deliberate (the `(N-1)` angle divisor is intentional — last frame lands exactly on max).

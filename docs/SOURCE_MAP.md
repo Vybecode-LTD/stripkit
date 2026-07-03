@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 1.3.0 (v1.5.0-dev, unreleased) · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.0 (v1.5.0-dev, unreleased — 12/12 enhancement items done) · last-updated 2026-07-02 · last-audit 2026-07-02
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -20,7 +20,10 @@ does each thing live" companion.
   build step / another app. Includes the meter (incl. the direction-aware **peak-marker** segment —
   `ShowMeterPeak` / `PeakColorArgb`, gated off by default), value-arc, `RenderLayers` (base+pointer),
   and **button/toggle state-frame** (`RenderButtonLayers` / `LayerBehavior.Frame`) paths —
-  `Toggle` shares the `Button` state-frame path. Keep in sync if the renderer math changes.
+  `Toggle` shares the `Button` state-frame path. Also mirrors the **sprite-grid layout**
+  (`StripLayout` / `GridColumns`, `RenderStrip`'s R×C packing) and **parameter-law frame mapping**
+  (`FrameMappingCurve` / `MapT`, applied at all 4 t-computation sites). Keep in sync if the renderer
+  math changes.
 - `.gitignore` — .NET/Avalonia/test-output + packaging ignores (bin, obj, IDE,
   tests/**/output, publish/, installer/Output/; tracks only `releases/latest/*.exe`).
 - `docs/` — `ARCHITECTURE.md` (deep dive), this map, `ROADMAP.md`, `TESTING.md`,
@@ -46,7 +49,7 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (288): the **Assemble tab** (frame-sequence assembler +
+- `tests/StripKit.Tests/` — xUnit tests (331): the **Assemble tab** (frame-sequence assembler +
   natural-sort comparer + probe + VM + golden + headless view — `NaturalFileNameComparerTests`,
   `FrameSequenceAssemblerTests`, `FrameSequenceProbeTests`, `FrameSequenceViewModelTests`,
   `FrameSequenceAssemblerGoldenTests`, `AssembleViewTests`), renderer golden-image (with committed
@@ -61,7 +64,11 @@ does each thing live" companion.
   engine + VM, manifest (incl. multi-control), batch processor + VM (incl. meter), Skin tab VM
   (`SkinViewModelTests`), meter renderer, value-arc renderer (`ValueArcRenderTests`), layered-knob
   renderer (`LayeredKnobRenderTests`), the toggle/button state-frame renderer (`ToggleRenderTests`),
-  code-snippet generation (`CodeSnippetServiceTests`), and a headless drop-zone test. See
+  code-snippet generation (`CodeSnippetServiceTests`, incl. a grid-layout section across all 5
+  targets), the **parameter-law frame-mapping** math + renderer integration + goldens
+  (`ParameterLawMappingTests`), the **render-preset** JSON round-trip + save/apply/delete VM commands
+  (`RenderPresetTests`), and a headless drop-zone test. `TestFakes.MainVm(ISettingsService)` is the
+  shared helper for constructing a fully-wired `MainWindowViewModel` from substitutes. See
   `docs/TESTING.md`.
 
 ## Application source (`src/StripKit/`)
@@ -88,23 +95,39 @@ does each thing live" companion.
   `Toggle` (an on/off switch — 2 frames; rendered via the same `Button` state-frame path, but its own
   type so it gets switch/rocker generated art + a latching boolean code-export binding).
 - `StackDirection.cs` — enum: `Vertical`, `Horizontal`.
+- `StripLayout.cs` — enum: `Strip` (default, follows `StackDirection`) / `Grid` (an R×C sprite
+  atlas, `FilmstripSettings.GridColumns` wide, rows = `ceil(FrameCount / GridColumns)`).
+- `FrameMappingCurve.cs` — enum: `Linear` (default, a true no-op) / `Skew` (a power-law taper —
+  the JUCE `NormalisableRange` skew-factor convention) / `Logarithmic` (a true log taper). Consumed
+  by `FilmstripSettings.MapT`.
 - `MeterFillDirection.cs` — enum: `Up`, `Down`, `LeftToRight`, `RightToLeft` (meters).
 - `FrameTransform.cs` — a readonly record struct describing where the source
   layer is drawn in one frame (translate, draw size, rotation, pivot).
 - `FilmstripSettings.cs` — the full render contract (frame count/size, angles,
   pivot, content-centre alignment, margins, supersample, stack direction, meter
   fields (incl. the **peak-marker** `ShowMeterPeak` + `PeakColorArgb`, off by default),
-  the value-arc fields, and the `Layers` stack). Passed to the renderer.
+  the value-arc fields, and the `Layers` stack). Also carries the **sprite-grid layout**
+  (`Layout` + `GridColumns`, defaulting to `Strip`) and the **parameter-law frame mapping**
+  (`MappingCurve` + `MappingSkew` + `MappingLogBase`, defaulting to `Linear`) — plus the `MapT(t)`
+  method itself, so the renderer and any other consumer (the VM's preview readout) share one
+  remap implementation. Passed to the renderer.
+- `RenderPreset.cs` — a named snapshot of the Create tab's full render setup (component type,
+  frames, sweep, resolution, sprite layout, parameter-law curve, meter/value-arc settings, export
+  preferences) for the save/load render-presets feature. Deliberately excludes any loaded art — a
+  preset is a reusable style, not an asset bundle. Persisted via `AppSettings.RenderPresets`.
 - `StripDetection.cs` — the inferred layout of an *existing* strip (count, frame
   size, orientation, classified kind, low-confidence flag). Output of the importer.
 - `SkinManifest.cs` — `SkinManifest` / `ManifestControl` / `ManifestBounds` records:
   the `skin.json` schema that binds an exported strip to a plugin parameter.
+  `ManifestControl` also carries `Layout`/`GridColumns` (both nullable — populated only when the
+  strip is a sprite-grid atlas, so a Strip-layout manifest is byte-identical to before).
 - `BatchModels.cs` — `BatchOptions` (inputs/output/template — now also carries `CodeTargets` (the
   per-strip loader-code targets) + `HiDpiScale`), `BatchProgress`, `BatchItemResult`, `BatchResult`
   for the Batch tab.
 - `CodeModels.cs` — `CodeTarget` enum (`Juce` / `Css` / `IPlug2` / `Hise` / **`React`** — a `.jsx`
   sprite component driven by a 0..1 `value` prop) + `CodeSnippetRequest` record: the inputs for the
-  code-export service.
+  code-export service. Carries `Layout`/`GridColumns` (trailing, defaulted params — existing
+  positional call sites compile unchanged) so grid-layout strips get grid-aware source-rect math.
 - `RenderRecipeModels.cs` — the **render-recipe** (path-tracing P2) data: `RenderRecipeTarget` enum
   (`Blender` / `Csv` / `Json`), `RenderRecipeRequest` record (type + frame count + sweep angles +
   resolution + control id; `IsRotary`), and the `RecipeFrame` row (frame index, 0..1 value, angle°). No deps.
@@ -115,9 +138,9 @@ does each thing live" companion.
   state art). Skia-free; the layer's bitmap is passed alongside to the renderer.
 - `AppSettings.cs` — the persisted preferences (`HasSeenTutorial`; the Generate tab's last-used
   `GenerateProvider` + per-provider model overrides; the custom-provider `GenerateCustomBaseUrl`; the
-  user's saved prompt seeds `GenerateSeeds`; and the restored **window size** `WindowWidth`/`WindowHeight`
-  + **last tab** `LastTabIndex`), serialized by `SettingsService`. API keys are
-  **not** here — they live encrypted in the secret store.
+  user's saved prompt seeds `GenerateSeeds`; the restored **window size** `WindowWidth`/`WindowHeight`
+  + **last tab** `LastTabIndex`; and the user's saved **render presets** `RenderPresets`), serialized
+  by `SettingsService`. API keys are **not** here — they live encrypted in the secret store.
 - `GenerationModels.cs` — the Generate-tab data: `AiProvider` enum (Claude/OpenAI/Gemini/**Custom** —
   any OpenAI-compatible endpoint), `GenerationStyle` enum, the `GenerationRequest` (now incl. an
   `Avoid` negative-direction note + a `MeterHorizontal` flag) / `GenerationResult` records,
@@ -142,7 +165,12 @@ does each thing live" companion.
   stack via `RenderLayers` when `settings.Layers` + the `layerArt` are supplied; **buttons** and
   **toggles** composite discrete state art per frame via `RenderButtonLayers` — `Static` layers on
   every frame, `Frame` layers only on their matching index (`Toggle` shares the `Button` path));
-  `RenderStrip` stacks frames into the output PNG. No Avalonia dependency. Do not rewrite this.
+  `RenderStrip` stacks frames into the output PNG — either a single Stack-direction strip (default)
+  or, when `settings.Layout == StripLayout.Grid`, an R×C sprite atlas (row-major: `col = i % cols`,
+  `row = i / cols`). All four sites that compute the linear sweep fraction `t` (`ComputeTransform`,
+  `RenderLayers`, `RenderMeterFrame`, `RenderValueArc`) pass it through `settings.MapT(t)` first, so
+  the parameter-law curve (Linear/Skew/Logarithmic) applies uniformly to rotation, layered-knob
+  angle, meter fill, and the value arc. No Avalonia dependency. Do not rewrite this.
 - `PointerExtractor.cs` — static: `Extract` splits a flat knob into a static base + a rotating
   pointer via the radial-symmetry residual (★ #3 step 2; auto-fills the layered-knob slots).
   Returns a `PointerExtractionResult` (base, pointer, confidence). No Avalonia dependency;
@@ -197,10 +225,16 @@ does each thing live" companion.
   manifest (System.Text.Json, camelCase): `BuildSingleControl` (one control, from the Create
   tab) and `BuildManifest` (multi-control, from the Skin tab) binding strips to parameters.
   `MapType` lowercases the component type for the manifest (`Button` → "button", `Toggle` → "toggle").
+  `BuildSingleControl` emits `layout`/`gridColumns` only for a grid-layout strip, clamping
+  `GridColumns` to `Math.Max(1, …)` so an unclamped upstream value (BUG-017) can never violate the
+  `plugin-asset-manifest` schema's `minimum: 1`.
 - `ICodeSnippetService.cs` / `CodeSnippetService.cs` — emit ready-to-paste loader code
   (JUCE / CSS-HTML / iPlug2 / HISE / **React** — a `.jsx` sprite component driven by a 0..1 `value`
   prop) for an exported strip: `Generate` / `FileName` (pure) + a thin `SaveAsync`. No Avalonia
-  dependency.
+  dependency. All 5 targets are **grid-layout aware**: JUCE/CSS/HISE/React emit real column/row
+  source-rect math when the request's `Layout` is `Grid`; iPlug2's built-in `IBitmap`/`LoadBitmap`
+  API can only read a single-axis strip, so its grid path emits an explicit warning comment
+  recommending Strip layout instead of silently mis-reading a 2D atlas as a 1D one.
 - `IRenderRecipeService.cs` / `RenderRecipeService.cs` — the **render-recipe export** (path-tracing
   P2): emit a Blender `bpy` script / `frame,value,angle_deg` CSV / JSON so an offline render matches the
   runtime law. Pure string-gen mirroring `CodeSnippetService` (`Generate` / `FileName` + a thin
@@ -277,8 +311,18 @@ does each thing live" companion.
   type** (knob → body+pointer layers; button/toggle → off/on Frame layers; meter → background+source
   layers; fader/slider → flattened source). The layered file picker auto-detects an `off`/`on` pair as
   a **toggle**. Also carries the selectable **HiDPI export scale** `HiDpiScale` (@2x/@3x/@4x — the
-  export suffix + render/upscale factor + manifest hi-res asset all follow it; default 2) and, after an
-  export, a `RevealExportCommand` + `LastExportPath` that "Show in folder" binds to (`ShellHelper`).
+  export suffix + render/upscale factor + manifest hi-res asset all follow it; default 2), the
+  **sprite layout** `Layout`/`GridColumns` (`IsGridLayout` toggles the Stack-direction controls'
+  visibility), the **parameter-law** `MappingCurve`/`MappingSkew`/`MappingLogBase`
+  (`IsSkewMapping`/`IsLogMapping` toggle their own inputs; `UpdateReadouts()`'s preview angle runs
+  through `MapT` too, so it matches what's actually rendered), and, after an export, a
+  `RevealExportCommand` + `LastExportPath` that "Show in folder" binds to (`ShellHelper`). Now takes
+  an injected `ISettingsService` and exposes **render presets**: a `Presets` collection (loaded from
+  `AppSettings.RenderPresets` at construction) + `SavePreset`/`ApplyPreset`/`DeletePreset` commands
+  (`ToPreset`/`ApplyPreset` snapshot or bulk-restore the full render setup — no loaded art; save
+  overwrites an existing same-name preset case-insensitively; delete removes by object reference on
+  both the `Presets` collection and the persisted list, so duplicate-named presets can't desync
+  them — BUG-018).
 - `ImporterViewModel.cs` — backs the **Import** tab: load an existing strip, run
   detection, scrub the detected frames, and extract / re-stack. Same preview-funnel
   pattern; holds no Avalonia UI types beyond the preview bitmap.

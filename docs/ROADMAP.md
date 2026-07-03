@@ -1,13 +1,13 @@
 # ROADMAP — StripKit
 
-> Version 1.3.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and several
 further releases have shipped since (see **Releases** below). The next release is
 **v1.5.0** (unreleased) — it bundles the whole **offline-3D / path-tracing pipeline P1–P5**, the
-**Depth** rebrand, a 2026-07-02 audit, and a **v1.5 enhancement wave** (9 of 12 items done + pushed to
-origin/main). The **vNext — Future features** section captures the product-brainstorm backlog, grouped by
+**Depth** rebrand, a 2026-07-02 audit, and a **v1.5 enhancement wave** (12 of 12 items done — feature-complete,
+not yet committed or released). The **vNext — Future features** section captures the product-brainstorm backlog, grouped by
 theme and priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
 layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/SVG import).
 
@@ -78,26 +78,46 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   QC + EXR/HDR ingest + frame interpolation + AOV emission-pass; see the pipeline section below), a
   **Depth design-system rebrand** (machined-grey dark theme, `#f25914` ember; vendored `Depth/Depth.axaml`
   mapped in `App.axaml`), and a **2026-07-02 fine-tooth-comb audit** (11 bugs fixed). Then the owner
-  folded in a **v1.5 enhancement wave** — **9 of 12** planned items shipped + pushed to origin/main (tip
-  `41fe792`): **(1)** a **React / Web-Component code-export target** (`CodeTarget.React` → a `.jsx` sprite
-  component driven by a 0..1 `value` prop; wired into Create + Assemble + Batch); **(2)** **dithered HDR
-  de-band** (finishing path-tracing P3b — `Helpers/MagickPixels.DitherDownTo8`, an 8×8 Bayer ordered
-  dither, in `ImageLoadService.LoadHdr` so EXR/16-bit reduces to 8-bit without banding); **(3)** **remember
-  window size + last tab** (`AppSettings.WindowWidth/WindowHeight/LastTabIndex`, restored/persisted at the
-  composition root); **(4)** **Ctrl+O / Ctrl+E shortcuts** (`Window.KeyBindings`); **(5)** **Batch-tab
-  loader-code export** (`BatchOptions.CodeTargets`; `BatchProcessor` emits JUCE/CSS/iPlug2/HISE/React per
-  strip — parity with Create & Assemble); **(6)** a **CI coverage gate** (`ci.yml` fails below 70% line
-  coverage); **(7)** **"Show in folder" after export** (Create + Assemble — `Helpers/ShellHelper.RevealInFolder`
-  + `RevealExportCommand`/`LastExportPath`, outside the `TransportTile` Border to keep the transport-tile-height
-  invariant); **(8)** **arbitrary HiDPI scale @2x / @3x / @4x** (a `HiDpiScale` property across
-  Create/Assemble/Batch — suffix, render factor, and manifest hi-res asset all follow it; default 2); and
-  **(9)** a **meter peak-marker** (`FilmstripSettings.ShowMeterPeak` + `PeakColorArgb`, mirrored in
-  `FilmstripEngine.cs`; `RenderMeterFrame` paints the direction-aware leading peak segment; gated OFF by
-  default so every meter golden is byte-identical). Commits `6d6ba07` / `18a444b` / `99bdd22` / `94d431f` /
-  `3c9be86` / `a295f38` / `43a87c9` / `41fe792`. Suite **280→288**, build clean, coverage ~79%.
-  **Deferred** to a later careful v1.5 pass: **sprite-grid layout**, **parameter-law frame mapping**, and
-  **save/load render presets** (all ⏳ below). Not yet released (csproj/`.iss` `<Version>` still at 1.3.0;
-  the release script bumps to 1.5.0 at release).
+  folded in a **v1.5 enhancement wave** — now **12 of 12** planned items done: the first **9** shipped +
+  pushed to origin/main (tip `41fe792`): **(1)** a **React / Web-Component code-export target**
+  (`CodeTarget.React` → a `.jsx` sprite component driven by a 0..1 `value` prop; wired into Create +
+  Assemble + Batch); **(2)** **dithered HDR de-band** (finishing path-tracing P3b —
+  `Helpers/MagickPixels.DitherDownTo8`, an 8×8 Bayer ordered dither, in `ImageLoadService.LoadHdr` so
+  EXR/16-bit reduces to 8-bit without banding); **(3)** **remember window size + last tab**
+  (`AppSettings.WindowWidth/WindowHeight/LastTabIndex`, restored/persisted at the composition root);
+  **(4)** **Ctrl+O / Ctrl+E shortcuts** (`Window.KeyBindings`); **(5)** **Batch-tab loader-code export**
+  (`BatchOptions.CodeTargets`; `BatchProcessor` emits JUCE/CSS/iPlug2/HISE/React per strip — parity with
+  Create & Assemble); **(6)** a **CI coverage gate** (`ci.yml` fails below 70% line coverage); **(7)**
+  **"Show in folder" after export** (Create + Assemble — `Helpers/ShellHelper.RevealInFolder` +
+  `RevealExportCommand`/`LastExportPath`, outside the `TransportTile` Border to keep the
+  transport-tile-height invariant); **(8)** **arbitrary HiDPI scale @2x / @3x / @4x** (a `HiDpiScale`
+  property across Create/Assemble/Batch — suffix, render factor, and manifest hi-res asset all follow
+  it; default 2); and **(9)** a **meter peak-marker** (`FilmstripSettings.ShowMeterPeak` +
+  `PeakColorArgb`, mirrored in `FilmstripEngine.cs`; `RenderMeterFrame` paints the direction-aware
+  leading peak segment; gated OFF by default so every meter golden is byte-identical). Commits
+  `6d6ba07` / `18a444b` / `99bdd22` / `94d431f` / `3c9be86` / `a295f38` / `43a87c9` / `41fe792`, suite
+  **280→288**. Then a further session finished the **remaining 3**: **(10) sprite-grid layout** — a
+  `StripLayout` enum (Strip default / Grid) + `FilmstripSettings.Layout`/`GridColumns`; `RenderStrip`
+  packs frames into a row-major R×C grid when selected (mirrored in `FilmstripEngine.cs`), gated so Strip
+  stays byte-identical; `ManifestControl` gained nullable `Layout`/`GridColumns`; all code-export targets
+  got grid-aware column/row math except iPlug2, which emits an explicit limitation warning instead of
+  silently-wrong code (its `IBitmap` API can only read a 1D strip); a "Sprite layout" combo + conditional
+  "Grid columns" input on the Create tab; new golden `knob_grid8x4`. **(11) parameter-law-aware frame
+  mapping** — a `FrameMappingCurve` enum (Linear/Skew/Logarithmic) + `MappingCurve`/`MappingSkew`/
+  `MappingLogBase` on `FilmstripSettings` + a `MapT(t)` remap applied at all four renderer sites that
+  compute the sweep fraction (knob transform, layered knobs, meters, the value arc), so every sweep-driven
+  path honours the curve consistently; Linear is a true no-op (byte-identical goldens); mirrored in
+  `FilmstripEngine.cs`; a "PARAMETER LAW (advanced)" Create-tab section; new golden `knob_skew_mid`.
+  **(12) save/load render presets** — a `RenderPreset` model (the full Create-tab render setup — type,
+  frames, sweep, resolution, sprite layout, parameter-law curve, meter/value-arc settings, export
+  preferences — deliberately excluding loaded art) persisted via `AppSettings.RenderPresets`;
+  `ISettingsService` now injected into `MainWindowViewModel`; Save/Apply/Delete commands (save overwrites
+  by case-insensitive name; apply bulk-restores in one suspended-refresh pass); a "PRESETS" section atop
+  the Create tab's left panel. A 4-dimension adversarial review of the session's diff caught and fixed 2
+  more real issues (a manifest `GridColumns` clamp gap and a preset-delete collection-desync edge case
+  with duplicate names — see `docs/BUGS.md` for detail). Suite **288→331**, build clean. **The v1.5
+  enhancement wave is now fully feature-complete (12/12).** Not yet committed or released — csproj/`.iss`
+  `<Version>` still at 1.3.0; the release script bumps to 1.5.0 at release.
 
 ---
 
@@ -314,10 +334,13 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
 
 ### Correctness (the sweep matches reality)
 
-- ⏳ **Parameter-law-aware frame mapping** — map parameter → frame via a curve (log
-  / skew / custom easing) so the visual sweep matches the plugin's actual parameter
-  law (log frequency, dB) instead of a linear divisor. **(P2)** *(queued for v1.5.0 — one of the
-  three v1.5 items deferred to a later careful pass.)*
+- ✅ **Parameter-law-aware frame mapping** (v1.5.0) — a `FrameMappingCurve` enum
+  (`Linear`/`Skew`/`Logarithmic`) + `FilmstripSettings.MappingCurve`/`MappingSkew`/`MappingLogBase`
+  + a `MapT(t)` remap applied at all four renderer sites that compute the sweep fraction
+  (`ComputeTransform`, `RenderLayers`, `RenderMeterFrame`, `RenderValueArc`), so knobs, layered
+  knobs, meters, and the value arc all honour the curve consistently. `Linear` is a true no-op
+  (byte-identical goldens); mirrored in `FilmstripEngine.cs`. A "PARAMETER LAW (advanced)"
+  Create-tab section; +12 tests, new golden `knob_skew_mid`. **(was P2)**
 - ⏳ **Frame-budget optimizer** — perceptually recommend the minimum frame count
   that looks identical to the eye, and show the file-size saving. **(P3)**
 
@@ -330,13 +353,22 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   consistency (frame counts, cell sizes, sweep angles, alignment), diff old vs new
   exports to catch regressions, and flag bad frames with a wobble / jump detector.
   **(P2)**
-- ⏳ **Sprite-grid layout** — pack frames into an N-column grid (a 2D sprite atlas)
-  instead of a single vertical/horizontal strip, for loaders that expect a grid sheet.
-  **(P2)** *(queued for v1.5.0 — one of the three v1.5 items deferred to a later careful pass.)*
-- ⏳ **Save / load render presets** — persist a control's full render setup (type,
-  frames, sweep, resolution, meter/value-arc/layer settings) as a named preset and
-  reload it in one click. **(P2)** *(queued for v1.5.0 — one of the three v1.5 items deferred
-  to a later careful pass.)*
+- ✅ **Sprite-grid layout** (v1.5.0) — a `StripLayout` enum (`Strip` default / `Grid`) +
+  `FilmstripSettings.Layout`/`GridColumns`; `RenderStrip` packs frames into a row-major R×C grid
+  when selected (mirrored in `FilmstripEngine.cs`), gated so `Strip` stays byte-identical.
+  `ManifestControl` gained nullable `Layout`/`GridColumns` (omitted unless grid); all 5 code-export
+  targets got grid-aware column/row math except iPlug2, whose built-in `IBitmap` API can only read
+  a 1D strip — it emits an explicit limitation warning instead of silently-wrong code. A "Sprite
+  layout" combo + conditional "Grid columns" input on the Create tab; +16 tests, new golden
+  `knob_grid8x4`. **(was P2)**
+- ✅ **Save / load render presets** (v1.5.0) — a `RenderPreset` model (the full Create-tab render
+  setup — type, frames, sweep, resolution, sprite layout, parameter-law curve, meter/value-arc
+  settings, export preferences — deliberately excluding loaded art) persisted via
+  `AppSettings.RenderPresets`; `ISettingsService` now injected into `MainWindowViewModel`;
+  Save/Apply/Delete commands (save overwrites by case-insensitive name; apply bulk-restores in one
+  suspended-refresh pass; delete removes by object reference on both sides so duplicate-named
+  presets can't desync — BUG-018). A "PRESETS" section atop the Create tab's left panel; +9 tests.
+  **(was P2)**
 
 ### QA (lock the output)
 

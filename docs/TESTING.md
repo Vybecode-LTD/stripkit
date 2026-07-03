@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.3.0 (v1.5.0-dev, unreleased) · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.0 (v1.5.0-dev, unreleased — 12/12 enhancement items done) · last-updated 2026-07-02 · last-audit 2026-07-02
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (288 tests)
+dotnet test                                      # whole suite (331 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **288 passed / 0 failed / 0 skipped** (~1.0 s). Build 0/0.
+Current status: **331 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (288)
+## Test inventory (331)
 
 ### Assemble tab (frame-sequence → filmstrip) — 32
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
@@ -119,7 +119,7 @@ capturing the outgoing request body's shape.
   groups to `LayerBehavior.Frame` state layers, and the Generate→Create handoff carries the
   generated control type (no longer hard-forced to `RotaryKnob`).
 
-### `RendererGoldenTests.cs` — 6 (golden-image, pure SkiaSharp)
+### `RendererGoldenTests.cs` — 9 (golden-image, pure SkiaSharp)
 Locks the renderer's pixel output against committed baselines.
 - `Knob_min_frame_renders_pointer_at_start_angle` — frame 0 (−135°).
 - `Knob_mid_frame_renders_pointer_near_top` — frame 32 (~0°).
@@ -127,6 +127,30 @@ Locks the renderer's pixel output against committed baselines.
 - `Knob_strip_stacks_eight_frames_vertically` — asserts 80×640 + baseline.
 - `Vertical_fader_mid_frame_centres_the_cap`.
 - `Horizontal_slider_mid_frame_centres_the_cap`.
+- **(v1.5)** `Knob_grid_layout_packs_frames_into_an_r_by_c_atlas` — golden `knob_grid8x4`: 8 frames at
+  4 columns pack into a 4×2 row-major atlas (asserts 320×160 + baseline).
+- **(v1.5)** `Grid_layout_rounds_up_partial_rows` — 10 frames at 4 columns produce `ceil(10/4)` = 3
+  rows (the last row partly empty), asserting the exact pixel dimensions.
+- **(v1.5)** `Default_layout_is_strip_so_grid_columns_are_ignored` — `StripLayout.Strip` (the
+  default) reproduces the plain vertical strip regardless of the (unused) `GridColumns` value.
+
+### `ParameterLawMappingTests.cs` — 12 (v1.5, parameter-law frame mapping)
+`FilmstripSettings.MapT` remaps a frame's linear strip position through a curve before it drives
+rotation angle, meter fill, or layer pivot — so the sweep can match a plugin's actual parameter law.
+- `Linear_curve_returns_the_input_completely_unchanged` (Theory, 4 values) — the default is a true
+  no-op: no clamp, no arithmetic, so every existing golden stays byte-identical.
+- `Skew_curve_matches_the_power_law` (Theory, 4 cases) + `Skew_of_one_is_equivalent_to_linear` +
+  `Skew_non_positive_falls_back_to_one_instead_of_producing_nan_or_inf`.
+- `Logarithmic_curve_hits_the_exact_endpoints` (Theory) + `Logarithmic_curve_matches_the_documented_formula`
+  + `Logarithmic_curve_is_concave_and_front_loads_resolution_at_the_low_end` +
+  `LogBase_at_or_below_one_falls_back_to_nine_instead_of_dividing_by_zero`.
+- `Clamps_out_of_range_input_for_non_linear_curves` — an out-of-[0,1] input clamps rather than
+  extrapolating through `Math.Pow`/`Math.Log`.
+- Renderer integration: `Skewed_knob_mid_frame_renders_a_different_angle_than_linear` (golden
+  `knob_skew_mid`); `Skewed_knob_endpoints_match_linear_endpoints_exactly` — t=0/t=1 are exact fixed
+  points of any curve, so the min/max frames match the existing `knob_default_{min,max}` baselines
+  even under a Skew curve; `Logarithmic_meter_fill_differs_from_linear_at_the_same_frame` — a
+  pixel-diff proves the curve actually reaches the meter fill path, not just the rotary one.
 
 ### `MeterRenderTests.cs` — 10 (meter renderer)
 - 5 golden baselines: `meter_proc_up_{empty,mid,full}`, `meter_proc_lr_mid`,
@@ -253,6 +277,26 @@ tutorial's sample-knob load (`IAssetService` → `LoadSourceFromPath`).
 - `AutoExtractPointer_splits_a_flat_knob_into_the_base_and_pointer_slots` (the auto-extract
   command fills both slots and enables export).
 
+### `RenderPresetTests.cs` — 9 (v1.5, save/load render presets)
+`RenderPreset` is a named snapshot of the Create tab's full render setup (no loaded art), persisted
+via `AppSettings.RenderPresets` and restored through `MainWindowViewModel`'s injected
+`ISettingsService`. `TestFakes.MainVm(ISettingsService)` builds a fully-wired VM from substitutes.
+- `A_saved_preset_round_trips_through_settings_json` — a saved preset (incl. grid layout + a
+  parameter-law curve) survives a `SettingsService` JSON round-trip intact.
+- `SavePresetCommand_is_disabled_until_a_name_is_entered` (blank/whitespace vs. a real name).
+- `Saving_a_preset_adds_it_to_the_list_and_persists_it` — reaches both the `Presets` collection and
+  the settings file; the name field clears after a successful save.
+- `Saving_a_preset_with_an_existing_name_overwrites_it_instead_of_duplicating` (case-insensitive).
+- `Preset_commands_require_a_selection` — Apply/Delete are disabled with no `SelectedPreset`.
+- `Applying_a_preset_restores_the_full_render_setup` — every field a preset carries (component
+  type, grid layout, parameter-law curve, value-arc colour, …) round-trips through save → mutate →
+  apply.
+- `Deleting_a_preset_removes_it_from_the_list_and_settings`.
+- **(BUG-018)** `Deleting_a_duplicate_named_preset_removes_only_the_selected_one_by_reference` — two
+  distinct `RenderPreset` objects sharing a name (e.g. a hand-edited settings.json) delete
+  independently; the UI list and the persisted store can't desync.
+- `Presets_saved_in_an_earlier_session_are_loaded_on_construction`.
+
 ### `ContentAnalysisTests.cs` — 4 (opaque-content centre detection)
 Unit tests for `ContentAnalysis.DetectContentCenter`, which backs the alignment tools
 (Auto-center, the draggable crosshair guide, knob auto-centring on load).
@@ -295,10 +339,16 @@ knob spinning in place instead of orbiting.
 - `BuildSingleControl_maps_the_component_type` (Theory, 3 cases).
 - `BuildSingleControl_carries_frames_size_stack_and_assets`.
 - `Serialized_manifest_conforms_to_the_skill_schema` (JSON-Schema conformance).
-- `Optional_fields_are_omitted_when_absent`.
+- `Optional_fields_are_omitted_when_absent` — also asserts `layout`/`gridColumns` are omitted for
+  the default `Strip` layout.
 - `BuildManifest_assembles_multiple_controls_and_global_metadata` (multi-control + window
   background + value range; schema-conformant).
 - `BuildManifest_defaults_a_blank_name_and_omits_blank_author_and_background`.
+- **(v1.5)** `BuildSingleControl_carries_grid_layout_and_columns_only_when_grid` — a grid-layout
+  strip serializes `"layout": "grid"` + `"gridColumns"`; schema-conformant.
+- **(v1.5 / BUG-017)** `BuildSingleControl_clamps_a_non_positive_grid_columns_to_one` (Theory,
+  `GridColumns` = 0 and −3) — an unclamped upstream value can never reach the manifest below the
+  schema's `minimum: 1`.
 
 ### `SkinViewModelTests.cs` — 4 (`SkinViewModel`, NSubstitute)
 The Skin tab's multi-control manifest builder.
@@ -308,7 +358,7 @@ The Skin tab's multi-control manifest builder.
 - `Export_builds_a_manifest_with_every_control_and_the_globals` (all controls + skin metadata
   reach `BuildManifest`; the file is written as `<name>.skin.json`).
 
-### `CodeSnippetServiceTests.cs` — 21 (code/component export)
+### `CodeSnippetServiceTests.cs` — 26 (code/component export)
 Per-target loader-code generation (`CodeSnippetService`), all pure string assertions.
 - JUCE: knob → a rotary `LookAndFeel`; fader → a linear `LookAndFeel`; meter → a
   `Component` with `setLevel`; **toggle** → a latching `juce::Button`
@@ -324,6 +374,13 @@ Per-target loader-code generation (`CodeSnippetService`), all pure string assert
   the `FileName` mapping resolves the `.jsx` extension.
 - Identifiers are sanitised; `FileName` maps each target (Theory, 4 rows); `SaveAsync`
   writes the snippet to disk matching `Generate`.
+- **(v1.5) "Grid layout" section — 9 tests, one per target × grid/non-grid:** JUCE emits
+  `const int cols = N;` + `(frame % cols) * frameW, (frame / cols) * frameH` for every one of its 4
+  code paths (meter/button/knob/fader), and the non-grid path stays byte-unaffected by the new
+  fields; CSS switches `--frame` for `--col`/`--row` custom properties (and the reverse for
+  non-grid); HISE and React compute the same column/row split in their own JS; iPlug2 — whose
+  built-in `IBitmap`/`LoadBitmap` can only read a 1D strip — emits an explicit warning comment
+  instead of silently mis-reading a 2D atlas, and emits no warning for the non-grid path.
 
 ### `RenderRecipeServiceTests.cs` — 14 (render-recipe export, path-tracing P2)
 The recipe's per-frame table must match the renderer's law exactly, so an offline render stacks cleanly.
@@ -376,10 +433,11 @@ The recipe's per-frame table must match the renderer's law exactly, so an offlin
 ## Golden-image regression (`ImageAssert` + `image-regression-testing` skill)
 
 - **Baselines:** `tests/StripKit.Tests/baselines/*.png`, **committed** — they are the
-  assertion; a changed baseline shows up as a visual diff in review. Eighteen baselines:
+  assertion; a changed baseline shows up as a visual diff in review. Twenty baselines:
   `knob_default_{min,mid,max}`, `knob_strip8`, `vfader_default_mid`, `hslider_default_mid`,
   `meter_proc_up_{empty,mid,full}`, `meter_proc_lr_mid`, `meter_layered_up_mid`,
-  `arc_knob_{min,mid,max}`, `arc_knob_gradient_glow_mid`, `layered_knob_{min,mid,max}`.
+  `arc_knob_{min,mid,max}`, `arc_knob_gradient_glow_mid`, `layered_knob_{min,mid,max}`,
+  **(v1.5)** `knob_grid8x4` (sprite-grid packing) and `knob_skew_mid` (a Skew-curve knob sweep).
 - **Tolerance:** a pixel "differs" if any channel differs by > 2/255; the test fails
   if > 0.1 % of pixels differ. Absorbs anti-aliasing jitter, catches real changes.
 - **On mismatch:** writes `expected`/`actual`/`diff` PNGs to

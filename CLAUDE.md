@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-30 · last-audit 2026-06-18
+> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -40,7 +40,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **288 green.**
+  6.0.4). **331 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -99,11 +99,17 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
 (stack a folder of pre-rendered frames — e.g. a path-traced PNG sequence — into one filmstrip).
 
 - `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract — incl.
-  `ShowMeterPeak` + `PeakColorArgb`, mirrored in `FilmstripEngine.cs`),
-  `FrameTransform`, `StripDetection` (importer output),
-  `SkinManifest`/`ManifestControl`/`ManifestBounds`, `BatchModels`, `CodeModels`,
-  `RenderLayer` (`LayerBehavior` {Static, Rotate, **Frame**} + per-layer pivot — the layered-knob /
-  button stack), the `ComponentType` ({RotaryKnob, VerticalFader, HorizontalSlider, Meter,
+  `ShowMeterPeak` + `PeakColorArgb`, mirrored in `FilmstripEngine.cs`; also **sprite-grid layout**
+  `Layout`/`GridColumns` and **parameter-law frame mapping** `MappingCurve`/`MappingSkew`/
+  `MappingLogBase` + the `MapT(t)` remap method — both default to the byte-identical Strip/Linear
+  path), `StripLayout` ({Strip, **Grid**}) / `FrameMappingCurve` ({Linear, **Skew**, **Logarithmic**})
+  enums, `FrameTransform`, `StripDetection` (importer output),
+  `SkinManifest`/`ManifestControl`/`ManifestBounds` (`ManifestControl` carries nullable
+  `Layout`/`GridColumns`, populated only for a grid strip), `BatchModels`, `CodeModels`
+  (`CodeSnippetRequest` carries `Layout`/`GridColumns` too), `RenderLayer` (`LayerBehavior`
+  {Static, Rotate, **Frame**} + per-layer pivot — the layered-knob / button stack), `RenderPreset`
+  (a named snapshot of the Create tab's full render setup — no loaded art — for save/load presets),
+  the `ComponentType` ({RotaryKnob, VerticalFader, HorizontalSlider, Meter,
   **Button**, **Toggle**}) / `StackDirection` / `MeterFillDirection` enums.
 - `Services/SkiaFilmstripRenderer.cs` — **the heart.** `ComputeTransform` does the
   rotary/linear math; `RenderFrame` composites one frame with supersampling +
@@ -113,7 +119,11 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   `RenderValueArc`, or be composited from a base+pointer layer stack via `RenderLayers`
   when `settings.Layers` + `layerArt` are supplied; **buttons** composite discrete state
   art per frame via `RenderButtonLayers` — `Static` on every frame, `Frame` only on its
-  matching index); `RenderStrip` blits frames into the stacked PNG.
+  matching index); `RenderStrip` blits frames into the stacked PNG — a single Stack-direction strip
+  (default) or, when `Layout == Grid`, a row-major R×C sprite atlas. All four sites that compute the
+  linear sweep fraction `t` (`ComputeTransform`, `RenderLayers`, `RenderMeterFrame`,
+  `RenderValueArc`) pass it through `settings.MapT(t)` first, so the parameter-law curve applies
+  uniformly everywhere; `Linear` (default) is a true no-op.
 - `Services/FilmstripImporter.cs` — detect an existing strip's layout from its
   dimensions, extract a frame, re-stack orientation, and **resample** (re-time) to a new
   frame count via nearest-frame mapping (no Avalonia dep).
@@ -130,10 +140,15 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   entity-expansion DoS / external-entity. Used by `SvgSanitizer` + `LayeredImportService`. App-only.
 - `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json):
   `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
+  Clamps `GridColumns` to `Math.Max(1, …)` before serializing (BUG-017) so an unclamped upstream
+  value can never violate the `plugin-asset-manifest` schema's `minimum: 1`.
 - `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
   iPlug2 / HISE / **React** — `CodeTarget.React` → a `.jsx` sprite component driven by a 0..1 `value`
   prop) for an exported strip; pure string-gen mirroring `ManifestService`. Wired into the Create,
   Assemble, and **Batch** code-export panels (Batch emits per-strip snippets via `BatchOptions.CodeTargets`).
+  All 5 targets are **grid-layout aware** (real column/row math for JUCE/CSS/HISE/React; iPlug2's
+  `IBitmap`/`LoadBitmap` can only read a 1D strip, so its grid path emits an explicit warning
+  comment instead of silently mis-reading a 2D atlas).
 - `Services/RenderRecipeService.cs` — the **Render recipe** (Create tab; path-tracing P2): emit a
   Blender `bpy` script + `frame,value,angle_deg` CSV/JSON so an offline render matches the runtime
   sweep law. Pure string-gen like `CodeSnippetService`; its static `BuildFrameTable` mirrors
@@ -176,7 +191,12 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   per-layer Static/Rotate/Frame dropdowns; `ImportedLayerRow`). Exposes `Importer`, `Batch`, `Skin`,
   and `Generate`; `ImportLayeredFromPathAsync` is shared by the layered file picker and the Generate
   tab's "Use in Create" handoff — which **honours the generated control type** (knob → body+pointer;
-  button → off/on Frame layers; fader/slider → flattened single source).
+  button → off/on Frame layers; fader/slider → flattened single source). Also holds the **sprite
+  layout** (`Layout`/`GridColumns`), the **parameter-law** curve fields, and — now taking an
+  injected `ISettingsService` — **render presets** (`Presets` + Save/Apply/Delete commands; a
+  preset is a named snapshot of the full render setup, no loaded art; delete removes by object
+  reference on both the UI collection and the persisted list so duplicate names can't desync them —
+  BUG-018).
 - `ViewModels/ImporterViewModel.cs` — Import-tab state + commands (detect / scrub / extract /
   re-stack / resample; same funnel).
 - `ViewModels/BatchViewModel.cs` — Batch-tab state + commands (folders, template incl. the meter
@@ -272,6 +292,48 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-07-02 (v1.5.0-dev: enhancement wave — 12/12 feature-complete + 4-dimension adversarial
+  review; uncommitted)** — Finished the 3 items deferred from the prior session, in priority order.
+  **(10) Sprite-grid layout (R×C)** — a `StripLayout` enum (Strip default / **Grid**) +
+  `FilmstripSettings.Layout`/`GridColumns`; `RenderStrip` packs frames into a row-major R×C atlas
+  when selected (`col = i % cols`, `row = i / cols`), gated so Strip stays byte-identical; mirrored
+  in `FilmstripEngine.cs`. `ManifestControl` gained nullable `Layout`/`GridColumns` (omitted unless
+  grid) + a `plugin-asset-manifest` schema-doc update. All 5 code-export targets got grid-aware
+  column/row math except **iPlug2** — its built-in `IBitmap`/`LoadBitmap` can only read a 1D strip,
+  so it emits an explicit warning comment instead of silently mis-emitting. A "Sprite layout" combo +
+  conditional "Grid columns" input on the Create tab (Stack-direction hides when Grid is active);
+  new golden `knob_grid8x4`. +16 tests. **(11) Parameter-law frame mapping (log/skew)** — a
+  `FrameMappingCurve` enum (Linear/**Skew**/**Logarithmic**) + `MappingCurve`/`MappingSkew`/
+  `MappingLogBase` on `FilmstripSettings` + a `MapT(t)` remap applied at all 4 renderer sites that
+  compute the sweep fraction (`ComputeTransform`, `RenderLayers`, `RenderMeterFrame`,
+  `RenderValueArc`), so knobs, layered knobs, meters, and the value arc all honour the curve
+  consistently. `Linear` is a true no-op — returns the input completely unchanged, not just
+  numerically equal — so every existing golden stayed byte-identical; mirrored in
+  `FilmstripEngine.cs`. A "PARAMETER LAW (advanced)" Create-tab section; the preview readout now
+  reflects the mapped angle too. New golden `knob_skew_mid`. +12 tests. **(12) Save/load render
+  presets** — a `RenderPreset` model (~40 fields: the full Create-tab render setup — type, frames,
+  sweep, resolution, sprite layout, parameter-law curve, meter/value-arc settings, export
+  preferences — deliberately excluding loaded art) persisted via `AppSettings.RenderPresets`.
+  `ISettingsService` is now injected into `MainWindowViewModel`'s constructor (rippled into
+  `TransportTileAlignmentTests`/`LoadPathTests`/`LayeredImportViewModelTests` + a new
+  `TestFakes.MainVm()` helper). `SavePreset`/`ApplyPreset`/`DeletePreset` commands (save overwrites
+  by case-insensitive name; apply bulk-restores everything in one `_suspendRefresh` pass, mirroring
+  the existing bulk-assign pattern). A "PRESETS" section atop the Create tab's left panel. +9 tests.
+  **Adversarial review:** a 4-dimension Workflow (renderer/golden-compat, VM/MVVM,
+  code-export/manifest, XAML/tests — each independently re-verified against the current file
+  contents by a second agent) found and fixed 2 real issues before commit: **BUG-017** (medium) —
+  `ManifestService` could serialize a non-positive `GridColumns`, violating the manifest schema's
+  `minimum: 1` — now clamped; **BUG-018** (low) — `DeletePreset()` removed the UI's `Presets` entry
+  by reference but the persisted list's entry by name, so duplicate-named presets (hand-edited-file
+  only) could desync the two collections — now reference-based on both sides. **Live-verified** in
+  the running dev build (`dotnet run` + computer-use): Presets section, the Sprite-layout
+  Strip↔Grid toggle, and the Parameter Law section all render and behave correctly. **Suite
+  288 → 331 green, build clean.** **The v1.5 enhancement wave is now 12/12 feature-complete.** Not
+  yet committed to git (working-tree changes) or released — csproj/`.iss` `<Version>` still at
+  1.3.0; the release script bumps to 1.5.0 at release. **Next:** commit this work (ask the user
+  first — not done autonomously per the git-safety rule), then a live path-traced/AI-generation
+  eyeball pass (carried over, unrelated to this session), then cut **v1.5.0**.
 
 - **2026-07-02 (v1.5.0-dev: enhancement wave — 9/12 shipped + pushed on `origin/main`; unreleased)** —
   Rather than cut v1.4.0, the owner bundled a batch of small enhancements and **reframed the next release

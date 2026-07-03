@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 >
 > The deep, file-and-flow reference for how the **StripKit desktop app** is built.
 > `docs/SOURCE_MAP.md` says *where* things live; this says *how and why* they work.
@@ -230,9 +230,28 @@ for both rotation and downscale.
 
 ### 5.1 `ComputeTransform(settings, source, frameIndex)`
 
-`n = max(1, FrameCount)`. `t = n > 1 ? frameIndex / (n − 1) : 0`. **The `(n − 1)`
+`n = max(1, FrameCount)`. The linear position `frameIndex / (n − 1)` (or `0` when
+`n == 1`) is then passed through `settings.MapT(linearT)` to get `t`. **The `(n − 1)`
 divisor is deliberate** — it lands the final frame exactly on the maximum value.
 Changing it to `n` makes the last frame fall short. Do not change it.
+
+**Parameter-law frame mapping (`FilmstripSettings.MapT`).** `MapT` remaps the linear
+0..1 strip position through `settings.MappingCurve` (`FrameMappingCurve`: `Linear` /
+`Skew` / `Logarithmic`) before it drives any sweep — the frame count and spacing never
+change, only the value assigned to a given frame index does. `Linear` (the default)
+returns `linearT` **completely unchanged** — no clamp, no arithmetic, a true no-op — so
+every existing golden image stayed byte-identical. `Skew` raises the clamped input to
+`MappingSkew` (the JUCE `NormalisableRange` skew-factor convention: `t' = t ^
+MappingSkew`; skew < 1 front-loads resolution toward the low end, skew > 1 toward the
+high end). `Logarithmic` applies `t' = log(1 + t·(MappingLogBase − 1)) /
+log(MappingLogBase)` (a concave taper for frequency-style parameters; both curves clamp
+their input and fall back to a safe default — `MappingSkew`/`MappingLogBase` ≤ their
+valid range — if the parameter itself is invalid). `MapT` is called at all four
+`t`-computation sites in the renderer: here in `ComputeTransform` (rotary/linear
+position), `RenderLayers` (layered-knob angle, §5.6), `RenderMeterFrame` (meter fill
+fraction, §5.4), and `RenderValueArc` (the value-arc sweep, §5.5) — so every
+sweep-driven render path honours the curve consistently. Mirrored in
+`FilmstripEngine.cs` (§15).
 
 - **RotaryKnob** — fit the art aspect-preserving and rectangle-centred into the frame
   (`Contain`); the art is **not moved**. Only the rotation happens, about the art's
@@ -282,19 +301,34 @@ than jagged.
 
 ### 5.3 `RenderStrip(settings, source, background, scale = 1.0)`
 
-Computes the stacked dimensions (`vertical → fw × fh·n`, else `fw·n × fh`, where
-`fw/fh` are `scale`-adjusted) and renders **frame-by-frame**, blitting each finished
+Computes the stacked dimensions and renders **frame-by-frame**, blitting each finished
 frame 1:1 into the strip with `DrawBitmap` (no resampling — the frame is already at
 target size). Only **one** oversampled frame is in memory at a time — important for XL
 strips tens of thousands of pixels tall. Output is 32-bit RGBA, transparent background.
+
+**Sprite-grid layout (`StripLayout`).** `settings.Layout` (`StripLayout`: `Strip` default
+/ `Grid`) picks the packing:
+
+- **`Strip`** (default) — the classic 1×N (or N×1) strip: `vertical → fw × fh·n`, else
+  `fw·n × fh` (`fw/fh` are `scale`-adjusted). Frame *i* blits to `(0, i·fh)` when vertical,
+  `(i·fw, 0)` otherwise — byte-identical to every pre-existing export.
+- **`Grid`** — an R×C atlas: `cols = max(1, settings.GridColumns)`,
+  `rows = ceil(FrameCount / GridColumns)`, strip size `fw·cols × fh·rows`. Frame *i* blits
+  row-major to `col = i % cols`, `row = i / cols` → `(col·fw, row·fh)`.
+
+Each frame is still rendered independently via `RenderFrame` regardless of layout — only
+the destination blit coordinates change — so a grid strip costs nothing extra per frame.
+`Strip` being the default (and the only code path when `Layout != Grid`) is what keeps
+every prior golden image byte-for-byte unchanged. Mirrored in `FilmstripEngine.cs` (§15).
 
 ### 5.4 Meters (`RenderMeterFrame`)
 
 For `ComponentType.Meter`, `RenderFrame` skips the transform path and calls the private
 `RenderMeterFrame(canvas, settings, onArt, frameIndex, px, workW, workH)` after the
-background has been drawn full. The lit fraction for frame *i* is `t = i/(N−1)`, snapped
-to whole segments (`round(t·S)/S`, clamped 0..1) unless `ContinuousFill`. The lit region
-is a rectangle from `FillRect(FillDirection, fill, …)`:
+background has been drawn full. The lit fraction for frame *i* is `t = settings.MapT(i/(N−1))`
+(§5.1 — `Linear`, the default, leaves it as `i/(N−1)`), snapped to whole segments
+(`round(t·S)/S`, clamped 0..1) unless `ContinuousFill`. The lit region is a rectangle from
+`FillRect(FillDirection, fill, …)`:
 
 - `Up` → fills from the **bottom** up; `Down` → from the **top** down;
   `LeftToRight` → from the **left**; `RightToLeft` → from the **right**.
@@ -324,11 +358,12 @@ byte-identical.
   (a fraction of the frame's inscribed radius; ~0.88 sits just outside a typical body). The
   stroke is `ArcThickness · px` with round or butt caps (`ArcRoundCaps`).
 - **Sweep = value.** The lit arc inherits the knob's rotation range: it spans
-  `Start → Start + (End − Start)·t` for frame *i* (`t = i/(N−1)`), i.e. the same fraction of
-  the sweep the frame represents. **Angle convention:** the app's `0°` is 12 o'clock (`+` =
-  clockwise); Skia's arc `0°` is 3 o'clock, so the start converts as `StartAngle − 90` (the
-  `−90` cancels in the sweep *delta*). Negative sweeps (counter-clockwise knobs) draw
-  correctly because `DrawArc` honours a negative sweep.
+  `Start → Start + (End − Start)·t` for frame *i* (`t = settings.MapT(i/(N−1))`, §5.1 — the
+  same remapped `t` the rotation itself uses), i.e. the same fraction of the sweep the frame
+  represents. **Angle convention:** the app's `0°` is 12 o'clock (`+` = clockwise); Skia's
+  arc `0°` is 3 o'clock, so the start converts as `StartAngle − 90` (the `−90` cancels in the
+  sweep *delta*). Negative sweeps (counter-clockwise knobs) draw correctly because `DrawArc`
+  honours a negative sweep.
 - **Layers (each optional, drawn back-to-front).** A dim **track** (`ArcTrack`,
   `ArcTrackColorArgb`) at the full sweep shows the unfilled remainder; a **glow**
   (`ArcGlow`, `ArcGlowSize`) is a blurred under-stroke of the lit portion via
@@ -357,9 +392,10 @@ so only the pointer moves and the body stays crisp and re-renderable at any reso
   centred** in the cell exactly like a single knob source (so layers authored at the same
   canvas size overlay pixel-perfectly; a differently-sized one stays undistorted). A `Static`
   layer is drawn fixed; a `Rotate` layer is drawn rotated by the per-frame angle
-  (`Start + (End−Start)·t`) about **its own** pivot — independent of the body, which is what
-  lets the pointer's rotation axis differ from the body centre. Layers are knob-only; every
-  other component type ignores them.
+  (`Start + (End−Start)·t`, where `t = settings.MapT(i/(N−1))` — §5.1, the same remapped `t`
+  the single-source knob path uses) about **its own** pivot — independent of the body, which
+  is what lets the pointer's rotation axis differ from the body centre. Layers are knob-only;
+  every other component type ignores them.
 - **Pivot.** Each `Rotate` layer rotates about its own normalized pivot mapped into the cell.
   The app seeds the pointer's pivot from the **body's** detected content centre (the knob
   axis) on load, then exposes it for manual adjustment (§6.6). A same-canvas pointer therefore
@@ -401,8 +437,12 @@ art and a different code-export binding — see §9.1 and §11) but render ident
 1. **Output / irrelevant properties early-return** (the ignore-list): `PreviewImage`,
    `PreviewReadout`, `StripDimensions`, `StatusMessage`, `SourceInfo`, `BackgroundInfo`,
    `IsRotary`, `IsLinear`, `IsMeter`, `ShowLoadHint`, `IsPlaying`, `ExportManifest`,
-   `ParameterId`. These never trigger a re-render (avoids feedback loops and needless
-   work — `ExportManifest`/`ParameterId` only affect the written file, not the pixels).
+   `ParameterId`, `IsGridLayout`, `IsSkewMapping`, `IsLogMapping`, `NewPresetName`,
+   `SelectedPreset`. These never trigger a re-render (avoids feedback loops and needless
+   work — `ExportManifest`/`ParameterId` only affect the written file, not the pixels;
+   `IsGridLayout`/`IsSkewMapping`/`IsLogMapping` are computed UI-visibility flags whose
+   *underlying* property — `Layout`/`MappingCurve` — already triggers the funnel normally;
+   `NewPresetName`/`SelectedPreset` are preset-list UI state, not render input).
 2. `_suspendRefresh` guards bulk updates (applying type defaults, recomputing angles,
    loading a source, the alignment commands) so the preview refreshes **once** after a
    batch, not per property.
@@ -413,7 +453,9 @@ art and a different code-export binding — see §9.1 and §11) but render ident
    size when `ExportAt2x`) and `RefreshPreview()`.
 
 `BuildSettings()` maps the bound properties to a `FilmstripSettings`, parsing the meter
-colour hex via `ParseArgb` (`SKColor.TryParse` → packed ARGB, or a fallback).
+colour hex via `ParseArgb` (`SKColor.TryParse` → packed ARGB, or a fallback). It also
+carries `Layout`/`GridColumns` (sprite-grid packing, §5.3) and `MappingCurve`/
+`MappingSkew`/`MappingLogBase` (parameter-law frame mapping, §5.1) straight through.
 
 **Type defaults (`ApplyTypeDefaults`):** knob → square the frame to the source (or 80×80
 with no source); vertical fader → 40×128; horizontal slider → 128×32; meter → 48×160 (a
@@ -576,6 +618,44 @@ controls + design tokens (no renderer/engine change).
 - **Persistence (`SettingsService`).** A tiny System.Text.Json file in the app-data folder — the
   app's only persisted state. The path is constructor-injectable so tests use a temp file.
 
+### 6.10 Save / load render presets
+
+`MainWindowViewModel` now takes an injected `ISettingsService` (a new constructor dependency —
+previously it had none), which rippled into every test that constructs the VM directly
+(`TransportTileAlignmentTests`/`LoadPathTests`/`LayeredImportViewModelTests`, plus a new
+`TestFakes.MainVm(ISettingsService)` helper).
+
+- **`RenderPreset` (the model).** A plain data class (`Models/RenderPreset.cs`, ~40 properties)
+  snapshotting the *entire* Create-tab render setup — component type, frame count/size, rotary
+  sweep, content-alignment centre, linear-fader margins, supersample, stack direction, the §5.3
+  sprite-grid fields, the §5.1 parameter-law fields, meter settings, value-arc settings, and export
+  preferences. **Deliberately excludes any loaded art** (source/background/layers) — a preset is a
+  reusable *style*, not an asset bundle, so applying one never touches `_source`/`_baseLayer`/
+  `_pointer`/`ImportedLayers`.
+- **Persistence.** `AppSettings.RenderPresets` (`List<RenderPreset>`) is loaded into the VM's
+  observable `Presets` collection at construction, and both are kept in lock-step by object
+  reference from then on (not by name — see the delete note below).
+- **`SavePreset` (`[RelayCommand]`, gated on a non-blank `NewPresetName`).** Snapshots the current
+  VM state into a `RenderPreset` (`ToPreset`); if an existing preset shares the name
+  (case-insensitive), it's replaced in place rather than duplicated. Rewrites
+  `_settings.Settings.RenderPresets` from `Presets` and calls `Save()`.
+  `ApplyPreset`/`DeletePreset` are gated on `SelectedPreset` being non-null.
+- **`ApplyPreset`.** Bulk-assigns every field from the selected preset back onto the VM inside one
+  `_suspendRefresh = true` block (the same bulk-assign pattern §6.6/§6.8 use) — this matters because
+  assigning `ComponentType` mid-restore would otherwise fire `ApplyTypeDefaults()` (§6.1) and
+  overwrite the frame size the preset is about to set anyway. After the block, one manual
+  `UpdateReadouts`/`UpdateCodePreview`/`UpdateRecipePreview`/`RefreshPreview` pass brings the preview
+  in sync.
+- **`DeletePreset`.** Removes the selected preset from **both** `Presets` and
+  `_settings.Settings.RenderPresets` **by object reference**, not by name. This was a deliberate fix
+  during a 2026-07-02 adversarial review (BUG-018, see `docs/BUGS.md`): removing by name on the
+  persisted side while the UI side removed by reference meant two presets that happened to share a
+  name (only reachable via a hand-edited settings file) could desync — deleting one from the UI
+  silently deleted both from disk. Reference-based removal on both sides closes that.
+- **View.** A "PRESETS" section sits atop the Create tab's left panel: a `ListBox` bound to
+  `Presets` (a `DataTemplate` over `Models.RenderPreset` showing `Name`) + a name `TextBox` +
+  Apply/Delete/Save buttons.
+
 ---
 
 ## 7. The alignment system (content-centre / pivot)
@@ -687,6 +767,11 @@ maps a `FilmstripSettings` + export filenames to a one-control `SkinManifest`:
 - `asset`/`asset2x` ← bare file names (the manifest is written next to the PNG, so paths
   are relative). `asset2x` is null (and omitted on serialize) when no @2x was exported.
 - `frames`, `frameWidth`, `frameHeight`, `stack` (`"vertical"`/`"horizontal"`) ← settings.
+- `layout`/`gridColumns` ← **nullable**, populated only when `settings.Layout == StripLayout.Grid`
+  (§5.3) — `"grid"` + the clamped column count (`Math.Max(1, settings.GridColumns)`, BUG-017: an
+  unclamped upstream value must never violate the manifest schema's `gridColumns` `minimum: 1`).
+  Absent entirely for the default `Strip` layout, so a non-grid manifest is byte-identical to
+  before this feature existed.
 - `bounds` ← `{0, 0, frameWidth, frameHeight}` (one frame at the origin; the skin author
   repositions; bounds are base-resolution pixels).
 - `baseWidth`/`baseHeight` ← frame size; `name` ← `"<id> skin"`; `manifestVersion = 1`.
@@ -694,7 +779,8 @@ maps a `FilmstripSettings` + export filenames to a one-control `SkinManifest`:
 `Serialize` uses System.Text.Json with `WriteIndented`, `CamelCase` naming, and
 `DefaultIgnoreCondition = WhenWritingNull`. `SaveAsync` creates the directory and writes
 the file. The output validates against the JSON Schema in the `plugin-asset-manifest`
-skill (top-level + `controls[]` required keys, `type`/`stack` enums, `bounds` x/y/w/h).
+skill (top-level + `controls[]` required keys, `type`/`stack` enums, `layout` enum,
+`gridColumns` minimum, `bounds` x/y/w/h).
 The model already supports **multi-control** manifests, an optional whole-window/per-control
 `background`, `author`/`skinVersion`, and `valueMin/Max/Default` — the export UI currently
 emits a single control.
@@ -715,20 +801,30 @@ the thin `SaveAsync(target, request, directory)`. Input is a `CodeSnippetRequest
   `Css` — a self-contained HTML/`<style>`/`<script>` sprite driven by `background-position` + a
   0..1 value setter; `IPlug2` — `IBKnobControl` / `IBSliderControl` / `IBitmapControl`, or an
   `IBSwitchControl` for a **button/toggle**, with `LoadBitmap(nStates, framesAreHorizontal)`;
-  `Hise` — a `ScriptPanel` with a filmstrip paint routine. The four files use extensions
-  `.juce.h` / `.html` / `.iplug2.cpp` / `.hise.js`.
+  `Hise` — a `ScriptPanel` with a filmstrip paint routine; `React` — a `.jsx` sprite component
+  driven by a `value` prop (0..1). The five files use extensions
+  `.juce.h` / `.html` / `.iplug2.cpp` / `.hise.js` / `.jsx`.
 - **The universal rule.** Every snippet selects the frame with
   `frame = clamp(round(value·(N−1)), 0, N−1)` and reads the source cell from the stack axis
   (`frame·frameH` down a vertical strip, `frame·frameW` along a horizontal one) — the same
   `(N−1)` law as the renderer. Identifiers are sanitised per language (`Pascal` for C++ class /
   param names, a CSS-class form, JUCE `BinaryData` mangling for the embedded asset name).
-- **Wiring.** `MainWindowViewModel` exposes `ExportCode` + four per-target toggles
-  (`EmitCodeJuce/Css/IPlug2/Hise`), a `CodePreviewTarget`, and a live `GeneratedCode` string;
+- **Grid-layout awareness (§5.3).** `CodeSnippetRequest` carries trailing `Layout`/`GridColumns`
+  params (defaulted, so pre-existing positional call sites still compile unchanged). When the
+  asset is a grid, JUCE/CSS/HISE/React swap the single-axis `frame·frameW`/`frame·frameH` source
+  read for real column/row math (`col = frame % cols`, `row = frame / cols`) — CSS additionally
+  swaps its single `--frame` custom property for `--col`/`--row`. **iPlug2 is the one exception:**
+  its built-in `IBitmap`/`LoadBitmap(nStates, framesAreHorizontal)` can only read a 1D strip, so
+  its grid path emits an explicit warning comment recommending Strip layout instead of silently
+  mis-reading a 2D atlas as a 1D one.
+- **Wiring.** `MainWindowViewModel` exposes `ExportCode` + five per-target toggles
+  (`EmitCodeJuce/Css/IPlug2/Hise/React`), a `CodePreviewTarget`, and a live `GeneratedCode` string;
   the funnel refreshes the snippet when a code-relevant input (incl. `ParameterId`) changes —
   **without** re-rendering the image. On export, `SaveAsync` writes one file per ticked target
   next to the PNG; the Create tab also has a **preview / copy-to-clipboard** expander (clipboard
   access lives in `MainWindow.axaml.cs`, a view concern). The snippet is generated from the
-  baked PNG; the renderer and manifest are untouched.
+  baked PNG; the renderer and manifest are untouched. Also wired into the **Batch** and
+  **Assemble** tabs (`BatchOptions.CodeTargets`) for parity.
 
 ### 9.2 Multi-control skin builder (the Skin tab)
 
@@ -956,24 +1052,32 @@ so the engine can be dropped into a CLI, a build step, a web backend, or another
 unchanged.
 
 It contains exactly the **render math**: the `ComponentType` (incl. `Button` and `Toggle`), `MeterFillDirection`,
-`StackDirection`, and `LayerBehavior` (incl. `Frame`) enums; the `FrameTransform` struct and the `RenderLayer`
+`StackDirection`, **`StripLayout`** (§5.3), **`FrameMappingCurve`** (§5.1), and `LayerBehavior` (incl. `Frame`)
+enums; the `FrameTransform` struct and the `RenderLayer`
 class; `FilmstripSettings` (including the `SourceCenterX/Y` alignment fields, the meter fields,
-the value-arc fields, and the `Layers` list with its deep `Clone`); and `IFilmstripRenderer` +
-`SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`, `RenderStrip`, the full
+the value-arc fields, the `Layers` list with its deep `Clone`, the **`Layout`/`GridColumns`** sprite-grid
+fields, and the **`MappingCurve`/`MappingSkew`/`MappingLogBase`** parameter-law fields + the **`MapT`**
+remap method itself); and `IFilmstripRenderer` +
+`SkiaFilmstripRenderer` (including `ComputeTransform`, `RenderFrame`, `RenderStrip` — with its **R×C
+grid-packing branch** — the full
 `RenderMeterFrame` procedural/layered path, `RenderValueArc`, the `RenderLayers`
 base+pointer path, and the `RenderButtonLayers` button/toggle state-frame path — the renderer's
-`Button` case also handles `Toggle`). It does **not** include the
+`Button` case also handles `Toggle`; all four `t`-computation sites route through `MapT`). It does **not**
+include the
 app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
 `BatchProcessor`, the I/O services, or any view-model/view — by design.
 
 > **Maintenance hazard:** it duplicates `Services/SkiaFilmstripRenderer.cs` +
 > `Models/{FilmstripSettings, FrameTransform, ComponentType, StackDirection,
-> MeterFillDirection, RenderLayer}`. If the in-app renderer's math changes (transform,
-> supersampling, meter fill, alignment, layers), update this file to match (or it silently
+> MeterFillDirection, RenderLayer, StripLayout, FrameMappingCurve}`. If the in-app renderer's math
+> changes (transform,
+> supersampling, meter fill, alignment, layers, grid packing, parameter-law mapping), update this file to
+> match (or it silently
 > drifts). As of this audit the two are in sync — the alignment `SourceCenterX/Y` pivot, the
 > meter path, the `RenderValueArc` value-arc path (with its arc fields), the `RenderLayers`
-> base+pointer path, and the `RenderButtonLayers` button/toggle state-frame path (with the `RenderLayer` /
-> `LayerBehavior` Static/Rotate/Frame types and the `Layers` field) are
+> base+pointer path, the `RenderButtonLayers` button/toggle state-frame path (with the `RenderLayer` /
+> `LayerBehavior` Static/Rotate/Frame types and the `Layers` field), the **sprite-grid R×C packing**, and
+> the **parameter-law `MapT` remap** are
 > all present here.
 
 ---
@@ -985,6 +1089,17 @@ app-only services — `ContentAnalysis`, `FilmstripImporter`, `ManifestService`,
   intentional). Default sweep 270° (−135° → +135°). 32-bit RGBA, transparent bg. Standard
   counts 32/64/128. Ship `@2x` for HiDPI. ~10% transparent margin on knob art so corners
   don't clip on rotation.
+- **New render paths gate behind a byte-identical default.** Sprite-grid layout defaults to
+  `StripLayout.Strip` (§5.3) and parameter-law mapping defaults to `FrameMappingCurve.Linear`
+  (§5.1) — `Linear` is a **true no-op** (returns the input completely unchanged, not just
+  numerically equal), so every prior golden image stays byte-for-byte identical until a user
+  opts in. This is the same discipline the meter peak-marker (`ShowMeterPeak`) and the value
+  arc (`ShowValueArc`) already follow — extend it to any future render-path addition.
+- **A manifest field with a JSON-Schema `minimum` needs its own clamp at the `ManifestService`
+  call site.** The renderer clamping a value internally (e.g. `Math.Max(1, settings.GridColumns)`
+  in `RenderStrip`) does **not** protect the exported manifest — `ManifestService` must clamp
+  independently before serializing. BUG-017 was exactly this gap for `GridColumns`; see
+  `docs/BUGS.md`.
 - **Alignment:** rotation/centring is about the art's **content centre** (`SourceCenterX/Y`);
   `(0.5, 0.5)` reproduces classic rectangle-centred output. The bounding-box centre (not a
   centroid) is the detection method. Keep the defaults to preserve existing output.
@@ -1064,7 +1179,11 @@ refine, `GenerateViewModelTests` — incl. the editable/delisted-model test, `Ge
 `GenerateIntegrationTests`), the Create-tab load path (`LoadPathTests`), and a headless
 `DropZoneViewTests` (a synthetic OS drag gesture isn't constructable headlessly, so drop is
 covered by the VM load-path + `AllowDrop`-wiring assertions). `TestAppBuilder`/`TestImages`/`ImageAssert`/
-`TestFakes` are the harness. **216 green.** See `docs/TESTING.md` for the methodology and the current count.
+`TestFakes` (incl. the `MainVm(ISettingsService)` helper) are the harness. Also: parameter-law
+frame-mapping math + renderer integration (`ParameterLawMappingTests` — golden `knob_skew_mid`)
+and save/load render presets (`RenderPresetTests` — JSON round-trip + VM command behaviour), plus
+grid-layout additions to `RendererGoldenTests` (golden `knob_grid8x4`), `ManifestServiceTests`, and
+`CodeSnippetServiceTests`. **331 green.** See `docs/TESTING.md` for the methodology and the current count.
 
 ---
 

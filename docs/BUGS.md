@@ -1,8 +1,8 @@
 # BUGS — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 
-**Open bugs: 0.** **Resolved: 16.**
+**Open bugs: 0.** **Resolved: 18.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -15,6 +15,9 @@ commit `0aaa257` (resource leaks and a silent product gap). BUG-008/009 were
 forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing). BUG-010 was a
 **2026-06-18 audit** finding: the BUG-009 hardening was applied to the SVG file-import path but ran
 *after* Svg.Skia had already parsed the raw text, leaving the entity-expansion DoS reachable there.
+BUG-017/018 were **2026-07-02 adversarial-review** findings, caught before commit/release, in the new
+v1.5.0 sprite-grid + render-preset work (the 3 items deferred from the earlier v1.5.0 enhancement wave);
+both were fixed and covered by regression tests in the same session, uncommitted at time of writing.
 
 ---
 
@@ -278,6 +281,42 @@ forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
     `GlassFill`/`GlassBorder` keys (a Depth-rebrand rename miss); corrected to `GlassFillBrush`/`GlassBorderBrush`.
 - **Regression guard:** the QC drift + premultiplied-edge tests above; the leaks/tip-box are pattern fixes
   verified by inspection (the disposes/renames), with the suite staying green.
+
+### BUG-017 — GridColumns serialized into skin.json with no lower-bound guard (schema violation) ✅
+- **Severity:** Medium (an exported manifest could violate its own JSON Schema — a downstream loader
+  reading `skin.json` strictly could reject it).
+- **Component:** `src/StripKit/Services/ManifestService.cs` (`BuildSingleControl`).
+- **Reported / Fixed:** 2026-07-02 (4-dimension adversarial review of the v1.5.0 sprite-grid work,
+  before commit/release).
+- **Symptom:** a non-positive `GridColumns` — reachable via an unclamped VM property, a loaded
+  `RenderPreset`, or a hand-built `FilmstripSettings` — was written straight through into the exported
+  `skin.json`'s `gridColumns` field, which the `plugin-asset-manifest` JSON Schema declares
+  `"minimum": 1`.
+- **Root cause:** `BuildSingleControl` serialized `settings.GridColumns` verbatim; the renderer has its
+  own defensive clamp, but the manifest serializer never mirrored it.
+- **Fix:** clamp with `Math.Max(1, settings.GridColumns)` at the point of serialization, mirroring the
+  renderer's existing clamp.
+- **Regression guard:** `ManifestServiceTests.BuildSingleControl_clamps_a_non_positive_grid_columns_to_one`
+  (Theory: `GridColumns` = 0 and -3). **Not yet committed** (uncommitted, this session); part of the
+  current 331/331 green suite.
+
+### BUG-018 — DeletePreset could remove both entries of a duplicate-named preset (name vs. reference mismatch) ✅
+- **Severity:** Low (persisted-store desync; only reachable via a hand-edited `settings.json`, since
+  normal app usage prevents duplicate names via the save-overwrite guard).
+- **Component:** `src/StripKit/ViewModels/MainWindowViewModel.cs` (`DeletePreset`).
+- **Reported / Fixed:** 2026-07-02 (4-dimension adversarial review of the v1.5.0 render-presets work,
+  before commit/release).
+- **Symptom:** deleting a preset removed it from the UI's `Presets` collection **by object reference**,
+  but removed matching entries from `_settings.Settings.RenderPresets` **by a case-insensitive name
+  match** (`RemoveAll`). If two persisted presets ever shared a name, deleting one from the UI silently
+  deleted **both** from the persisted store, desyncing the UI list from disk until the next app restart.
+- **Root cause:** the two removals used different identity semantics — reference for the observable
+  collection, name for the persisted list.
+- **Fix:** switched the settings-side removal to reference-based
+  (`_settings.Settings.RenderPresets.Remove(p)`), matching `ObservableCollection.Remove`'s semantics.
+- **Regression guard:**
+  `RenderPresetTests.Deleting_a_duplicate_named_preset_removes_only_the_selected_one_by_reference`.
+  **Not yet committed** (uncommitted, this session); part of the current 331/331 green suite.
 
 ---
 

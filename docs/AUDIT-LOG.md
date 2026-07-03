@@ -1,8 +1,60 @@
 # AUDIT-LOG — StripKit
 
-> Version 1.3.0 · last-updated 2026-06-18 · last-audit 2026-06-18
+> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-07-02 — v1.5 enhancement wave complete (12/12) + 4-dimension adversarial review (unreleased)
+
+**Type:** Feature completion (the 3 items deferred from the prior session) + adversarial multi-agent
+code review + documentation reconciliation. Work is uncommitted at the time of this entry — the
+prior session's 9/12 items are on `origin/main` (tip `41fe792`); this session's 3 remaining items
+and 2 review fixes are staged in the working tree, pending a commit + the v1.5.0 release.
+
+**Finished the 3 items deferred from the prior session** (suite 288 → 331 green, build clean):
+- **Sprite-grid layout (R×C)** — `StripLayout` enum (`Strip` default / `Grid`) +
+  `FilmstripSettings.Layout`/`GridColumns`; `RenderStrip` packs frames into a row-major R×C atlas
+  when selected, gated so `Strip` stays byte-identical; mirrored in `FilmstripEngine.cs`.
+  `ManifestControl` gained nullable `Layout`/`GridColumns` + a `plugin-asset-manifest` schema-doc
+  update. All 5 code-export targets got grid-aware column/row math except iPlug2 (its `IBitmap` API
+  can't read a 2D atlas — it warns instead of silently mis-emitting). Create-tab UI + new golden
+  `knob_grid8x4`. +16 tests.
+- **Parameter-law frame mapping (log/skew)** — `FrameMappingCurve` enum (Linear/Skew/Logarithmic) +
+  `MappingCurve`/`MappingSkew`/`MappingLogBase` + a `MapT(t)` remap applied at all 4 renderer sites
+  that compute the sweep fraction; `Linear` is a true no-op (byte-identical goldens); mirrored in
+  `FilmstripEngine.cs`. Create-tab UI + new golden `knob_skew_mid`. +12 tests.
+- **Save / load render presets** — `RenderPreset` model (the full Create-tab render setup, no loaded
+  art) persisted via `AppSettings.RenderPresets`; `ISettingsService` injected into
+  `MainWindowViewModel`'s constructor (rippled into 3 test files + a new `TestFakes.MainVm()`
+  helper); Save/Apply/Delete commands; a "PRESETS" Create-tab section. +9 tests.
+
+**Method (review):** a 4-dimension Workflow (renderer/golden-compat, VM/MVVM, code-export/manifest,
+XAML/tests) — each dimension reviewed independently, then adversarially re-verified by a second
+agent against the actual current file contents before being reported. 2 dimensions (renderer,
+xaml-tests) came back clean; 2 findings survived verification in the other two.
+
+**Fixed (2, both pre-commit) — regression-tested, part of the 331/331 green suite:**
+- **BUG-017 (medium):** `ManifestService.BuildSingleControl` could serialize a non-positive
+  `GridColumns` into `skin.json`, violating the manifest schema's `minimum: 1`. Clamped with
+  `Math.Max(1, …)`, mirroring the renderer's own guard.
+- **BUG-018 (low):** `DeletePreset()` removed the UI's `Presets` entry by reference but the
+  persisted `RenderPresets` entry by name, so two duplicate-named presets (hand-edited-file-only)
+  could desync the two collections. Persisted-side removal is now reference-based too.
+
+**Live-verified:** launched the dev build (`dotnet run` + computer-use) and confirmed the Presets
+section, the Sprite-layout Strip↔Grid toggle (Grid columns field appears, Stack direction hides),
+and the Parameter Law section all render and behave correctly in the running app.
+
+**Deferred:** none — the v1.5 enhancement wave is now **12 of 12 feature-complete**. Not yet
+committed to git; a live path-traced/AI-generation eyeball pass on the P1–P5 pipeline (carried over
+from an earlier session, unrelated to this one) and the v1.5.0 release cut remain.
+
+**Reconciliation:** updated every managed doc this session (CLAUDE.md / ROADMAP.md / BUGS.md /
+TESTING.md / SOURCE_MAP.md / CHANGELOG.md / HANDOFF.md / this log) to the 12/12, 331-test,
+uncommitted state. Also removed a stray file one review sub-agent accidentally wrote into the repo
+root (a garbled scratchpad path) — untracked, deleted, not part of any commit.
 
 ---
 
