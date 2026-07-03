@@ -17,10 +17,15 @@ public class ImporterViewModelTests
 {
     static SKBitmap Bmp(int w, int h) => new(w, h, SKColorType.Rgba8888, SKAlphaType.Premul);
 
-    static ImporterViewModel Build(out IImageLoadService load, out IFilmstripImporter importer)
+    static ImporterViewModel Build(out IImageLoadService load, out IFilmstripImporter importer) =>
+        Build(out load, out importer, out _);
+
+    static ImporterViewModel Build(out IImageLoadService load, out IFilmstripImporter importer,
+                                   out IFileDialogService dialogs)
     {
         load = Substitute.For<IImageLoadService>();
         importer = Substitute.For<IFilmstripImporter>();
+        dialogs = Substitute.For<IFileDialogService>();
 
         // Avoid the Avalonia Bitmap conversion in the preview (no UI platform here):
         // the load STATE asserted below is set before the preview runs.
@@ -28,7 +33,7 @@ public class ImporterViewModelTests
             .ExtractFrame(Arg.Any<SKBitmap>(), Arg.Any<StripDetection>(), Arg.Any<int>())
             .Throws(new InvalidOperationException("preview not exercised in unit tests"));
 
-        return new ImporterViewModel(load, importer, Substitute.For<IFileDialogService>(), Substitute.For<IExportService>());
+        return new ImporterViewModel(load, importer, dialogs, Substitute.For<IExportService>());
     }
 
     [Fact]
@@ -59,5 +64,40 @@ public class ImporterViewModelTests
         vm.ExtractCurrentFrameCommand.CanExecute(null).Should().BeFalse();
         vm.ExportRestackedCommand.CanExecute(null).Should().BeFalse();
         vm.ExportResampledCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    // "Show in folder" parity with the Create/Assemble tabs — the Import tab's transport tile
+    // was missing this button, which looked inconsistent switching tabs (the fix below).
+    [Fact]
+    public void RevealExportCommand_is_disabled_until_something_has_been_exported()
+    {
+        var vm = Build(out _, out _);
+        vm.RevealExportCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Exporting_sets_LastExportPath_and_enables_the_reveal_command()
+    {
+        var vm = Build(out var load, out var importer, out var dialogs);
+        load.Load("strip.png").Returns(Bmp(64, 6400));
+        importer.Detect(Arg.Any<SKBitmap>())
+            .Returns(new StripDetection(true, 100, 64, 64, ComponentType.RotaryKnob, false, new[] { 100 }));
+        vm.LoadStripFromPath("strip.png");
+
+        var path = Path.Combine(Path.GetTempPath(), $"stripkit_importer_test_{Guid.NewGuid():N}.png");
+        File.WriteAllBytes(path, Array.Empty<byte>());
+        dialogs.SavePngAsync(Arg.Any<string>()).Returns(path);
+
+        try
+        {
+            await vm.ExportRestackedCommand.ExecuteAsync(null);
+
+            vm.LastExportPath.Should().Be(path);
+            vm.RevealExportCommand.CanExecute(null).Should().BeTrue();
+        }
+        finally
+        {
+            if (File.Exists(path)) File.Delete(path);
+        }
     }
 }

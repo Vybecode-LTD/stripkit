@@ -183,6 +183,21 @@ released** as of this entry.
 - Both found by a 4-dimension adversarial review of this session's diff before commit; both fixed
   and covered by regression tests in the same pass. See `docs/BUGS.md` for full detail.
 
+### Live-testing fixes (post v1.5 wave)
+- **BUG-019 (low):** the Import tab was missing the "Show in folder" button the Create and Assemble
+  tabs already had, which looked inconsistent switching between tabs. Added the same
+  `RevealExportCommand`/`LastExportPath` pattern to `ImporterViewModel` (set after extract / re-stack
+  / resample) and the matching button to `ImporterView.axaml`.
+- **BUG-020 (low):** the Getting Started overlay's 💡 tip text overflowed the dialog card instead of
+  wrapping — a horizontal `StackPanel` gives its children unconstrained width along its axis, so
+  `TextWrapping="Wrap"` had nothing to wrap against. Replaced it with a `Grid ColumnDefinitions="Auto,*"`.
+- **Tutorial content revamp.** Every walkthrough reviewed for completeness against the current UI:
+  Create grew from 5 to 7 steps (component types incl. Button/Toggle, sprite-grid layout &
+  parameter-law mapping, render presets, HiDPI + "show in folder"); Generate grew from 4 to 6 steps
+  (custom endpoints, matching sets & variations, refine & reference-image matching); Assemble grew
+  from 3 to 7 steps (Render QC, crossfade interpolation, the emission/glow pass, the render-recipe
+  planner, HiDPI + code export). Import and Batch got minor wording touch-ups for parity.
+
 #### Changed
 - **Dithered HDR de-band (finishes path-tracing P3b).** A new `Helpers/MagickPixels.DitherDownTo8`
   (an 8×8 Bayer ordered dither) runs in `ImageLoadService.LoadHdr`, so EXR / 16-bit ingest reduces to

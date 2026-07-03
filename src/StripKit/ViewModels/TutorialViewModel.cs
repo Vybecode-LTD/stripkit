@@ -142,8 +142,9 @@ public partial class TutorialViewModel : ViewModelBase
         {
             Title = "1 · Pick a component type",
             Body = "Choose what you're making from the Component Type dropdown — Rotary knob, Vertical "
-                 + "fader, Horizontal slider, or Meter. StripKit applies sensible frame sizes and "
-                 + "defaults for each type.",
+                 + "fader, Horizontal slider, Meter, Button, or Toggle. StripKit applies sensible frame "
+                 + "sizes and defaults for each type; buttons and toggles swap the sidebar to discrete "
+                 + "on/off state art instead of a rotation or travel.",
         },
         new TutorialStep
         {
@@ -156,16 +157,34 @@ public partial class TutorialViewModel : ViewModelBase
         {
             Title = "3 · Frames, value arc & layered art",
             Body = "Pick a frame count (32 / 64 / 128 are standard). Knobs can add a Serum-style value "
-                 + "arc, and — for layered art — “Import layered file (SVG / PSD)…” keeps the body crisp "
-                 + "while only the pointer rotates.",
+                 + "arc, and layered art (a static body plus a separate rotating pointer) keeps the "
+                 + "body crisp while only the pointer moves — load the two layers by hand, auto-extract "
+                 + "them from a flat image, or “Import layered file (SVG / PSD)…” directly.",
         },
         new TutorialStep
         {
-            Title = "4 · Export & wire it up",
-            Body = "Click Export for one stacked PNG (plus @2x and a skin.json manifest if ticked). Tick "
-                 + "CODE EXPORT and StripKit also writes ready-to-paste loader code for JUCE, CSS/HTML, "
-                 + "iPlug2, or HISE — no hand-wiring.",
-            Tip = "Re-open this guide for any tab any time from the Help button, top-right.",
+            Title = "4 · Sprite-grid layout & parameter law",
+            Body = "Under QUALITY & OUTPUT, Sprite layout can pack frames into an R×C grid atlas "
+                 + "instead of one long strip, for loaders that expect a 2D sheet. Under PARAMETER LAW, "
+                 + "a Skew or Logarithmic curve remaps the sweep to track a plugin's real parameter law "
+                 + "(a log-frequency knob, a dB fader) instead of a straight divisor.",
+            Tip = "Both default to Strip / Linear, so leaving them alone reproduces the classic StripKit output exactly.",
+        },
+        new TutorialStep
+        {
+            Title = "5 · Save your setup as a preset",
+            Body = "Happy with a render setup? Give it a name under PRESETS (top of this panel) and "
+                 + "click Save — it captures the type, frames, sweep, layout, meter/arc styling, and "
+                 + "export options (not the loaded art). Apply it again any time to reload the whole "
+                 + "setup in one click.",
+        },
+        new TutorialStep
+        {
+            Title = "6 · Export & wire it up",
+            Body = "Click Export for one stacked PNG (plus an @2x/@3x/@4x copy and a skin.json manifest "
+                 + "if ticked). Tick CODE EXPORT and StripKit also writes ready-to-paste loader code for "
+                 + "JUCE, CSS/HTML, iPlug2, HISE, or React — no hand-wiring.",
+            Tip = "After exporting, \"Show in folder\" jumps straight to the file. Re-open this guide for any tab any time from the Help button, top-right.",
         },
     ];
 
@@ -191,6 +210,7 @@ public partial class TutorialViewModel : ViewModelBase
             Body = "Pull a single frame out, flip a strip between vertical and horizontal stacking, or "
                  + "resample it to a new frame count (nearest-frame, so a moving pointer never ghosts). "
                  + "Then export the result.",
+            Tip = "\"Show in folder\" appears under the transport controls after your first export on this tab.",
         },
     ];
 
@@ -207,7 +227,7 @@ public partial class TutorialViewModel : ViewModelBase
             Title = "1 · Set the template",
             Body = "The render template — component type, frame count, frame size, meter options, and the "
                  + "layered/backdrop toggle — is applied to every file in the folder. Optionally also "
-                 + "write an @2x copy and a skin.json per strip.",
+                 + "write an @2x–@4x copy, a skin.json, and ready-to-paste loader code per strip.",
         },
         new TutorialStep
         {
@@ -246,32 +266,53 @@ public partial class TutorialViewModel : ViewModelBase
     [
         new TutorialStep
         {
-            Title = "Generate · AI knob art from a prompt",
+            Title = "Generate · AI control art from a prompt",
             Body = "No source image? The Generate tab uses your own OpenAI, Gemini, or Claude API key "
-                 + "to draw a layered knob SVG — a static body plus a separate rotating pointer — ready "
-                 + "to animate. You bring the key; the art is generated on demand.",
+                 + "(or any OpenAI-compatible endpoint) to draw layered SVG art — knobs get a static "
+                 + "body plus a separate rotating pointer; buttons, toggles, and meters get an off/on "
+                 + "pair — ready to animate. You bring the key; the art is generated on demand.",
             Tip = "Your API key is encrypted with your Windows account and never leaves this PC except to call the provider you choose.",
         },
         new TutorialStep
         {
             Title = "1 · Pick a provider & paste your key",
             Body = "Choose a provider, paste the matching API key, and click Save key (it's stored "
-                 + "encrypted for next time). Optionally pin a specific model — otherwise a sensible "
-                 + "default is used.",
+                 + "encrypted for next time). Picking Custom points at any OpenAI-compatible endpoint — "
+                 + "OpenRouter, Ollama, LM Studio — with your own model id. Optionally pin a specific "
+                 + "model — otherwise a sensible default is used.",
         },
         new TutorialStep
         {
             Title = "2 · Describe it & Generate",
-            Body = "Pick a style, accent colour, and add any extra direction (\"amber LED, knurled "
-                 + "edge\"). Click Generate; each click is a fresh take, so Regenerate until you like "
-                 + "it. The preview is the real imported result, so what you see will import cleanly.",
+            Body = "Pick what to make (knob / fader / slider / meter / button / toggle), a style, "
+                 + "accent colour, and any extra direction (\"amber LED, knurled edge\"). An Avoid "
+                 + "field keeps unwanted details out. Click Generate; each click is a fresh take, so "
+                 + "Regenerate until you like it — the preview is the real imported result, so what "
+                 + "you see will import cleanly.",
+            Tip = "SEEDS save a whole style bundle (colours, effects, notes) by name, so your next control starts from the same look.",
         },
         new TutorialStep
         {
-            Title = "3 · Use in Create",
-            Body = "Click “Use in Create” to send the knob to the Create tab as a layered import — only "
-                 + "the pointer rotates — then set the frame count and Export the filmstrip. Or Save the "
-                 + "SVG to disk to reuse anywhere.",
+            Title = "3 · One prompt, a whole family",
+            Body = "Tick several control types under MATCHING SET and click Generate set to create a "
+                 + "consistent family in one pass — a head start on a full skin. Or use Generate "
+                 + "variations for several takes of just the current control, to pick your favourite.",
+        },
+        new TutorialStep
+        {
+            Title = "4 · Refine & reference images",
+            Body = "Not quite right? Type a change (\"thicker pointer, warmer accent\") and click "
+                 + "Refine — it revises the current SVG rather than starting over. Or click “Describe "
+                 + "a reference image…” to have a vision model describe a screenshot you like and fold "
+                 + "that into your style direction.",
+        },
+        new TutorialStep
+        {
+            Title = "5 · Use in Create",
+            Body = "Click “Use in Create” to send the control to the Create tab as a layered import — "
+                 + "honouring whatever type you generated (knob, fader/slider, button/toggle, or "
+                 + "meter) — then set the frame count and Export the filmstrip. Or Save the SVG to "
+                 + "disk to reuse anywhere.",
             Tip = "Generated art is clean modern vector — great for synth-style controls.",
         },
     ];
@@ -285,7 +326,7 @@ public partial class TutorialViewModel : ViewModelBase
                  + "path-traced PNG sequence from Blender, KeyShot, or Octane — into one filmstrip. Choose "
                  + "a folder (or drop the frames onto the preview) and StripKit natural-sorts them into "
                  + "render order.",
-            Tip = "Numbered frames like knob_0001.png … knob_0128.png are detected and ordered automatically.",
+            Tip = "Numbered frames like knob_0001.png … knob_0128.png are detected and ordered automatically — EXR / HDR / 16-bit frames are read too.",
         },
         new TutorialStep
         {
@@ -296,11 +337,43 @@ public partial class TutorialViewModel : ViewModelBase
         },
         new TutorialStep
         {
-            Title = "2 · Resample & export",
-            Body = "Optionally re-time to a standard count (32 / 64 / 128) — render fewer expensive frames "
-                 + "and ship more. Then Assemble & export writes the stacked PNG, plus @2x, a skin.json, and "
-                 + "ready-to-paste loader code if ticked.",
+            Title = "2 · Catch render mistakes before you assemble",
+            Body = "Click “Check frames” under RENDER QC to scan for object drift, a missing "
+                 + "transparent background, blank frames, or premultiplied edges — the exact mistakes "
+                 + "an offline render can introduce. Seeing dark halos around anti-aliased edges? Tick "
+                 + "“Un-premultiply alpha” to remove them.",
+        },
+        new TutorialStep
+        {
+            Title = "3 · Render fewer, ship more",
+            Body = "Under RESAMPLE, re-time to a standard count (32 / 64 / 128). Nearest picks the "
+                 + "closest rendered frame and never ghosts; Crossfade blends the two bracketing frames "
+                 + "to synthesise in-betweens — render ~32 expensive frames and ship 64 or 128 for "
+                 + "slow, smooth motion.",
+        },
+        new TutorialStep
+        {
+            Title = "4 · Add a glow pass",
+            Body = "If your renderer can output a separate emission/glow AOV, add it under EMISSION / "
+                 + "GLOW PASS — one frame per beauty frame. It's additively composited over the beauty "
+                 + "render at whatever intensity you set, so a lit LED or screen reads like real "
+                 + "emitted light instead of being baked flat.",
+        },
+        new TutorialStep
+        {
+            Title = "5 · Export & wire it up",
+            Body = "Assemble & export writes the stacked PNG — plus an @2x–@4x copy, a skin.json "
+                 + "manifest, and ready-to-paste loader code for JUCE, CSS/HTML, iPlug2, HISE, or "
+                 + "React if ticked. \"Show in folder\" jumps straight to the exported file afterwards.",
             Tip = "Render your sequence with the same sweep and frame count your runtime expects, so the last frame lands on the maximum.",
+        },
+        new TutorialStep
+        {
+            Title = "6 · Haven't rendered yet? Plan the render itself",
+            Body = "RENDER RECIPE (at the bottom of this panel) exports a Blender script, or an "
+                 + "engine-agnostic CSV/JSON table, of the exact frame/value/angle table StripKit "
+                 + "expects — so your offline render lands each frame on the right value before you "
+                 + "ever reach this tab.",
         },
     ];
 }

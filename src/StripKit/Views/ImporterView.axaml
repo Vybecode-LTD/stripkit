@@ -55,7 +55,7 @@
         </Border>
 
         <!-- ===== RIGHT: frame preview (also a drop zone) ===== -->
-        <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
+        <Grid Grid.Column="1" RowDefinitions="*,Auto,Auto" Margin="6,12,12,12">
 
             <Border Grid.Row="0" x:Name="ImportDropBorder" DragDrop.AllowDrop="True"
                     Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
@@ -107,6 +107,10 @@
                     </Grid>
                 </StackPanel>
             </Border>
+
+            <Button Grid.Row="2" Content="Show in folder" HorizontalAlignment="Right" Margin="0,8,0,0"
+                    ToolTip.Tip="Reveal the exported file in Explorer."
+                    Command="{Binding RevealExportCommand}" />
         </Grid>
     </Grid>
 </UserControl>

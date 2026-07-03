@@ -60,6 +60,10 @@ public partial class ImporterViewModel : ViewModelBase
     [ObservableProperty] private string _previewReadout = "Frame —/—";
     [ObservableProperty] private string _statusMessage = "Load or drop a filmstrip to begin.";
 
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RevealExportCommand))]
+    private string? _lastExportPath;
+
     /// <summary>
     /// Single funnel (mirrors MainWindowViewModel): an editable input change
     /// recomputes the frame size and refreshes the previewed frame. Outputs are
@@ -80,6 +84,7 @@ public partial class ImporterViewModel : ViewModelBase
             case nameof(PreviewReadout):
             case nameof(StatusMessage):
             case nameof(TargetFrameCount):   // a resample target, not a slice change → no re-preview
+            case nameof(LastExportPath):
                 return;
         }
 
@@ -197,6 +202,7 @@ public partial class ImporterViewModel : ViewModelBase
         {
             using var frame = _importer.ExtractFrame(_strip, CurrentLayout(), idx);
             await _export.SavePngAsync(frame, path);
+            LastExportPath = path;
             StatusMessage = $"Extracted frame {idx + 1} → {Path.GetFileName(path)}";
         }
         catch (Exception ex)
@@ -222,6 +228,7 @@ public partial class ImporterViewModel : ViewModelBase
             var layout = CurrentLayout();
             using var restacked = await Task.Run(() => _importer.Restack(strip, layout, target));
             await _export.SavePngAsync(restacked, path);
+            LastExportPath = path;
             StatusMessage = $"Re-stacked to {(target == StackDirection.Vertical ? "vertical" : "horizontal")} → {Path.GetFileName(path)}";
         }
         catch (Exception ex)
@@ -247,6 +254,7 @@ public partial class ImporterViewModel : ViewModelBase
             var layout = CurrentLayout();
             using var resampled = await Task.Run(() => _importer.Resample(strip, layout, dst));
             await _export.SavePngAsync(resampled, path);
+            LastExportPath = path;
             StatusMessage = $"Resampled {FrameCount} → {dst} frames → {Path.GetFileName(path)}";
         }
         catch (Exception ex)
@@ -254,4 +262,9 @@ public partial class ImporterViewModel : ViewModelBase
             StatusMessage = $"Error resampling: {ex.Message}";
         }
     }
+
+    private bool CanReveal() => !string.IsNullOrEmpty(LastExportPath) && File.Exists(LastExportPath);
+
+    [RelayCommand(CanExecute = nameof(CanReveal))]
+    private void RevealExport() => ShellHelper.RevealInFolder(LastExportPath);
 }

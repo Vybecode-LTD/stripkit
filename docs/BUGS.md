@@ -2,7 +2,7 @@
 
 > Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 
-**Open bugs: 0.** **Resolved: 18.**
+**Open bugs: 0.** **Resolved: 20.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -17,7 +17,9 @@ forward in `80dc1b5` (a broken handoff path + unhardened untrusted-XML parsing).
 *after* Svg.Skia had already parsed the raw text, leaving the entity-expansion DoS reachable there.
 BUG-017/018 were **2026-07-02 adversarial-review** findings, caught before commit/release, in the new
 v1.5.0 sprite-grid + render-preset work (the 3 items deferred from the earlier v1.5.0 enhancement wave);
-both were fixed and covered by regression tests in the same session, uncommitted at time of writing.
+both were fixed, covered by regression tests, and shipped in commit `57f071c`. BUG-019/020 were
+**owner-reported UI inconsistencies** found live-testing the same v1.5.0 build: a missing "Show in
+folder" affordance on the Import tab, and a Getting Started tip that overflowed its dialog card.
 
 ---
 
@@ -297,8 +299,7 @@ both were fixed and covered by regression tests in the same session, uncommitted
 - **Fix:** clamp with `Math.Max(1, settings.GridColumns)` at the point of serialization, mirroring the
   renderer's existing clamp.
 - **Regression guard:** `ManifestServiceTests.BuildSingleControl_clamps_a_non_positive_grid_columns_to_one`
-  (Theory: `GridColumns` = 0 and -3). **Not yet committed** (uncommitted, this session); part of the
-  current 331/331 green suite.
+  (Theory: `GridColumns` = 0 and -3). Shipped in commit `57f071c`.
 
 ### BUG-018 — DeletePreset could remove both entries of a duplicate-named preset (name vs. reference mismatch) ✅
 - **Severity:** Low (persisted-store desync; only reachable via a hand-edited `settings.json`, since
@@ -316,7 +317,42 @@ both were fixed and covered by regression tests in the same session, uncommitted
   (`_settings.Settings.RenderPresets.Remove(p)`), matching `ObservableCollection.Remove`'s semantics.
 - **Regression guard:**
   `RenderPresetTests.Deleting_a_duplicate_named_preset_removes_only_the_selected_one_by_reference`.
-  **Not yet committed** (uncommitted, this session); part of the current 331/331 green suite.
+  Shipped in commit `57f071c`.
+
+### BUG-019 — Import tab missing the "Show in folder" affordance the Create/Assemble tabs have ✅
+- **Severity:** Low (visual/UX inconsistency, not a functional defect — Extract/Re-stack/Resample all
+  worked; only the post-export "jump to the file" convenience was absent).
+- **Component:** `src/StripKit/ViewModels/ImporterViewModel.cs`, `src/StripKit/Views/ImporterView.axaml`.
+- **Reported / Fixed:** 2026-07-03 (owner, live-testing the v1.5.0 build: "switching between Create /
+  Assemble and Import looks odd — Import's transport tile is missing the button the other two have").
+- **Symptom:** the v1.5 "Show in folder" enhancement (`RevealExportCommand` + `LastExportPath`,
+  `Helpers/ShellHelper.RevealInFolder`) was wired into the Create and Assemble tabs but never added to
+  the Import tab, even though Import also exports files (extract / re-stack / resample). The Import
+  tab's transport-tile Grid also only had 2 rows (`RowDefinitions="*,Auto"`), one short of the
+  `*,Auto,Auto` the other two tabs use for the button's own row.
+- **Root cause:** the v1.5 enhancement (prior session) was scoped to "Create + Assemble" and the Import
+  tab was never revisited for parity.
+- **Fix:** added `LastExportPath`/`RevealExportCommand`/`CanReveal` to `ImporterViewModel` (set after
+  each of `ExtractCurrentFrameAsync`/`ExportRestackedAsync`/`ExportResampledAsync`), added the missing
+  grid row + button to `ImporterView.axaml`, matching Create/Assemble exactly.
+- **Regression guard:** `ImporterViewModelTests.RevealExportCommand_is_disabled_until_something_has_been_exported`
+  and `ImporterViewModelTests.Exporting_sets_LastExportPath_and_enables_the_reveal_command`.
+
+### BUG-020 — Getting Started tip text overflowed the dialog card instead of wrapping ✅
+- **Severity:** Low (visual only — the tip text ran off the right edge of the tutorial overlay instead
+  of wrapping onto a second line).
+- **Component:** `src/StripKit/Views/TutorialOverlay.axaml`.
+- **Reported / Fixed:** 2026-07-03 (owner, live-testing the Getting Started overlay).
+- **Symptom:** the 💡-icon-plus-tip row used a horizontal `StackPanel`, and the tip `TextBlock` had
+  `TextWrapping="Wrap"` — but still rendered as one unbroken line past the card's right edge.
+- **Root cause:** a `StackPanel` measures its children at *unconstrained* width along its orientation
+  axis, so a horizontal `StackPanel`'s children never receive a width to wrap against — `Wrap` has
+  nothing to do. (The rest of the codebase's horizontal `StackPanel`s are all fixed-width
+  buttons/labels, so this is the only place the anti-pattern combined with wrapping text.)
+- **Fix:** replaced the `StackPanel` with a `Grid ColumnDefinitions="Auto,*"` — the icon in the `Auto`
+  column, the tip in the `*` column, which *is* width-constrained and wraps correctly.
+- **Regression guard:** none automated (a pure-XAML layout constraint with no headless assertion for
+  wrapped line count); verified live via computer-use screenshot.
 
 ---
 

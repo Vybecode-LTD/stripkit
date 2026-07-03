@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (331 tests)
+dotnet test                                      # whole suite (333 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **331 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
+Current status: **333 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (331)
+## Test inventory (333)
 
 ### Assemble tab (frame-sequence → filmstrip) — 32
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
@@ -330,10 +330,13 @@ knob spinning in place instead of orbiting.
   source min/max; each output frame equals a source frame).
 - `Resample_to_the_same_count_reproduces_every_frame` (N→N identity).
 
-### `ImporterViewModelTests.cs` — 2 (`ImporterViewModel`, NSubstitute)
+### `ImporterViewModelTests.cs` — 4 (`ImporterViewModel`, NSubstitute)
 - `LoadStripFromPath_runs_detection_and_publishes_the_layout` (incl. the resample target
   defaulting to the detected count + resample command enabled).
 - `Extract_restack_and_resample_are_disabled_until_a_strip_is_loaded`.
+- **(BUG-019)** `RevealExportCommand_is_disabled_until_something_has_been_exported` and
+  `Exporting_sets_LastExportPath_and_enables_the_reveal_command` — the "Show in folder" parity fix
+  (the Import tab was missing the affordance Create/Assemble already had).
 
 ### `ManifestServiceTests.cs` — 8 (manifest)
 - `BuildSingleControl_maps_the_component_type` (Theory, 3 cases).
