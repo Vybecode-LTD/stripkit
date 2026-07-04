@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.5.1] — 2026-07-04
 
 ### Fixed
 - **Assemble tab now ingests HDR frames on every load path.** Dragging a `.exr` / `.hdr` / 16-bit
