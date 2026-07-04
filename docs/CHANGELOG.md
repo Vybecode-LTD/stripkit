@@ -5,6 +5,22 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [Unreleased]
+
+### Fixed
+- **Assemble tab now ingests HDR frames on every load path.** Dragging a `.exr` / `.hdr` / 16-bit
+  `.tif` sequence onto the preview — or picking it with "Add files…" — silently dropped the frames;
+  only "Choose folder…" accepted them. Three accepted-extension lists had drifted apart; they now share
+  one, so drag-drop and the file picker accept exactly what "Choose folder…" does (BUG-021, +2 tests).
+
+### Changed
+- **In-app Getting Started walkthroughs expanded to match the current app** (a docs-audit pass): the
+  Create walkthrough now surfaces the Ctrl+O / Ctrl+E shortcuts and the Render Recipe panel; Import
+  covers the transport controls and that resample's Target frames is separate from the slice Frame
+  Count; Batch notes buttons/toggles aren't batchable there; Skin mentions the stack-direction and
+  @2x-file fields; Generate warns that switching provider resets the model and that a weak first take is
+  auto-retried, and points at Copy SVG; Assemble mentions the frame-list add/reorder/remove controls.
+
 ## [1.5.0] — 2026-07-03
 
 Shipping as **v1.5.0**. The headline work is the **offline-3D / path-tracing pipeline** (P1–P5) and a

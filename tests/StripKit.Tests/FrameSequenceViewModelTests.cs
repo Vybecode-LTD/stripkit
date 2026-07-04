@@ -113,6 +113,26 @@ public class FrameSequenceViewModelTests
         vm.Frames.Should().BeEmpty();
     }
 
+    // BUG-021 regression: the Assemble tab's HDR ingest (.exr / .hdr / 16-bit .tif) must be accepted on
+    // every path — folder, Add files…, AND drag-drop. The view's drop handler once had a private, narrower
+    // extension list that silently dropped these; it now shares this single list, so lock the contract.
+    [Fact]
+    public void AcceptedExtensions_include_the_HDR_formats()
+    {
+        FrameSequenceViewModel.AcceptedExtensions
+            .Should().Contain(new[] { ".exr", ".hdr", ".tif", ".tiff" });
+    }
+
+    [Fact]
+    public void Dropped_HDR_frames_are_accepted_not_silently_ignored()
+    {
+        var vm = Build();
+        vm.AddDroppedPaths(new[] { "frame_0001.exr", "frame_0002.hdr", "frame_0003.tif", "frame_0004.tiff" });
+
+        vm.Frames.Should().HaveCount(4);
+        vm.HasFrames.Should().BeTrue();
+    }
+
     [Fact]
     public void Target_presets_set_the_resample_count()
     {

@@ -19,7 +19,10 @@ namespace StripKit.ViewModels;
 /// </summary>
 public partial class FrameSequenceViewModel : ViewModelBase
 {
-    private static readonly string[] AcceptedExtensions =
+    /// <summary>The image extensions the Assemble tab ingests — includes HDR formats (.exr / .hdr /
+    /// 16-bit .tif) for path-traced sequences. Public so the view's drag-drop handler filters against
+    /// the exact same list (a private per-file duplicate silently dropped HDR frames on drop — BUG-021).</summary>
+    public static readonly string[] AcceptedExtensions =
         [".png", ".webp", ".bmp", ".jpg", ".jpeg", ".exr", ".hdr", ".tif", ".tiff"];
 
     private readonly IImageLoadService _imageLoad;

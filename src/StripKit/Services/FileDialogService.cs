@@ -43,7 +43,12 @@ public sealed class FileDialogService : IFileDialogService
             AllowMultiple = true,
             FileTypeFilter =
             [
-                new FilePickerFileType("Images") { Patterns = ["*.png", "*.webp", "*.bmp", "*.jpg", "*.jpeg"] },
+                // Includes the HDR formats the Assemble tab tone-maps (.exr / .hdr / 16-bit .tif) so a
+                // path-traced sequence can be picked here too, not only via "Choose folder…" (BUG-021).
+                new FilePickerFileType("Images")
+                {
+                    Patterns = ["*.png", "*.webp", "*.bmp", "*.jpg", "*.jpeg", "*.exr", "*.hdr", "*.tif", "*.tiff"],
+                },
                 new FilePickerFileType("PNG image") { Patterns = ["*.png"] },
             ],
         });

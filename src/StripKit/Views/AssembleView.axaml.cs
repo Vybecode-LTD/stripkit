@@ -15,7 +15,11 @@ namespace StripKit.Views;
 public partial class AssembleView : UserControl
 {
     private static readonly IBrush AccentBrush = new SolidColorBrush(Color.Parse("#FFE8440A"));
-    private static readonly string[] AcceptedExtensions = [".png", ".webp", ".bmp", ".jpg", ".jpeg"];
+
+    // Single source of truth with the view model, so drag-drop accepts exactly what "Choose folder…"
+    // and "Add files…" do — including the HDR formats (.exr / .hdr / 16-bit .tif). A private duplicate
+    // here once omitted them and silently dropped dragged HDR frames (BUG-021).
+    private static string[] AcceptedExtensions => FrameSequenceViewModel.AcceptedExtensions;
 
     // Auto-play is a view-side animation concern (mirrors the Create tab): it steps PreviewValue
     // through the frames on a timer, ping-ponging at the ends. Kept out of the view model.

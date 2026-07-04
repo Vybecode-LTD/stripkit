@@ -182,10 +182,12 @@ public partial class TutorialViewModel : ViewModelBase
         new TutorialStep
         {
             Title = "6 · Export & wire it up",
-            Body = "Click Export for one stacked PNG (plus an @2x/@3x/@4x copy and a skin.json manifest "
-                 + "if ticked). Tick CODE EXPORT and StripKit also writes ready-to-paste loader code for "
-                 + "JUCE, CSS/HTML, iPlug2, HISE, or React — no hand-wiring.",
-            Tip = "After exporting, \"Show in folder\" jumps straight to the file. Re-open this guide for any tab any time from the Help button, top-right.",
+            Body = "Click Export (or press Ctrl+E) for one stacked PNG (plus an @2x/@3x/@4x copy and a "
+                 + "skin.json manifest if ticked). Tick CODE EXPORT and StripKit also writes "
+                 + "ready-to-paste loader code for JUCE, CSS/HTML, iPlug2, HISE, or React — no "
+                 + "hand-wiring. Path-tracing this control offline instead? RENDER RECIPE exports a "
+                 + "Blender script or CSV/JSON frame table matching this exact sweep.",
+            Tip = "Shortcuts: Ctrl+O loads art, Ctrl+E exports. After exporting, \"Show in folder\" jumps straight to the file, and you can re-open this guide for any tab from the Help button, top-right.",
         },
     ];
 
@@ -202,7 +204,8 @@ public partial class TutorialViewModel : ViewModelBase
         {
             Title = "1 · Check the detection & scrub",
             Body = "Review the detected frame count and orientation. Square strips with an ambiguous "
-                 + "count are flagged — fix the count if needed — then scrub the detected frames to "
+                 + "count are flagged (they may hide a centre/rest frame) — fix the count if needed — "
+                 + "then scrub, step frame-by-frame, or press Play to loop the detected frames and "
                  + "confirm they line up.",
         },
         new TutorialStep
@@ -210,7 +213,8 @@ public partial class TutorialViewModel : ViewModelBase
             Title = "2 · Extract, re-stack or resample",
             Body = "Pull a single frame out, flip a strip between vertical and horizontal stacking, or "
                  + "resample it to a new frame count (nearest-frame, so a moving pointer never ghosts). "
-                 + "Then export the result.",
+                 + "The resample's Target frames is separate from the Frame Count used for extract and "
+                 + "re-stack — changing it only affects the resampled export. Then export the result.",
             Tip = "\"Show in folder\" appears under the transport controls after your first export on this tab.",
         },
     ];
@@ -227,8 +231,10 @@ public partial class TutorialViewModel : ViewModelBase
         {
             Title = "1 · Set the template",
             Body = "The render template — component type, frame count, frame size, meter options, and the "
-                 + "layered/backdrop toggle — is applied to every file in the folder. Optionally also "
-                 + "write an @2x–@4x copy, a skin.json, and ready-to-paste loader code per strip.",
+                 + "layered/backdrop toggle — is applied to every file in the folder. Batch covers "
+                 + "knobs, faders, sliders, and meters; buttons and toggles need per-state art, so make "
+                 + "those on the Create tab. Optionally also write an @2x–@4x copy, a skin.json, and "
+                 + "ready-to-paste loader code per strip.",
         },
         new TutorialStep
         {
@@ -251,8 +257,9 @@ public partial class TutorialViewModel : ViewModelBase
         {
             Title = "1 · Add your controls",
             Body = "Add a control from an existing strip (its frame count / size / orientation / kind are "
-                 + "auto-detected) or add a blank one, then edit its id, type, parameter id, asset, frame "
-                 + "size, on-screen bounds, and value range in the detail editor.",
+                 + "auto-detected) or add a blank one, then edit its id, type, parameter id, asset (plus "
+                 + "an optional @2x file), frame size, stack direction, on-screen bounds, and value "
+                 + "range in the detail editor.",
         },
         new TutorialStep
         {
@@ -281,6 +288,7 @@ public partial class TutorialViewModel : ViewModelBase
                  + "encrypted for next time). Picking Custom points at any OpenAI-compatible endpoint — "
                  + "OpenRouter, Ollama, LM Studio — with your own model id. Optionally pin a specific "
                  + "model — otherwise a sensible default is used.",
+            Tip = "Switching provider reloads that provider's own saved key and model — save your key first, or an unsaved one in the box is lost.",
         },
         new TutorialStep
         {
@@ -289,7 +297,9 @@ public partial class TutorialViewModel : ViewModelBase
                  + "accent colour, and any extra direction (\"amber LED, knurled edge\"). An Avoid "
                  + "field keeps unwanted details out. Click Generate; each click is a fresh take, so "
                  + "Regenerate until you like it — the preview is the real imported result, so what "
-                 + "you see will import cleanly.",
+                 + "you see will import cleanly. If a first take comes back missing its moving part "
+                 + "(a knob with no pointer, a button with only one state), StripKit quietly retries "
+                 + "once before showing it.",
             Tip = "SEEDS save a whole style bundle (colours, effects, notes) by name, so your next control starts from the same look.",
         },
         new TutorialStep
@@ -313,7 +323,7 @@ public partial class TutorialViewModel : ViewModelBase
             Body = "Click “Use in Create” to send the control to the Create tab as a layered import — "
                  + "honouring whatever type you generated (knob, fader/slider, button/toggle, or "
                  + "meter) — then set the frame count and Export the filmstrip. Or Save the SVG to "
-                 + "disk to reuse anywhere.",
+                 + "disk — or Copy SVG to the clipboard — to reuse anywhere.",
             Tip = "Generated art is clean modern vector — great for synth-style controls.",
         },
     ];
@@ -326,7 +336,7 @@ public partial class TutorialViewModel : ViewModelBase
             Body = "The Assemble tab stacks a folder of individually-rendered frames — for example a "
                  + "path-traced PNG sequence from Blender, KeyShot, or Octane — into one filmstrip. Choose "
                  + "a folder (or drop the frames onto the preview) and StripKit natural-sorts them into "
-                 + "render order.",
+                 + "render order. Add files… appends more, and each row can be nudged up/down or removed.",
             Tip = "Numbered frames like knob_0001.png … knob_0128.png are detected and ordered automatically — EXR / HDR / 16-bit frames are read too.",
         },
         new TutorialStep

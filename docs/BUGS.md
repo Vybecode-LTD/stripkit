@@ -2,7 +2,7 @@
 
 > Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
 
-**Open bugs: 0.** **Resolved: 20.**
+**Open bugs: 0.** **Resolved: 21.**
 
 Each bug fixed gets a root cause and a regression guard. BUG-001/002 were
 **pre-existing scaffold defects** surfaced by the first real compilation during
@@ -20,6 +20,9 @@ v1.5.0 sprite-grid + render-preset work (the 3 items deferred from the earlier v
 both were fixed, covered by regression tests, and shipped in commit `57f071c`. BUG-019/020 were
 **owner-reported UI inconsistencies** found live-testing the same v1.5.0 build: a missing "Show in
 folder" affordance on the Import tab, and a Getting Started tip that overflowed its dialog card.
+BUG-021 was a **2026-07-04 docs-audit** finding: the Assemble tab's HDR ingest (.exr / .hdr / 16-bit
+.tif) worked from "Choose folder…" but was silently dropped on drag-drop and unavailable in "Add
+files…" — three accepted-extension lists had drifted; fixed by sharing one.
 
 ---
 
@@ -353,6 +356,27 @@ folder" affordance on the Import tab, and a Getting Started tip that overflowed 
   column, the tip in the `*` column, which *is* width-constrained and wraps correctly.
 - **Regression guard:** none automated (a pure-XAML layout constraint with no headless assertion for
   wrapped line count); verified live via computer-use screenshot.
+
+### BUG-021 — Assemble tab silently dropped HDR frames (.exr / .hdr / 16-bit .tif) on drag-drop and "Add files…" ✅
+- **Severity:** High (a documented, primary feature — path-traced HDR ingest — was unreachable via two
+  of its three load paths; the frames were discarded with no warning).
+- **Component:** `src/StripKit/Views/AssembleView.axaml.cs` (drop handler) +
+  `src/StripKit/Services/FileDialogService.cs` (`OpenImagesAsync` picker filter).
+- **Reported / Fixed:** 2026-07-04 (adversarial docs-audit finding — both the website and in-app tutorial
+  claimed EXR/HDR/TIFF were accepted on drop).
+- **Symptom:** dragging a `.exr` / `.hdr` / 16-bit `.tif` sequence onto the Assemble preview added
+  nothing; the "Add files…" picker wouldn't even show those files. Only "Choose folder…" ingested them.
+- **Root cause:** three separate accepted-extension lists had drifted. `FrameSequenceViewModel` and the
+  "Choose folder…" enumeration used the full 9-extension list (incl. the HDR formats), but the view's
+  `OnDrop` handler had a **private 5-extension duplicate** (`.png/.webp/.bmp/.jpg/.jpeg`) that filtered
+  the HDR frames out *before* they reached the view model, and `FileDialogService.OpenImagesAsync`'s
+  `FileTypeFilter` likewise omitted them.
+- **Fix:** promoted `FrameSequenceViewModel.AcceptedExtensions` to `public static` as the single source
+  of truth; the view's drop handler now references it directly (no duplicate to drift), and the
+  `OpenImagesAsync` "Images" filter gained `*.exr / *.hdr / *.tif / *.tiff`.
+- **Regression guard:** `FrameSequenceViewModelTests.AcceptedExtensions_include_the_HDR_formats` (locks
+  the shared list) + `…Dropped_HDR_frames_are_accepted_not_silently_ignored` (four HDR frames dropped →
+  four rows). Suite 333 → 335.
 
 ---
 
