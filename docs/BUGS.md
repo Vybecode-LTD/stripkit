@@ -1,6 +1,6 @@
 # BUGS — StripKit
 
-> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 
 **Open bugs: 0.** **Resolved: 21.**
 

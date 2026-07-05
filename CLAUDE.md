@@ -1,6 +1,6 @@
 # CLAUDE.md — StripKit
 
-> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 
 Context for any Claude Code / agent session working on this repo. Keep this file
 short, current, and instruction-shaped. Update the **Last completed task** section
@@ -40,7 +40,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **331 green.**
+  6.0.4). **335 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -292,6 +292,38 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   chars so it is one-click installable; run the skill-authoring-linter first.
 
 ## Last completed task
+
+- **2026-07-04 (released v1.5.0 then v1.5.1 — Assemble HDR-drop fix + tutorial expansions + full
+  website Tutorials reference; shipped end-to-end)** — Two releases and a big website push. **(1)
+  Released v1.5.0** (tag `v1.5.0`, commit `dc37f85`) — the previously-unreleased bundle: path-tracing
+  P1–P5, the Depth rebrand, the 12-item enhancement wave, and the audit fixes all shipped in one
+  version. **(2) Then cut v1.5.1** (patch) — GitHub Release live (tag `v1.5.1`, release commit
+  `eeafd22`, installer `StripKit-Setup-1.5.1-x64.exe`, signed via Azure Trusted Signing, VirusTotal
+  **0 malicious / 0 suspicious / 66 clean**; website changelog auto-pushed to `updates.json`);
+  csproj/`.iss`/CHANGELOG bumped 1.5.0 → 1.5.1 by the release script. **v1.5.1's content** (fix commit
+  `f83150e`): **BUG-021 (high)** — the Assemble tab **silently dropped HDR frames** (`.exr` / `.hdr` /
+  16-bit `.tif`) on **drag-drop** and in **"Add files…"** (only "Choose folder…" accepted them) because
+  three accepted-extension lists had drifted; fixed by promoting
+  `FrameSequenceViewModel.AcceptedExtensions` to a single **`public static`** source of truth that
+  `AssembleView.axaml.cs`'s drop handler (delegates via a property) and
+  `FileDialogService.OpenImagesAsync` both use (the list now carries `.exr`/`.hdr`/`.tif`/`.tiff`).
+  Plus **in-app Getting Started walkthrough expansions** across all six tabs in `TutorialViewModel.cs`
+  (Ctrl+O/Ctrl+E + Render Recipe on Create; transport controls + resample/slice-count decoupling on
+  Import; Button/Toggle-not-batchable on Batch; stack-direction + @2x fields on Skin;
+  provider-switch-resets-model + auto-retry + Copy SVG on Generate; frame-list add/reorder/remove on
+  Assemble). **Suite 333 → 335 green, build clean.** **(3) StripKit-Website work** (sibling repo, all
+  pushed) — a full **Tutorials reference**: a hub `tutorials.html` + 7 standalone per-tab pages
+  (`tutorials-create/import/batch/skin/generate/assemble/shortcuts.html`) + a shared `css/docs.css`,
+  generated from actual source via an inventory→draft→verify→fix Workflow; refreshed the stale app
+  screenshot; and brought `getting-started.html`/`index.html` current (they said "4 control types" →
+  now **6**; added Button/Toggle, the React export target, @3x/@4x, and the Generate + Assemble tabs).
+  Plus a small nav/hover polish round (missing GitHub link on 4 pages; a `.nav a:hover` specificity bug
+  that turned the Get-StripKit button text orange). **The v1.5.1 in-app fixes came from a two-surface
+  docs audit** (website tutorials + in-app `TutorialViewModel` vs. actual source), run as a fan-out
+  Workflow — server-side rate-limiting repeatedly killed the verify sub-agents, so verification was
+  done by the main loop against ground truth. **Next:** a live-eyeball QA pass of the path-traced /
+  AI-generation output with real assets (long-standing carryover); a few deliberately-skipped
+  low-priority in-app tutorial parity items (documented on the website, not in-app by choice).
 
 - **2026-07-02 (v1.5.0-dev: enhancement wave — 12/12 feature-complete + 4-dimension adversarial
   review; uncommitted)** — Finished the 3 items deferred from the prior session, in priority order.

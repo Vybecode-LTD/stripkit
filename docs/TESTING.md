@@ -1,6 +1,6 @@
 # TESTING — StripKit
 
-> Version 1.5.0 (v1.5.0-dev, unreleased — 12/12 enhancement items done) · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 >
 > How StripKit is tested, what is covered, and the known gaps. Test project:
 > `tests/StripKit.Tests` (references the app project).
@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (333 tests)
+dotnet test                                      # whole suite (335 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **333 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
+Current status: **335 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,9 +45,9 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (333)
+## Test inventory (335)
 
-### Assemble tab (frame-sequence → filmstrip) — 32
+### Assemble tab (frame-sequence → filmstrip) — 34
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over
 golden images) plus one golden lock.
 - `NaturalFileNameComparerTests.cs` — 7: numbered names sort numerically (`frame_2` before
@@ -62,9 +62,12 @@ golden images) plus one golden lock.
   warning (the beauty left untouched).
 - `FrameSequenceProbeTests.cs` — 2 (integration): a real `ImageLoadService` + the assembler probe
   natural-sort on-disk PNGs and report uniform vs mixed sizes (header-only, no full decode).
-- `FrameSequenceViewModelTests.cs` — 8: export gated until ≥2 frames; a single frame isn't enough;
+- `FrameSequenceViewModelTests.cs` — 10: export gated until ≥2 frames; a single frame isn't enough;
   dropped frames are numbered in order; remove/move renumber; clear disables export; non-image drops
   are ignored; the target presets set the resample count. Services mocked (NSubstitute).
+  **(v1.5.1 / BUG-021)** the shared `AcceptedExtensions` list includes the HDR formats
+  (`.exr`/`.hdr`/`.tif`/`.tiff`), and dropping four HDR frames yields four rows rather than being
+  silently ignored (the drop handler once had a narrower private extension list that dropped them).
 - `FrameSequenceAssemblerGoldenTests.cs` — 1: a 4-frame strip of real art locks placement
   (`baselines/assemble_knob_mix_4.png`).
 - `AssembleViewTests.cs` — 1 (`[AvaloniaFact]`): the `AssembleView` markup loads and realizes with a

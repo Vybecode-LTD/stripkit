@@ -1,6 +1,6 @@
 # CHANGELOG — StripKit
 
-> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 >
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
@@ -139,8 +139,8 @@ A batch of twelve small enhancements bundled into the v1.5.0 release. The first 
 `origin/main` (suite 280 → 288); a further session finished the remaining three (sprite-grid
 layout, parameter-law frame mapping, save/load render presets) plus a 4-dimension adversarial
 review that caught and fixed 2 more issues (BUG-017/018 — see `docs/BUGS.md`). **Suite
-288 → 331 green, build clean.** All twelve items are feature-complete but **not yet committed or
-released** as of this entry.
+288 → 331 green, build clean.** All twelve items shipped in v1.5.0 (the suite has since grown to
+**335** with the v1.5.1 HDR-drop fix).
 
 #### Added
 - **React / web-component code-export target.** A new `CodeTarget.React` emits a `.jsx` sprite

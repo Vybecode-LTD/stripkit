@@ -1,6 +1,6 @@
 # SOURCE_MAP — StripKit
 
-> Version 1.5.0 (v1.5.0-dev, unreleased — 12/12 enhancement items done) · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 
 A file-by-file map so a coding agent can navigate the repo without reverse-
 engineering it. The architecture is described in `CLAUDE.md`; this is the "where
@@ -49,7 +49,7 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (331): the **Assemble tab** (frame-sequence assembler +
+- `tests/StripKit.Tests/` — xUnit tests (335): the **Assemble tab** (frame-sequence assembler +
   natural-sort comparer + probe + VM + golden + headless view — `NaturalFileNameComparerTests`,
   `FrameSequenceAssemblerTests`, `FrameSequenceProbeTests`, `FrameSequenceViewModelTests`,
   `FrameSequenceAssemblerGoldenTests`, `AssembleViewTests`), renderer golden-image (with committed

@@ -1,8 +1,64 @@
 # AUDIT-LOG — StripKit
 
-> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 >
 > A running record of documentation reconciliations and codebase audits. Newest first.
+
+---
+
+## 2026-07-04 — v1.5.0 + v1.5.1 shipped: handoff reconciliation across the managed docs
+
+**Type:** Documentation reconciliation (doc-reconciler), run as part of the session-end handoff after
+two releases (v1.5.0 then v1.5.1) went out the same session. Cross-checked all seven managed docs
+against each other and against the codebase ground truth; no source code touched.
+
+### Ground truth verified (against the codebase)
+- `src/StripKit/StripKit.csproj` `<Version>` = **1.5.1** (bumped by the release script). The
+  CHANGELOG carries a `## [1.5.1] — 2026-07-04` section.
+- **v1.5.1 released** — tag `v1.5.1`, release commit `eeafd22`, GitHub Release live, VirusTotal
+  0/0/66 clean; content = BUG-021 (Assemble HDR drag-drop / "Add files…" fix) + `TutorialViewModel`
+  walkthrough expansions across all six tabs.
+- **v1.5.0 released** earlier the same session — tag `v1.5.0`, commit `dc37f85`.
+- Suite **335 green** (was 333; the +2 are the BUG-021 regression tests
+  `FrameSequenceViewModelTests.AcceptedExtensions_include_the_HDR_formats` +
+  `…Dropped_HDR_frames_are_accepted_not_silently_ignored`, both present in the test file). Build clean.
+- **BUG-021 is the latest resolved bug; 0 open, 21 resolved** (BUGS.md header + BUG-021 entry).
+
+### Drift found → fixed (3 auto-fixed)
+| # | Severity | Document | Issue | Resolution |
+|---|----------|----------|-------|------------|
+| 1 | MEDIUM | `docs/CHANGELOG.md` | The `[1.5.0]` "v1.5 enhancements" subsection still said the twelve items were "**not yet committed or released** as of this entry" — false now that v1.5.0/v1.5.1 have shipped (it sits under a dated release header). | Reworded to "All twelve items shipped in v1.5.0 (the suite has since grown to **335** with the v1.5.1 HDR-drop fix)." The `288 → 331` transition itself is a correct historical anchor and was left. |
+| 2 | LOW | `docs/SOURCE_MAP.md` | Bare current-count `tests/StripKit.Tests/ — xUnit tests (**331**)` — a stale current count (not time-anchored). | **Fixed → 335.** |
+| 3 | LOW | `docs/ARCHITECTURE.md` | Test-inventory paragraph ended `**331 green.**` as a current-count claim. | **Fixed → 335.** |
+
+### Cross-doc agreement (checked, consistent — no fix needed)
+- **Test count 335:** TESTING.md (run command, status line, `## Test inventory (335)`) and CLAUDE.md
+  Stack (`**335 green.**`) already read 335. All other `331`/`333` mentions are correctly
+  time-anchored session transitions (AUDIT-LOG's 2026-07-02 entry; BUGS `Suite 333 → 335`; ROADMAP
+  `Suite 288→331`; CLAUDE's dated Last-completed-task entries) — left intact.
+- **Release status:** ROADMAP `## Releases` lists **v1.5.0 (2026-07-03)** and **v1.5.1 (2026-07-04)**
+  as shipped; HANDOFF body = "v1.5.1 RELEASED and live", `origin/main = eeafd22`; CLAUDE
+  Last-completed-task = both releases shipped end-to-end. No doc body still calls v1.5.0 "next" or
+  "unreleased."
+- **BUG-021** referenced consistently: BUGS (resolved, header **21**), CHANGELOG `[1.5.1]`, TESTING
+  (the two HDR regression tests), ROADMAP + HANDOFF. This log's prior entries pre-date it (expected).
+- **Two open carryovers** agree across ROADMAP QA section + HANDOFF Next Steps: (a) the live-eyeball
+  QA pass with real path-traced / AI-generation assets, and (b) the deliberately-skipped low-priority
+  in-app tutorial-parity items (window/session persistence note, the "Prompt to be sent" expander,
+  seed silent-overwrite) — documented on the website, not in-app, by choice.
+
+### Flagged for the versioner (NOT changed here — header lines are out of scope this pass)
+- `docs/HANDOFF.md`, `docs/TESTING.md`, `docs/SOURCE_MAP.md` header/frontmatter lines still read
+  `1.5.0 (v1.5.0-dev, unreleased …)`. These are version/date stamp lines the versioner agent owns;
+  they should be advanced to **1.5.1 / 2026-07-04 (released)**. Left untouched per this pass's scope.
+- CLAUDE.md / ROADMAP.md / BUGS.md / CHANGELOG.md / AUDIT-LOG.md `> Version 1.5.0 · … 2026-07-02`
+  header lines likewise need the versioner's 1.5.1 / 2026-07-04 stamp.
+
+### Verdict
+**In line after fixes.** Findings: 3 (0 critical, 0 high, 1 medium, 2 low); **3 auto-fixed**, 0 needing
+manual code review. Content docs now agree on **335 tests**, **v1.5.1 shipped**, **BUG-021 resolved /
+0 open / 21 resolved**. Recommended doc-version increment: **PATCH** (1.5.0 → 1.5.1 stamp + these
+reconcile fixes) — header stamps left for the versioner.
 
 ---
 

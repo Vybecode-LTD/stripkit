@@ -1,13 +1,15 @@
 # ROADMAP — StripKit
 
-> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 
 The master roadmap for StripKit. Phases 0–8 (the v1 scaffold through the v0.6.0
 ship — Inno installer, release pipeline, and website) are **complete**, and several
-further releases have shipped since (see **Releases** below). The next release is
-**v1.5.0** (unreleased) — it bundles the whole **offline-3D / path-tracing pipeline P1–P5**, the
-**Depth** rebrand, a 2026-07-02 audit, and a **v1.5 enhancement wave** (12 of 12 items done — feature-complete,
-not yet committed or released). The **vNext — Future features** section captures the product-brainstorm backlog, grouped by
+further releases have shipped since (see **Releases** below). The latest release is
+**v1.5.1** (shipped 2026-07-04) — the **v1.5.0** ship bundled the whole **offline-3D /
+path-tracing pipeline P1–P5**, the **Depth** rebrand, a 2026-07-02 audit, and a **v1.5
+enhancement wave** (12 of 12 items done); the **v1.5.1** patch followed with an Assemble-tab
+HDR drag-drop fix (BUG-021) + in-app Getting Started walkthrough expansions across all six
+tabs. The **vNext — Future features** section captures the product-brainstorm backlog, grouped by
 theme and priority. The three ★ bets were value-arc (✅), code-export (✅ first wave), and
 layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/SVG import).
 
@@ -72,8 +74,9 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   **OpenAI-compatible custom endpoint** (OpenRouter / Ollama / LM Studio). Security/hardening:
   **BUG-010** (SVG file-import billion-laughs DoS) fixed + input-size caps (PNG / SVG / PSD). Suite
   **172→216**.
-- **v1.4.0-dev → v1.5.0** (2026-07-02, **unreleased** — the whole path-tracing pipeline + a v1.5
-  enhancement wave, shipping together as **v1.5.0**) — the **six-tab, path-tracing** build. First the
+- **v1.5.0** (2026-07-03, shipped — the whole path-tracing pipeline + a v1.5
+  enhancement wave, shipped together — tag `v1.5.0`, commit `dc37f85`, VirusTotal clean) — the
+  **six-tab, path-tracing** build. First the
   full **offline-3D / path-tracing pipeline P1–P5** (the **Assemble** tab + render-recipe export + render
   QC + EXR/HDR ingest + frame interpolation + AOV emission-pass; see the pipeline section below), a
   **Depth design-system rebrand** (machined-grey dark theme, `#f25914` ember; vendored `Depth/Depth.axaml`
@@ -116,8 +119,18 @@ layer-aware animation (✅ all 3 steps done — base+pointer, auto-extract, PSD/
   the Create tab's left panel. A 4-dimension adversarial review of the session's diff caught and fixed 2
   more real issues (a manifest `GridColumns` clamp gap and a preset-delete collection-desync edge case
   with duplicate names — see `docs/BUGS.md` for detail). Suite **288→331**, build clean. **The v1.5
-  enhancement wave is now fully feature-complete (12/12).** Not yet committed or released — csproj/`.iss`
-  `<Version>` still at 1.3.0; the release script bumps to 1.5.0 at release.
+  enhancement wave is fully feature-complete (12/12).** Committed, tagged, and **released** via the
+  standard signed pipeline (GitHub Release live, VirusTotal clean, website changelog auto-pushed).
+- **v1.5.1** (2026-07-04, shipped — patch — tag `v1.5.1`, commit `eeafd22`, VirusTotal clean) — a
+  small fix + onboarding-parity patch. **BUG-021:** the **Assemble** tab dropped HDR (`.exr` / `.hdr` /
+  16-bit `.tif`) files added via drag-drop / "Add files" (the picker + drop filters didn't include the
+  HDR extensions the loader already handles) — now accepted end-to-end. Plus **in-app Getting Started
+  walkthrough expansions across all six tabs** — the `TutorialViewModel` steps were reconciled against
+  the actual current feature set (driven by a two-surface docs audit of the in-app tutorial vs. the
+  website Tutorials pages vs. source). Shipped via the standard signed pipeline; website changelog
+  auto-pushed. *(Non-app-code, same session: the `Vybecode-LTD/StripKit-Website` sibling repo gained a
+  full **Tutorials reference section** — a hub `tutorials.html` + 7 standalone per-tab pages + `css/docs.css`
+  — plus a refresh of `getting-started.html` / `index.html` to the current 6-component-type feature set.)*
 
 ---
 
@@ -213,7 +226,7 @@ and, next, the spec for the render itself. **No renderer change in any phase** (
 so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster vs. WebGL-3D plugin GUIs —
 "you're still better off doing offline path-tracing into spritesheets".)*
 
-- ✅ **P1 — Frame-sequence assembler (the "Assemble" tab)** *(unreleased; next: v1.4.0)* — stack a
+- ✅ **P1 — Frame-sequence assembler (the "Assemble" tab)** *(shipped v1.5.0)* — stack a
   folder (or drag-drop) of individually-rendered frames into one filmstrip: natural-sort
   (`frame_2` before `frame_10`), reconcile odd frame sizes (pad-to-largest / crop-to-smallest /
   strict), optional content re-centre (fixes 3D object drift between frames), optional nearest-frame
@@ -222,7 +235,7 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   `NaturalFileNameComparer`, `FrameSequenceModels`, `FrameSequenceViewModel` (+ `FrameItemRow`),
   `AssembleView`; `IImageLoadService.Probe` + `IFileDialogService.OpenImagesAsync`. +28 tests
   (216 → 244), golden `assemble_knob_mix_4`. **(P1, the headline — done.)**
-- ✅ **P2 — Render-recipe export** *(unreleased; v1.4.0)* — emit the spec that makes the offline
+- ✅ **P2 — Render-recipe export** *(shipped v1.5.0)* — emit the spec that makes the offline
   render match StripKit's runtime law (`angle_i = start + (end − start)·i/(N−1)`, the deliberate N−1
   divisor): a Blender `bpy` script (transparent film; a keyframe baked on **every** one of the N
   frames — exact angles, no interpolation drift — plus a 0..1 `value` custom property to drive
@@ -233,7 +246,7 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   preview + copy + save) — Create carries every input the recipe needs (type, frame count, sweep,
   resolution). +14 tests (244 → 258). **(P1 — done.)** *(A discoverability entry-point on the Assemble
   tab is an easy follow-on.)*
-- ✅ **P3 — Render QC on import** *(unreleased; v1.4.0; EXR/HDR split to P3b)* — catch the path-tracer failure
+- ✅ **P3 — Render QC on import** *(shipped v1.5.0; EXR/HDR split to P3b)* — catch the path-tracer failure
   modes when frames land on the Assemble tab. **Done:** `FrameSequenceAssembler.AnalyzeQc` reports
   **object drift** (the content-centre spread in px — P1 added the re-centre fix, P3 adds the
   detection + a "tick Re-centre" nudge), frames with **no transparency** (a missing transparent
@@ -243,20 +256,20 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   landed the **Assemble-tab render-recipe entry-point** (plan a render right where you assemble).
   **Deferred → P3b:** 16-bit / EXR HDR ingest + tone-map + dithered de-band — needs the Magick.NET
   **Q8 → Q16-HDRI** swap (Q8 can't hold >8-bit), so it's its own piece. **(P2)**
-- ✅ **P3b — 16-bit / EXR HDR ingest** *(unreleased; v1.4.0)* — the Assemble tab ingests `.exr` / `.hdr` /
+- ✅ **P3b — 16-bit / EXR HDR ingest** *(shipped v1.5.0)* — the Assemble tab ingests `.exr` / `.hdr` /
   16-bit `.tif` frames (the native output of most path tracers). Swapped **Magick.NET-Q8 → Q16-HDRI**
   (holds >8-bit so an EXR is tone-mapped before the 8-bit reduction; OpenEXR is bundled — no extra
   delegate). `ImageLoadService` routes HDR formats through Magick (linear → sRGB + clamp → depth-8 →
   PNG32 → Skia decode); new `Helpers/MagickPixels` downshifts Q16's 16-bit `ToByteArray` to 8-bit (the
   PSD path relies on this, and was revalidated). +2 tests (278 → 280). *(A dithered de-band — Magick's
   `OrderedDither` posterizes, so it needs error-diffusion — and multi-layer/deep EXR are deferred.)* **(P3)**
-- ✅ **P4 — Frame interpolation ("render fewer, ship more")** *(unreleased; v1.4.0)* — **v1 (crossfade)
+- ✅ **P4 — Frame interpolation ("render fewer, ship more")** *(shipped v1.5.0)* — **v1 (crossfade)
   done:** a new interpolation mode in the assembler cross-dissolves the two bracketing frames per output
   frame (the `(N−1)/(M−1)` law keeps the real endpoints exact), so ~32 expensive frames can ship as
   64/128 for slow, smooth motion. `FrameInterpolation` {Nearest, Crossfade} + a Method combo on the
   Assemble tab. +2 tests (274 → 276). *(Optical-flow (v2) is deferred — it needs a CV dependency; the
   mode enum leaves room.)* **(P2)**
-- ✅ **P5 — AOV / emission-pass ingest** *(unreleased; v1.4.0)* — the Assemble tab takes a second render
+- ✅ **P5 — AOV / emission-pass ingest** *(shipped v1.5.0)* — the Assemble tab takes a second render
   pass (an emission/glow AOV, one frame per beauty frame) and **additively composites** it over the
   beauty frames, so a path-traced glow reads like emitted light instead of being baked flat.
   `FrameSequenceOptions.EmissionFrames` / `EmissionIntensity`; a folder picker + intensity slider on the
@@ -281,7 +294,7 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   meters** inferred from art aspect), and the handoff (v1.2.1) maps each to the right renderer path.
   *(v1.3.0 also added the full AI-generation program — see "AI generation: matching sets, variations,
   refine, vision, seeds" below.)* *(fader/slider/meter output paths still want a live eyeball + prompt
-  tuning with a real API key — knob is the proven path.)*
+  tuning with a real API key — knob is the proven path; tracked under the QA live-eyeball pass below.)*
 - ✅ **AI generation: matching sets, variations, refine, vision, seeds** (v1.3.0) — the Generate tab
   grew a full generation program: a **matching-set generator** (one prompt → a consistent family of
   controls), a **variations grid** (N takes of one control), **refine** (revise the current SVG by
@@ -374,6 +387,12 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
 
 *(See also the linter + frame-diff above, which doubles as a QA tool.)*
 
+- ⏳ **Live-eyeball QA pass — path-traced + AI-generation output with real assets** — a
+  hands-on run of the offline-3D / path-tracing pipeline (a real Blender/KeyShot/Octane frame
+  sequence through Assemble + the render recipe + QC + EXR/HDR ingest) **and** the Generate tab's
+  fader / slider / meter output with a real API key. Everything is unit- and golden-tested, but the
+  end-to-end result with genuine path-traced / AI assets has never been eyeballed in the running app.
+  **Long-standing carryover — still open.** **(P2)**
 - ✅ **Importer frame-count resampling** (v0.8.0) — the Import tab re-times a strip to a
   new frame count (`FilmstripImporter.Resample`, nearest-frame so a moving pointer never
   ghosts), not just re-stack orientation. **(was P3)** *(Interpolated/blended resampling
@@ -417,10 +436,18 @@ so nothing mirrors into `FilmstripEngine.cs`. *(Origin: a KVR thread on raster v
   **"Getting started"** button, with a **bundled sample knob** (`IAssetService`) and **contextual
   tooltips** on the key controls. +11 tests (suite 112→123). A **Generate** walkthrough was added
   with the Generate tab (v1.1.0). **(was P1)** *(owner-requested.)*
-- ⏳ **Website "Getting started" how-to guide** — a `stripkit.pro/getting-started/` page on the
-  `Vybecode-LTD/StripKit-Website` repo: a step-by-step illustrated how-to (install → load a knob →
-  align → export → drop in the JUCE/CSS/iPlug2/HISE loader), mirroring the in-app tutorial.
-  Depends on the website deploy. **(P2)** *(owner-requested.)*
+- ✅ **Website "Getting started" + Tutorials reference** (getting-started shipped earlier; the
+  full **Tutorials reference section** shipped 2026-07-04) — the `Vybecode-LTD/StripKit-Website` repo
+  now carries a `stripkit.pro/getting-started/` how-to **and** a full Tutorials reference: a hub
+  `tutorials.html` + 7 standalone per-tab pages + `css/docs.css`, plus a refresh of
+  `getting-started.html` / `index.html` to the current 6-component-type feature set. Mirrors the
+  in-app tutorial. **(was P2)** *(owner-requested; sibling-repo work.)*
+- ⏳ **In-app tutorial parity — remaining low-priority mentions** — a two-surface docs audit
+  (website Tutorials vs. the in-app `TutorialViewModel` walkthroughs vs. source) drove the v1.5.1
+  in-app expansions, but three low-priority mentions were **deliberately skipped** in-app (they live
+  on the website only, by choice): the **window / session persistence** note (size + last-tab
+  restore), the Generate tab's **"Prompt to be sent" expander**, and the **seed silent-overwrite**
+  behaviour. Add to the in-app walkthroughs only if a future onboarding pass warrants it. **(P3)**
 
 ---
 

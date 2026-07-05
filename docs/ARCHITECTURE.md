@@ -1,6 +1,6 @@
 # ARCHITECTURE — StripKit
 
-> Version 1.5.0 · last-updated 2026-07-02 · last-audit 2026-07-02
+> Version 1.5.1 · last-updated 2026-07-04 · last-audit 2026-07-04
 >
 > The deep, file-and-flow reference for how the **StripKit desktop app** is built.
 > `docs/SOURCE_MAP.md` says *where* things live; this says *how and why* they work.
@@ -1183,7 +1183,7 @@ covered by the VM load-path + `AllowDrop`-wiring assertions). `TestAppBuilder`/`
 frame-mapping math + renderer integration (`ParameterLawMappingTests` — golden `knob_skew_mid`)
 and save/load render presets (`RenderPresetTests` — JSON round-trip + VM command behaviour), plus
 grid-layout additions to `RendererGoldenTests` (golden `knob_grid8x4`), `ManifestServiceTests`, and
-`CodeSnippetServiceTests`. **331 green.** See `docs/TESTING.md` for the methodology and the current count.
+`CodeSnippetServiceTests`. **335 green.** See `docs/TESTING.md` for the methodology and the current count.
 
 ---
 
