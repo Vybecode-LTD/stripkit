@@ -40,7 +40,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **346 green.**
+  6.0.4). **347 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +

@@ -618,7 +618,8 @@ public class GenerateViewModelTests
                     && l.Any(s => s.Type == ComponentType.Button)),
                 Arg.Is<KitBuildOptions>(o => o.OutputDirectory == outDir),
                 Arg.Any<CancellationToken>());
-            vm.LastKitDirectory.Should().Be(outDir);
+            vm.LastKitPath.Should().Be(Path.Combine(outDir, "modern.skin.json"));
+            vm.RevealKitCommand.CanExecute(null).Should().BeFalse("the fake skin.json path doesn't exist on disk");
             vm.SetStatus.Should().Contain("skin.json");
         }
         finally
@@ -659,6 +660,21 @@ public class GenerateViewModelTests
         {
             foreach (var p in new[] { settingsPath, secretsPath }) try { if (File.Exists(p)) File.Delete(p); } catch { }
         }
+    }
+
+    [Fact]
+    public void Select_all_and_clear_toggle_every_matching_set_type()
+    {
+        var (vm, _, _, temps) = Build();
+        try
+        {
+            vm.ClearSetTypesCommand.Execute(null);
+            vm.SetTypeOptions.Should().OnlyContain(o => !o.Include, "Clear unticks everything");
+
+            vm.SelectAllSetTypesCommand.Execute(null);
+            vm.SetTypeOptions.Should().OnlyContain(o => o.Include, "Select all ticks everything");
+        }
+        finally { Cleanup(temps); }
     }
 
     [Fact]

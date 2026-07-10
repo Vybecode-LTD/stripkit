@@ -1184,7 +1184,7 @@ frame-mapping math + renderer integration (`ParameterLawMappingTests` — golden
 and save/load render presets (`RenderPresetTests` — JSON round-trip + VM command behaviour), plus
 grid-layout additions to `RendererGoldenTests` (golden `knob_grid8x4`), `ManifestServiceTests`, and
 `CodeSnippetServiceTests`; and the one-click **Build kit** builder (`KitBuilderTests` — real
-render + skin.json assembly for a mixed kit). **346 green.** See `docs/TESTING.md` for the methodology and the current count.
+render + skin.json assembly for a mixed kit). **347 green.** See `docs/TESTING.md` for the methodology and the current count.
 
 ---
 

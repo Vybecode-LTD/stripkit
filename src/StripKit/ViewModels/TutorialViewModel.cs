@@ -304,10 +304,14 @@ public partial class TutorialViewModel : ViewModelBase
         },
         new TutorialStep
         {
-            Title = "3 · One prompt, a whole family",
-            Body = "Tick several control types under MATCHING SET and click Generate set to create a "
-                 + "consistent family in one pass — a head start on a full skin. Or use Generate "
-                 + "variations for several takes of just the current control, to pick your favourite.",
+            Title = "3 · One prompt, a whole family — then Build kit",
+            Body = "Under MATCHING KIT, tick several control types (Select all grabs them all) and click "
+                 + "Generate set for a consistent family in one pass. Then click Build kit to render the "
+                 + "whole family into filmstrip PNGs plus a skin.json in one folder — a ready-to-drop-in "
+                 + "skin — and Show in folder to grab the files. Or use Generate variations for several "
+                 + "takes of just the current control, to pick your favourite.",
+            Tip = "Regenerate any single control you don't like before you Build kit — the build only "
+                + "uses the takes you kept.",
         },
         new TutorialStep
         {

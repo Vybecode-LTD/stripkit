@@ -275,8 +275,11 @@ public partial class GenerateViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(DescribeReferenceCommand))]
     private bool _isBuildingKit;
 
-    /// <summary>The folder the last kit was written to (for a possible "show in folder" follow-up).</summary>
-    [ObservableProperty] private string? _lastKitDirectory;
+    /// <summary>The skin.json of the last kit built — the "Show in folder" target (Explorer opens the
+    /// kit folder with it selected). Null until a build succeeds.</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(RevealKitCommand))]
+    private string? _lastKitPath;
 
     [ObservableProperty] private string _setStatus =
         "Pick the controls you want, then Generate set — one consistent family from your current style settings.";
@@ -891,13 +894,14 @@ public partial class GenerateViewModel : ViewModelBase
             SetStatus = $"Building {sources.Count} filmstrip{(sources.Count == 1 ? "" : "s")} + skin.json…";
 
             var result = await _kitBuilder.BuildAsync(sources, options, ct);
-            LastKitDirectory = result.OutputDirectory;
 
             if (result.SkinJsonPath is null)
             {
                 SetStatus = $"Kit build produced no controls — all {result.TotalCount} failed.";
                 return;
             }
+
+            LastKitPath = result.SkinJsonPath;   // enables "Show in folder"
 
             int warned = result.Controls.Count(c => c.Success && c.Warning is not null);
             var tail = warned > 0 ? $" ({warned} with a warning — check each control)" : "";
@@ -916,6 +920,26 @@ public partial class GenerateViewModel : ViewModelBase
         {
             IsBuildingKit = false;
         }
+    }
+
+    private bool CanRevealKit() => !string.IsNullOrEmpty(LastKitPath) && File.Exists(LastKitPath);
+
+    /// <summary>Opens the file manager with the last-built kit's skin.json selected.</summary>
+    [RelayCommand(CanExecute = nameof(CanRevealKit))]
+    private void RevealKit() => Helpers.ShellHelper.RevealInFolder(LastKitPath);
+
+    /// <summary>Ticks every control type in the matching-set picker.</summary>
+    [RelayCommand]
+    private void SelectAllSetTypes()
+    {
+        foreach (var o in SetTypeOptions) o.Include = true;
+    }
+
+    /// <summary>Unticks every control type in the matching-set picker.</summary>
+    [RelayCommand]
+    private void ClearSetTypes()
+    {
+        foreach (var o in SetTypeOptions) o.Include = false;
     }
 
     // ---- helpers ----

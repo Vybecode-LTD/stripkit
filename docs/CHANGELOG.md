@@ -18,6 +18,10 @@
   `FilmstripEngine.cs`. Adversarially reviewed before landing — fixed a `CanExecuteChanged` gap that
   left the button greyed out on the happy path, a shared-CTS race where Regenerate could cancel a build,
   and two exception-path bitmap leaks. +11 tests (suite 335 → 346).
+- **Matching-kit polish.** The Generate tab's set section is now **MATCHING KIT** with a **Select all /
+  Clear** shortcut for the type picker, a **Show in folder** button that opens the built kit with its
+  `skin.json` selected, and copy that walks you from Generate set → Build kit; the in-app Getting
+  Started walkthrough covers the Build-kit flow. +1 test (suite 346 → 347).
 
 ## [1.5.1] — 2026-07-04
 

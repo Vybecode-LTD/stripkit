@@ -183,10 +183,18 @@
                         </Border>
                     </Expander>
 
-                    <!-- Matching set -->
-                    <controls:SectionHeader Text="MATCHING SET" />
+                    <!-- Matching kit -->
+                    <controls:SectionHeader Text="MATCHING KIT" />
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,0,0,6"
-                               Text="Generate a whole family of controls at once, all sharing the style, colours, effects and avoid-list above — a head start on a full, consistent skin." />
+                               Text="Generate a whole family of controls at once, all sharing the style, colours, effects and avoid-list above. Then Build kit (on the right) to render them into filmstrips + a skin.json — a ready-to-drop-in skin." />
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="0,0,0,4">
+                        <Button Content="Select all" FontSize="11" Padding="8,2"
+                                ToolTip.Tip="Tick every control type."
+                                Command="{Binding SelectAllSetTypesCommand}" />
+                        <Button Content="Clear" FontSize="11" Padding="8,2"
+                                ToolTip.Tip="Untick every control type."
+                                Command="{Binding ClearSetTypesCommand}" />
+                    </StackPanel>
                     <ItemsControl ItemsSource="{Binding SetTypeOptions}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate>
@@ -293,11 +301,14 @@
                     </Grid>
 
                     <StackPanel IsVisible="{Binding HasSetResults}" Spacing="6">
-                        <Grid ColumnDefinitions="Auto,8,Auto">
+                        <Grid ColumnDefinitions="Auto,8,Auto,8,Auto">
                             <Button Grid.Column="0" Content="Build kit…" Classes="accent" MinWidth="140"
                                     ToolTip.Tip="Render every generated control to a filmstrip PNG (+@2x) and write a skin.json binding them together — a ready-to-use kit in one folder."
                                     Command="{Binding BuildKitCommand}" />
-                            <Button Grid.Column="2" Content="Save set (SVG)…"
+                            <Button Grid.Column="2" Content="Show in folder"
+                                    ToolTip.Tip="Open the last-built kit's folder with its skin.json selected."
+                                    Command="{Binding RevealKitCommand}" />
+                            <Button Grid.Column="4" Content="Save set (SVG)…"
                                     ToolTip.Tip="Save just the raw SVG art of each generated control to a folder."
                                     Command="{Binding SaveSetCommand}" />
                         </Grid>

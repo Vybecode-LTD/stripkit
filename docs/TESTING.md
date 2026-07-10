@@ -10,13 +10,13 @@
 ## Run
 
 ```bash
-dotnet test                                      # whole suite (346 tests)
+dotnet test                                      # whole suite (347 tests)
 dotnet test --filter FullyQualifiedName~Importer # one class/area
 UPDATE_BASELINES=1 dotnet test                   # regenerate golden-image baselines
 dotnet test --collect:"XPlat Code Coverage"      # coverage via coverlet
 ```
 
-Current status: **346 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
+Current status: **347 passed / 0 failed / 0 skipped** (~4 s). Build 0/0.
 
 ## CI (automated testing)
 
@@ -45,7 +45,7 @@ test gate.
 Per the C#/.NET convention in `CLAUDE.md`: xUnit + NSubstitute + FluentAssertions,
 `Avalonia.Headless` for view tests, golden-image regression for the renderer.
 
-## Test inventory (346)
+## Test inventory (347)
 
 ### Assemble tab (frame-sequence → filmstrip) — 34
 The path-tracing-pipeline phase 1, covered without baselines where possible (pixel-identity over

@@ -1,6 +1,8 @@
+using System.Linq;
 using Avalonia.Controls;
 using Avalonia.Headless.XUnit;
 using Avalonia.Threading;
+using Avalonia.VisualTree;
 using FluentAssertions;
 using StripKit.Views;
 
@@ -21,5 +23,11 @@ public class GenerateViewTests
         Dispatcher.UIThread.RunJobs();
 
         window.Content.Should().BeOfType<GenerateView>("the tab content loaded without a XAML error");
+
+        // The matching-kit polish controls realize (they're always-visible, so a broken binding/markup
+        // on them would surface here).
+        var buttons = window.GetVisualDescendants().OfType<Button>().ToList();
+        buttons.Should().Contain(b => Equals(b.Content, "Select all"), "the Select all convenience button");
+        buttons.Should().Contain(b => Equals(b.Content, "Clear"), "the Clear convenience button");
     }
 }

@@ -49,7 +49,7 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (346): the **Build kit** one-click builder
+- `tests/StripKit.Tests/` — xUnit tests (347): the **Build kit** one-click builder
   (`KitBuilderTests`); the **Assemble tab** (frame-sequence assembler +
   natural-sort comparer + probe + VM + golden + headless view — `NaturalFileNameComparerTests`,
   `FrameSequenceAssemblerTests`, `FrameSequenceProbeTests`, `FrameSequenceViewModelTests`,
@@ -229,6 +229,14 @@ does each thing live" companion.
   `BuildSingleControl` emits `layout`/`gridColumns` only for a grid-layout strip, clamping
   `GridColumns` to `Math.Max(1, …)` so an unclamped upstream value (BUG-017) can never violate the
   `plugin-asset-manifest` schema's `minimum: 1`.
+- `IKitBuilder.cs` / `KitBuilder.cs` — the Generate tab's one-click **Build kit**: for each control
+  in a generated matching set, imports the layered art and prepares the render inputs via the same
+  per-type paths the Create tab uses (layered knob body+pointer / button-toggle state frames /
+  flattened fader-slider cap / meter off-on reveal), renders a filmstrip PNG (+@Nx) via
+  `IFilmstripRenderer`, and assembles one multi-control `skin.json` (row layout) via `ManifestService`.
+  One control failing never sinks the rest; exception-safe bitmap ownership. Orchestration only — no
+  renderer-math change, so **not** mirrored in `FilmstripEngine.cs`. Models in `Models/KitModels.cs`
+  (`KitControlSource` / `KitBuildOptions` / `KitControlResult` / `KitBuildResult`).
 - `ICodeSnippetService.cs` / `CodeSnippetService.cs` — emit ready-to-paste loader code
   (JUCE / CSS-HTML / iPlug2 / HISE / **React** — a `.jsx` sprite component driven by a 0..1 `value`
   prop) for an exported strip: `Generate` / `FileName` (pure) + a thin `SaveAsync`. No Avalonia
