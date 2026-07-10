@@ -27,6 +27,7 @@ public partial class App : Application
         services.AddSingleton<IFilmstripImporter, FilmstripImporter>();
         services.AddSingleton<ILayeredImportService, LayeredImportService>();
         services.AddSingleton<IManifestService, ManifestService>();
+        services.AddSingleton<IKitBuilder, KitBuilder>();
         services.AddSingleton<ICodeSnippetService, CodeSnippetService>();
         services.AddSingleton<IRenderRecipeService, RenderRecipeService>();
         services.AddSingleton<IBatchProcessor, BatchProcessor>();

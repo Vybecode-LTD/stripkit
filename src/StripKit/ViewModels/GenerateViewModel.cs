@@ -24,6 +24,7 @@ public partial class GenerateViewModel : ViewModelBase
     private readonly ISettingsService _settings;
     private readonly ILayeredImportService _layeredImport;
     private readonly IFileDialogService _dialogs;
+    private readonly IKitBuilder _kitBuilder;
 
     private CancellationTokenSource? _cts;
     private string? _lastSvgPath;          // the temp SVG of the current result (handed to Create)
@@ -40,13 +41,14 @@ public partial class GenerateViewModel : ViewModelBase
 
     public GenerateViewModel(IAssetGenerationService generation, ISecretStore secrets,
                              ISettingsService settings, ILayeredImportService layeredImport,
-                             IFileDialogService dialogs)
+                             IFileDialogService dialogs, IKitBuilder kitBuilder)
     {
         _generation = generation;
         _secrets = secrets;
         _settings = settings;
         _layeredImport = layeredImport;
         _dialogs = dialogs;
+        _kitBuilder = kitBuilder;
 
         Providers = _generation.AvailableProviders.ToArray();
 
@@ -251,6 +253,7 @@ public partial class GenerateViewModel : ViewModelBase
     [NotifyCanExecuteChangedFor(nameof(GenerateVariationsCommand))]
     [NotifyCanExecuteChangedFor(nameof(CancelSetCommand))]
     [NotifyCanExecuteChangedFor(nameof(DescribeReferenceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(BuildKitCommand))]
     private bool _isGeneratingSet;
 
     /// <summary>How many takes "Generate variations" produces of the selected control.</summary>
@@ -259,7 +262,21 @@ public partial class GenerateViewModel : ViewModelBase
 
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SaveSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(BuildKitCommand))]
     private bool _hasSetResults;
+
+    /// <summary>True while a one-click kit build is rendering the family into filmstrips + skin.json.
+    /// Gates the other set commands (they share the results + the folder dialog).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(BuildKitCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GenerateSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GenerateVariationsCommand))]
+    [NotifyCanExecuteChangedFor(nameof(CancelSetCommand))]
+    [NotifyCanExecuteChangedFor(nameof(DescribeReferenceCommand))]
+    private bool _isBuildingKit;
+
+    /// <summary>The folder the last kit was written to (for a possible "show in folder" follow-up).</summary>
+    [ObservableProperty] private string? _lastKitDirectory;
 
     [ObservableProperty] private string _setStatus =
         "Pick the controls you want, then Generate set — one consistent family from your current style settings.";
@@ -586,7 +603,7 @@ public partial class GenerateViewModel : ViewModelBase
         }
     }
 
-    private bool CanDescribeReference() => !IsGenerating && !IsGeneratingSet && !string.IsNullOrWhiteSpace(ApiKey);
+    private bool CanDescribeReference() => !IsGenerating && !IsGeneratingSet && !IsBuildingKit && !string.IsNullOrWhiteSpace(ApiKey);
 
     [RelayCommand(CanExecute = nameof(CanDescribeReference))]
     private async Task DescribeReferenceAsync()
@@ -645,7 +662,7 @@ public partial class GenerateViewModel : ViewModelBase
     // ---- matching-set commands ----
 
     private bool CanGenerateSet() =>
-        !IsGeneratingSet && !string.IsNullOrWhiteSpace(ApiKey) && SetTypeOptions.Any(o => o.Include);
+        !IsGeneratingSet && !IsBuildingKit && !string.IsNullOrWhiteSpace(ApiKey) && SetTypeOptions.Any(o => o.Include);
 
     [RelayCommand(CanExecute = nameof(CanGenerateSet))]
     private async Task GenerateSetAsync()
@@ -704,7 +721,7 @@ public partial class GenerateViewModel : ViewModelBase
         }
     }
 
-    private bool CanGenerateVariations() => !IsGeneratingSet && !string.IsNullOrWhiteSpace(ApiKey);
+    private bool CanGenerateVariations() => !IsGeneratingSet && !IsBuildingKit && !string.IsNullOrWhiteSpace(ApiKey);
 
     [RelayCommand(CanExecute = nameof(CanGenerateVariations))]
     private async Task GenerateVariationsAsync()
@@ -758,7 +775,7 @@ public partial class GenerateViewModel : ViewModelBase
         }
     }
 
-    private bool CanCancelSet() => IsGeneratingSet;
+    private bool CanCancelSet() => IsGeneratingSet || IsBuildingKit;
 
     [RelayCommand(CanExecute = nameof(CanCancelSet))]
     private void CancelSet() => _setCts?.Cancel();
@@ -784,7 +801,8 @@ public partial class GenerateViewModel : ViewModelBase
     [RelayCommand]
     private async Task RegenerateSetItemAsync(GeneratedSetResult? item)
     {
-        if (item is null || IsGeneratingSet) return;
+        // Not while a kit build is running — it shares _setCts, so proceeding would cancel the build.
+        if (item is null || IsGeneratingSet || IsBuildingKit) return;
         int index = SetResults.IndexOf(item);
         if (index < 0) return;
 
@@ -834,6 +852,70 @@ public partial class GenerateViewModel : ViewModelBase
             catch { /* skip the odd unwritable file */ }
         }
         SetStatus = $"Saved {saved} SVG(s) to {Path.GetFileName(folder)}.";
+    }
+
+    private bool CanBuildKit() =>
+        HasSetResults && !IsGeneratingSet && !IsBuildingKit && SetResults.Any(r => r.IsSuccess);
+
+    /// <summary>One-click "Build kit": render every successful control in the current set to a filmstrip
+    /// PNG (+@2x) and write a skin.json binding them together — the whole family, ready to drop into a
+    /// plugin, from one folder pick. Reuses the generated temp SVGs, so Generate the set (and Regenerate
+    /// any you don't like) first.</summary>
+    [RelayCommand(CanExecute = nameof(CanBuildKit))]
+    private async Task BuildKitAsync()
+    {
+        var sources = SetResults
+            .Where(r => r.IsSuccess && r.SvgPath is not null)
+            .Select(r => new KitControlSource(r.ComponentType, r.SvgPath!))
+            .ToList();
+        if (sources.Count == 0) { SetStatus = "No successful controls to build — generate the set first."; return; }
+
+        var folder = await _dialogs.OpenFolderAsync("Choose an output folder for the kit (filmstrips + skin.json)");
+        if (folder is null) return;
+
+        // A fresh source every time (see RegenerateSetItem): CancelSet cancels an in-flight build too.
+        _setCts?.Cancel();
+        _setCts?.Dispose();
+        _setCts = new CancellationTokenSource();
+        var ct = _setCts.Token;
+
+        IsBuildingKit = true;
+        try
+        {
+            var options = new KitBuildOptions
+            {
+                OutputDirectory = folder,
+                KitName = $"{Style} kit",
+                FilePrefix = StyleSlug(),
+            };
+            SetStatus = $"Building {sources.Count} filmstrip{(sources.Count == 1 ? "" : "s")} + skin.json…";
+
+            var result = await _kitBuilder.BuildAsync(sources, options, ct);
+            LastKitDirectory = result.OutputDirectory;
+
+            if (result.SkinJsonPath is null)
+            {
+                SetStatus = $"Kit build produced no controls — all {result.TotalCount} failed.";
+                return;
+            }
+
+            int warned = result.Controls.Count(c => c.Success && c.Warning is not null);
+            var tail = warned > 0 ? $" ({warned} with a warning — check each control)" : "";
+            SetStatus = $"Built {result.SuccessCount}/{result.TotalCount} filmstrips + "
+                      + $"{Path.GetFileName(result.SkinJsonPath)} in {Path.GetFileName(folder)}{tail}.";
+        }
+        catch (OperationCanceledException)
+        {
+            SetStatus = "Kit build cancelled.";
+        }
+        catch (Exception ex)
+        {
+            SetStatus = $"Kit build failed: {ex.Message}";
+        }
+        finally
+        {
+            IsBuildingKit = false;
+        }
     }
 
     // ---- helpers ----

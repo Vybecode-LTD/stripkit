@@ -25,8 +25,14 @@ static class TestFakes
         gen.DefaultModelFor(Arg.Any<AiProvider>()).Returns("test-model");
         gen.ModelsFor(Arg.Any<AiProvider>()).Returns(["test-model", "test-alt"]);
         return new GenerateViewModel(gen, TempSecrets(), TempSettings(),
-                                     new LayeredImportService(), Substitute.For<IFileDialogService>());
+                                     new LayeredImportService(), Substitute.For<IFileDialogService>(),
+                                     Substitute.For<IKitBuilder>());
     }
+
+    /// <summary>A real <see cref="KitBuilder"/> over the concrete renderer/exporter/manifest/importer —
+    /// for exercising the one-click kit build end-to-end (it renders + writes real files).</summary>
+    public static KitBuilder RealKitBuilder() =>
+        new(new LayeredImportService(), new SkiaFilmstripRenderer(), new ExportService(), new ManifestService());
 
     /// <summary>A <see cref="FrameSequenceViewModel"/> (Assemble tab) wired from substitutes — enough
     /// for the main-window VM tests that just need an instance.</summary>

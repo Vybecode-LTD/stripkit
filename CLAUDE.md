@@ -40,7 +40,7 @@ It is the asset-production companion to the GUI skinning system / VybeForge.
 - MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
 - Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
   tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
-  6.0.4). **335 green.**
+  6.0.4). **346 green.**
 - Packaging: self-contained `win-x64` publish → **Inno Setup** installer
   (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
   auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
@@ -142,6 +142,11 @@ control art from your own OpenAI / Gemini / Claude key, then hand it to Create),
   `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
   Clamps `GridColumns` to `Math.Max(1, …)` before serializing (BUG-017) so an unclamped upstream
   value can never violate the `plugin-asset-manifest` schema's `minimum: 1`.
+- `Services/KitBuilder.cs` — the Generate tab's **one-click "Build kit"**: takes a generated matching
+  set and renders each control to a filmstrip PNG (+@Nx) via the same per-type paths the Create tab
+  uses (layered knob / state-frame button-toggle / flattened fader-slider / meter off-on reveal), then
+  assembles a multi-control `skin.json` (row layout, reusing `ManifestService`). Orchestration over the
+  renderer/exporter/importer/manifest; no renderer-math change → not in `FilmstripEngine.cs`. App-only.
 - `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
   iPlug2 / HISE / **React** — `CodeTarget.React` → a `.jsx` sprite component driven by a 0..1 `value`
   prop) for an exported strip; pure string-gen mirroring `ManifestService`. Wired into the Create,

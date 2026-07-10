@@ -36,7 +36,8 @@ public class GenerateViewModelTests
 
         var secrets = new DpapiSecretStore(secretsPath);
         var vm = new GenerateViewModel(gen, secrets, new SettingsService(settingsPath),
-                                       new LayeredImportService(), Substitute.For<IFileDialogService>());
+                                       new LayeredImportService(), Substitute.For<IFileDialogService>(),
+                                       Substitute.For<IKitBuilder>());
         return (vm, gen, secrets, [secretsPath, settingsPath]);
     }
 
@@ -380,7 +381,8 @@ public class GenerateViewModelTests
         try
         {
             var vm = new GenerateViewModel(gen, new DpapiSecretStore(secretsPath), settings,
-                                           new LayeredImportService(), Substitute.For<IFileDialogService>());
+                                           new LayeredImportService(), Substitute.For<IFileDialogService>(),
+                                           Substitute.For<IKitBuilder>());
             vm.AccentColorHex = "#ABCDEF";
             vm.SeedName = "My Seed";
             vm.SaveSeedCommand.Execute(null);
@@ -392,7 +394,8 @@ public class GenerateViewModelTests
 
             // A fresh VM reloads it, can select and delete it.
             var vm2 = new GenerateViewModel(gen, new DpapiSecretStore(secretsPath), settings,
-                                            new LayeredImportService(), Substitute.For<IFileDialogService>());
+                                            new LayeredImportService(), Substitute.For<IFileDialogService>(),
+                                            Substitute.For<IKitBuilder>());
             vm2.SelectedSeed = vm2.Seeds.First(s => s.Name == "My Seed");
             vm2.DeleteSeedCommand.CanExecute(null).Should().BeTrue("a user seed can be deleted");
             vm2.DeleteSeedCommand.Execute(null);
@@ -555,6 +558,152 @@ public class GenerateViewModelTests
 
             vm.HasResult.Should().BeFalse();
             vm.StatusMessage.Should().Contain("couldn't be read");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    // ---- build kit (one-click) ----
+
+    [Fact]
+    public void Build_kit_is_gated_on_having_at_least_one_successful_set_result()
+    {
+        var (vm, _, _, temps) = Build();
+        try
+        {
+            vm.BuildKitCommand.CanExecute(null).Should().BeFalse("no set generated yet");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task Build_kit_gathers_the_successful_sources_and_invokes_the_builder_with_the_chosen_folder()
+    {
+        var settingsPath = Path.Combine(Path.GetTempPath(), $"stripkit_kit_{Guid.NewGuid():N}.json");
+        var secretsPath = Path.Combine(Path.GetTempPath(), $"stripkit_kitsec_{Guid.NewGuid():N}.dat");
+        var outDir = Path.Combine(Path.GetTempPath(), $"stripkit_kitout_{Guid.NewGuid():N}");
+        try
+        {
+            var gen = Substitute.For<IAssetGenerationService>();
+            gen.AvailableProviders.Returns([AiProvider.Claude]);
+            gen.DefaultModelFor(Arg.Any<AiProvider>()).Returns("m");
+            gen.ModelsFor(Arg.Any<AiProvider>()).Returns(["m"]);
+            StubSet(gen, LayeredKnobSvg);
+
+            var dialogs = Substitute.For<IFileDialogService>();
+            dialogs.OpenFolderAsync(Arg.Any<string>()).Returns(outDir);
+
+            var kit = Substitute.For<IKitBuilder>();
+            kit.BuildAsync(Arg.Any<IReadOnlyList<KitControlSource>>(), Arg.Any<KitBuildOptions>(), Arg.Any<CancellationToken>())
+               .Returns(ci => Task.FromResult(new KitBuildResult(
+                   ci.Arg<IReadOnlyList<KitControlSource>>()
+                     .Select(s => new KitControlResult { Type = s.Type, Success = true, AssetPath = "x.png" }).ToList(),
+                   Path.Combine(outDir, "modern.skin.json"), outDir)));
+
+            var vm = new GenerateViewModel(gen, new DpapiSecretStore(secretsPath), new SettingsService(settingsPath),
+                                           new LayeredImportService(), dialogs, kit);
+            vm.ApiKey = "sk-test";
+            foreach (var o in vm.SetTypeOptions) o.Include = o.Type is ComponentType.RotaryKnob or ComponentType.Button;
+
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+            int expected = vm.SetResults.Count(r => r.IsSuccess);
+            expected.Should().Be(2);
+            vm.BuildKitCommand.CanExecute(null).Should().BeTrue();
+
+            await vm.BuildKitCommand.ExecuteAsync(null);
+
+            await kit.Received(1).BuildAsync(
+                Arg.Is<IReadOnlyList<KitControlSource>>(l =>
+                    l.Count == expected
+                    && l.Any(s => s.Type == ComponentType.RotaryKnob)
+                    && l.Any(s => s.Type == ComponentType.Button)),
+                Arg.Is<KitBuildOptions>(o => o.OutputDirectory == outDir),
+                Arg.Any<CancellationToken>());
+            vm.LastKitDirectory.Should().Be(outDir);
+            vm.SetStatus.Should().Contain("skin.json");
+        }
+        finally
+        {
+            foreach (var p in new[] { settingsPath, secretsPath }) try { if (File.Exists(p)) File.Delete(p); } catch { }
+            try { Directory.Delete(outDir, recursive: true); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task Build_kit_does_nothing_when_the_folder_pick_is_cancelled()
+    {
+        var settingsPath = Path.Combine(Path.GetTempPath(), $"stripkit_kitc_{Guid.NewGuid():N}.json");
+        var secretsPath = Path.Combine(Path.GetTempPath(), $"stripkit_kitcsec_{Guid.NewGuid():N}.dat");
+        try
+        {
+            var gen = Substitute.For<IAssetGenerationService>();
+            gen.AvailableProviders.Returns([AiProvider.Claude]);
+            gen.DefaultModelFor(Arg.Any<AiProvider>()).Returns("m");
+            gen.ModelsFor(Arg.Any<AiProvider>()).Returns(["m"]);
+            StubSet(gen, LayeredKnobSvg);
+
+            var dialogs = Substitute.For<IFileDialogService>();
+            dialogs.OpenFolderAsync(Arg.Any<string>()).Returns((string?)null);   // user cancels
+            var kit = Substitute.For<IKitBuilder>();
+
+            var vm = new GenerateViewModel(gen, new DpapiSecretStore(secretsPath), new SettingsService(settingsPath),
+                                           new LayeredImportService(), dialogs, kit);
+            vm.ApiKey = "sk-test";
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+
+            await vm.BuildKitCommand.ExecuteAsync(null);
+
+            await kit.DidNotReceive().BuildAsync(Arg.Any<IReadOnlyList<KitControlSource>>(),
+                Arg.Any<KitBuildOptions>(), Arg.Any<CancellationToken>());
+        }
+        finally
+        {
+            foreach (var p in new[] { settingsPath, secretsPath }) try { if (File.Exists(p)) File.Delete(p); } catch { }
+        }
+    }
+
+    [Fact]
+    public async Task Build_kit_command_is_re_queried_when_set_generation_toggles()
+    {
+        // The "Build kit" button is event-driven (CanExecuteChanged). CanBuildKit gates on !IsGeneratingSet,
+        // so IsGeneratingSet's true→false transition MUST re-query BuildKitCommand — otherwise the button
+        // stays greyed out after a successful Generate set even though CanExecute() would return true. This
+        // guards the [NotifyCanExecuteChangedFor(nameof(BuildKitCommand))] on _isGeneratingSet.
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubSet(gen, LayeredKnobSvg);
+            vm.ApiKey = "sk-test";
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+            vm.SetResults.Should().Contain(r => r.IsSuccess);
+
+            int notifications = 0;
+            vm.BuildKitCommand.CanExecuteChanged += (_, _) => notifications++;
+            vm.IsGeneratingSet = true;
+            vm.IsGeneratingSet = false;
+
+            notifications.Should().BeGreaterThan(0, "toggling IsGeneratingSet must re-query Build kit's CanExecute");
+        }
+        finally { Cleanup(temps); }
+    }
+
+    [Fact]
+    public async Task Regenerate_is_a_no_op_during_a_kit_build_so_it_cannot_cancel_the_build()
+    {
+        // Regenerate and BuildKit share _setCts, so a Regenerate click mid-build would cancel the build.
+        // The guard must short-circuit while IsBuildingKit is set.
+        var (vm, gen, _, temps) = Build();
+        try
+        {
+            StubSet(gen, LayeredKnobSvg);
+            vm.ApiKey = "sk-test";
+            await vm.GenerateSetCommand.ExecuteAsync(null);
+            var item = vm.SetResults.First();
+
+            vm.IsBuildingKit = true;
+            vm.SetStatus = "building-sentinel";
+            await vm.RegenerateSetItemCommand.ExecuteAsync(item);
+
+            vm.SetStatus.Should().Be("building-sentinel", "Regenerate must not start (and cancel) a build");
         }
         finally { Cleanup(temps); }
     }

@@ -40,7 +40,8 @@ public class GenerateIntegrationTests
         var service = new AssetGenerationService(
             [new ClaudeProvider(http), new OpenAiProvider(http), new GeminiProvider(http)]);
         return new GenerateViewModel(service, TestFakes.TempSecrets(), TestFakes.TempSettings(),
-                                     new LayeredImportService(), Substitute.For<IFileDialogService>());
+                                     new LayeredImportService(), Substitute.For<IFileDialogService>(),
+                                     Substitute.For<IKitBuilder>());
     }
 
     [Fact]

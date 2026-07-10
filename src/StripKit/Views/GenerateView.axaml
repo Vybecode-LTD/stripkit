@@ -292,10 +292,17 @@
                         <Button Grid.Column="2" Content="Refine" Command="{Binding RefineCommand}" />
                     </Grid>
 
-                    <Button Content="Save set…" Classes="accent" HorizontalAlignment="Left" MinWidth="140"
-                            IsVisible="{Binding HasSetResults}"
-                            ToolTip.Tip="Save every generated control in the set to a folder as SVGs."
-                            Command="{Binding SaveSetCommand}" />
+                    <StackPanel IsVisible="{Binding HasSetResults}" Spacing="6">
+                        <Grid ColumnDefinitions="Auto,8,Auto">
+                            <Button Grid.Column="0" Content="Build kit…" Classes="accent" MinWidth="140"
+                                    ToolTip.Tip="Render every generated control to a filmstrip PNG (+@2x) and write a skin.json binding them together — a ready-to-use kit in one folder."
+                                    Command="{Binding BuildKitCommand}" />
+                            <Button Grid.Column="2" Content="Save set (SVG)…"
+                                    ToolTip.Tip="Save just the raw SVG art of each generated control to a folder."
+                                    Command="{Binding SaveSetCommand}" />
+                        </Grid>
+                        <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsBuildingKit}" />
+                    </StackPanel>
 
                     <Expander Header="Model response (raw)"
                               IsVisible="{Binding LastRawResponse, Converter={x:Static StringConverters.IsNotNullOrEmpty}}">

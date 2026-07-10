@@ -49,7 +49,8 @@ does each thing live" companion.
   path under `releases/`).
 - `.claude/skills/` — project-scoped skills the agent should use (see below).
 - `src/StripKit/` — the application.
-- `tests/StripKit.Tests/` — xUnit tests (335): the **Assemble tab** (frame-sequence assembler +
+- `tests/StripKit.Tests/` — xUnit tests (346): the **Build kit** one-click builder
+  (`KitBuilderTests`); the **Assemble tab** (frame-sequence assembler +
   natural-sort comparer + probe + VM + golden + headless view — `NaturalFileNameComparerTests`,
   `FrameSequenceAssemblerTests`, `FrameSequenceProbeTests`, `FrameSequenceViewModelTests`,
   `FrameSequenceAssemblerGoldenTests`, `AssembleViewTests`), renderer golden-image (with committed

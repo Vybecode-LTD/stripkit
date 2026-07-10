@@ -5,6 +5,20 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
+## [Unreleased]
+
+### Added
+- **One-click "Build kit" on the Generate tab.** After generating a matching set of controls, a new
+  **Build kit…** button renders the whole family to filmstrip PNGs (+ @2x) and writes a multi-control
+  `skin.json` binding them together — from a single folder pick. Each control is prepared through the
+  same per-type path the Create tab uses (layered knob body+pointer, button/toggle state frames, a
+  flattened fader/slider cap, a meter's off/on reveal), so the kit output matches what Create would
+  export; the skin lays the controls out in a non-overlapping row. New app-only `Services/KitBuilder.cs`
+  (`IKitBuilder`) + `Models/KitModels.cs`; no renderer-math change, so nothing mirrored in
+  `FilmstripEngine.cs`. Adversarially reviewed before landing — fixed a `CanExecuteChanged` gap that
+  left the button greyed out on the happy path, a shared-CTS race where Regenerate could cancel a build,
+  and two exception-path bitmap leaks. +11 tests (suite 335 → 346).
+
 ## [1.5.1] — 2026-07-04
 
 ### Fixed
