@@ -5,7 +5,7 @@
 > Notable changes per doc/feature version. Dates are authoring dates; several
 > versions landed on 2026-06-03 across one working stretch.
 
-## [Unreleased]
+## [1.6.0] — 2026-07-11
 
 ### Added
 - **One-click "Build kit" on the Generate tab.** After generating a matching set of controls, a new
