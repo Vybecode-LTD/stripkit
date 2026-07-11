@@ -28,13 +28,31 @@
         <SolidColorBrush x:Key="AccentHiBrush" Color="{StaticResource DepthEmberHiColor}" />
         <SolidColorBrush x:Key="Text1Brush" Color="{StaticResource DepthInkColor}" />
         <SolidColorBrush x:Key="Text2Brush" Color="{StaticResource DepthInkDimColor}" />
-        <SolidColorBrush x:Key="Text3Brush" Color="{StaticResource DepthInkFaintColor}" />
+        <!-- NOT DepthInkFaintColor (#7f8083) directly: that vendored token computes to only
+             ~3.3-3.7:1 against the DepthChrome/DepthChrome2 panel shades, under the 4.5:1 WCAG AA
+             floor for normal-size text (audit finding, UX review). This app-layer override lightens
+             it to a value that clears AA on both panel shades with margin, without hand-editing the
+             vendored Depth.axaml token itself. -->
+        <SolidColorBrush x:Key="Text3Brush" Color="#9A9CA2" />
         <SolidColorBrush x:Key="GlassFillBrush" Color="{StaticResource DepthChrome2Color}" />
         <SolidColorBrush x:Key="GlassBorderBrush" Color="{StaticResource DepthLineSoftColor}" />
         <SolidColorBrush x:Key="GlassFillHoverBrush" Color="{StaticResource DepthChrome3Color}" />
         <SolidColorBrush x:Key="GlassPressBrush" Color="{StaticResource DepthChromeColor}" />
         <SolidColorBrush x:Key="GlassBorderHoverBrush" Color="{StaticResource DepthLineColor}" />
         <SolidColorBrush x:Key="AccentPressBrush" Color="{StaticResource DepthEmberLoColor}" />
+
+        <!-- Semantic status colours. The Depth palette ships DepthVector (info blue) and DepthGood
+             (success green) that were defined but never referenced anywhere in the app (audit
+             finding, visual-artist review) — wired here to real roles instead of inventing new hex.
+             There is no red in the vendored Depth palette, so Danger is one new, deliberately-chosen
+             local colour (not a Depth token edit) distinct in hue from the ember accent so a
+             destructive action never reads as "just another orange button". -->
+        <SolidColorBrush x:Key="DangerBrush" Color="#E5484D" />
+        <SolidColorBrush x:Key="DangerBorderBrush" Color="#7A3230" />
+        <SolidColorBrush x:Key="DangerSoftBrush" Color="#2E1A19" />
+        <SolidColorBrush x:Key="InfoBrush" Color="{StaticResource DepthVectorColor}" />
+        <SolidColorBrush x:Key="InfoHiBrush" Color="{StaticResource DepthVectorHiColor}" />
+        <SolidColorBrush x:Key="InfoSoftBrush" Color="#19232B" />
 
         <!-- Primary (accent) button face = ember (top-lit). -->
         <LinearGradientBrush x:Key="AccentGradient" StartPoint="0%,0%" EndPoint="0%,100%">
@@ -138,6 +156,24 @@
             <GradientStop Offset="1" Color="{StaticResource DepthChromeColor}" />
         </LinearGradientBrush>
 
+        <!-- Echoes the SectionHeader accent-divider's gesture at the card level: the top edge of
+             every Border.card catches a brief ember tint before settling into the normal hairline —
+             so the app's one signature motif recurs beyond just section captions, instead of
+             appearing in exactly one context (audit finding, visual-artist review). Border has no
+             per-side BorderBrush, so this is expressed as a gradient over the card's own bounds —
+             the top few percent are ember, the rest is the ordinary line colour. -->
+        <LinearGradientBrush x:Key="CardBorderAccent" StartPoint="0%,0%" EndPoint="0%,100%">
+            <GradientStop Offset="0" Color="{StaticResource DepthEmberColor}" />
+            <GradientStop Offset="0.035" Color="{StaticResource DepthLineColor}" />
+            <GradientStop Offset="1" Color="{StaticResource DepthLineColor}" />
+        </LinearGradientBrush>
+
+        <!-- The preview drop-zone's shadow — was hand-pasted as an identical literal in 4 separate
+             view files (audit finding, visual-artist + UX review); named here so it's one value, not
+             four copies that could silently drift. Same value as before, so every drop-zone's on-screen
+             appearance is unchanged. -->
+        <BoxShadows x:Key="DropZoneShadow">0 2 6 0 #44000000, 0 18 44 0 #7A000000</BoxShadows>
+
         <!-- Buttons: a full ControlTheme so hover / press / focus read with smooth transitions
              (neutral = dark raised keycap via the styles below; .accent = ember face). -->
         <ControlTheme x:Key="{x:Type Button}" TargetType="Button">
@@ -183,6 +219,10 @@
             </Style>
             <Style Selector="^:disabled">
                 <Setter Property="Opacity" Value="0.45" />
+                <!-- A disabled control must not still invite a click — the hand cursor is the
+                     strongest "clickable" affordance in the theme, so it needs its own override
+                     here rather than relying on opacity alone (audit finding, UX review). -->
+                <Setter Property="Cursor" Value="Arrow" />
             </Style>
             <Style Selector="^:focus-visible /template/ Border#PART_Border">
                 <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
@@ -206,6 +246,21 @@
             </Style>
             <Style Selector="^.accent:pressed">
                 <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+            </Style>
+
+            <!-- Destructive buttons: Classes="destructive" — an outlined danger tone so a delete/
+                 clear/cancel action is never visually identical to its safe Add/Save sibling
+                 (audit finding, UX review: no button variant distinguished irreversible actions). -->
+            <Style Selector="^.destructive">
+                <Setter Property="Foreground" Value="{DynamicResource DangerBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DangerBorderBrush}" />
+            </Style>
+            <Style Selector="^.destructive:pointerover">
+                <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource DangerBrush}" />
+            </Style>
+            <Style Selector="^.destructive:pressed">
+                <Setter Property="Background" Value="{DynamicResource DangerSoftBrush}" />
             </Style>
         </ControlTheme>
 
@@ -250,10 +305,19 @@
             <Setter Property="Margin" Value="0,0,0,2" />
         </Style>
 
+        <!-- Tab page title: the H1 at the top of every tab's left panel. Previously every view
+             hand-typed Foreground="White" here instead of drawing from the ink-token system
+             (audit finding, 10 occurrences across 8 files) — one enforced class closes that gap. -->
+        <Style Selector="TextBlock.page-title">
+            <Setter Property="Foreground" Value="{DynamicResource Text1Brush}" />
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="Bold" />
+        </Style>
+
         <!-- Glass card: top-lit gradient fill, top-highlight hairline, layered shadow. -->
         <Style Selector="Border.card">
             <Setter Property="Background" Value="{DynamicResource GlassFillGradient}" />
-            <Setter Property="BorderBrush" Value="{DynamicResource GlassBorderGradient}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource CardBorderAccent}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="CornerRadius" Value="12" />
             <!-- Layered shadows (tight contact + deep ambient) = strong elevation. -->

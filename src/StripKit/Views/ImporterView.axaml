@@ -12,40 +12,56 @@
             <ScrollViewer>
                 <StackPanel Margin="16" Spacing="2">
 
-                    <TextBlock Text="Import existing strip" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <TextBlock Text="Import existing strip" Classes="page-title" />
                     <Border Classes="divider" />
                     <TextBlock Text="Open a KnobMan / purchased filmstrip, detect its frames, extract or re-stack."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
                     <controls:SectionHeader Text="SOURCE STRIP" />
                     <Button Content="Load filmstrip…" HorizontalAlignment="Stretch"
+                            ToolTip.Tip="Open an existing filmstrip PNG (a KnobMan strip, a purchased asset, or one you exported previously). Its layout is detected automatically."
                             Command="{Binding OpenStripCommand}" />
                     <TextBlock Classes="label" Text="{Binding StripInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
                     <controls:SectionHeader Text="DETECTED LAYOUT" />
                     <TextBlock Classes="label" Text="{Binding DetectedInfo}" TextWrapping="Wrap" />
 
-                    <Border IsVisible="{Binding LowConfidence}" Background="#33E8440A"
-                            BorderBrush="#FFE8440A" BorderThickness="1" CornerRadius="4"
+                    <!-- An FYI to double-check, not an error — coloured as info (the previously-unused
+                         DepthVector blue), not the off-palette orange-red this used to hardcode
+                         (audit finding: broke the app's own accent vocabulary at its one warning
+                         surface). CornerRadius=6 matches the documented small-radius scale. -->
+                    <Border IsVisible="{Binding LowConfidence}" Background="{DynamicResource InfoSoftBrush}"
+                            BorderBrush="{DynamicResource InfoBrush}" BorderThickness="1" CornerRadius="6"
                             Padding="8" Margin="0,6,0,0">
                         <TextBlock Text="⚠ Detection is ambiguous (the strip may include an extra centre frame). Verify the count and check the preview sweeps min → max."
-                                   Foreground="#FFE8A07A" FontSize="11" TextWrapping="Wrap" />
+                                   Foreground="{DynamicResource InfoHiBrush}" FontSize="11" TextWrapping="Wrap" />
                     </Border>
 
                     <controls:SectionHeader Text="FRAME COUNT (editable)" />
-                    <NumericUpDown Value="{Binding FrameCount}" Minimum="1" Maximum="1024" Increment="1" />
-                    <TextBlock Classes="label" Text="{Binding FrameSizeInfo}" TextWrapping="Wrap" Margin="0,4,0,0" />
+                    <NumericUpDown Value="{Binding FrameCount}" Minimum="1" Maximum="1024" Increment="1"
+                                   ToolTip.Tip="Override the detected frame count if it looks wrong before extracting or re-stacking." />
+                    <!-- Same FrameSizeInfo value as the transport-tile readout below (they're two
+                         different moments — right after loading, vs. while scrubbing) — both now
+                         monospace, matching the house numeric-readout convention, instead of one
+                         being sans and one monospace (audit finding). -->
+                    <TextBlock Text="{Binding FrameSizeInfo}" Foreground="{DynamicResource Text2Brush}" FontSize="12"
+                               FontFamily="{StaticResource DepthMono}" TextWrapping="Wrap" Margin="0,4,0,0" />
 
+                    <!-- "Extract current frame…" lives once, as the accent action beside the live
+                         preview below — it used to also appear here as a second, neutral-weighted
+                         button for the identical command (audit finding: read as two different
+                         actions). -->
                     <controls:SectionHeader Text="EXPORT" />
-                    <Button Content="Extract current frame…" HorizontalAlignment="Stretch"
-                            Command="{Binding ExtractCurrentFrameCommand}" />
-                    <Button Content="Re-stack (flip orientation)…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                    <Button Content="Re-stack (flip orientation)…" HorizontalAlignment="Stretch"
+                            ToolTip.Tip="Re-export the strip with frames stacked the other way (vertical ↔ horizontal) — same frames, same order."
                             Command="{Binding ExportRestackedCommand}" />
 
                     <controls:SectionHeader Text="RESAMPLE FRAME COUNT" />
                     <TextBlock Classes="label" Text="Target frames" />
-                    <NumericUpDown Value="{Binding TargetFrameCount}" Minimum="1" Maximum="1024" Increment="1" />
+                    <NumericUpDown Value="{Binding TargetFrameCount}" Minimum="1" Maximum="1024" Increment="1"
+                                   ToolTip.Tip="The frame count to resample to — picks the nearest source frame per output frame, no blending." />
                     <Button Content="Export resampled…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
+                            ToolTip.Tip="Write a new strip re-timed to the Target frames count above."
                             Command="{Binding ExportResampledCommand}" />
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,12"
                                Text="Re-times the strip to a new frame count by picking the nearest source frame (no blending). Downsampling drops frames and is lossy — re-render from the source art for the best quality." />
@@ -60,7 +76,7 @@
             <Border Grid.Row="0" x:Name="ImportDropBorder" DragDrop.AllowDrop="True"
                     Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
                     BorderThickness="2" BorderBrush="Transparent"
-                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                    BoxShadow="{StaticResource DropZoneShadow}">
                 <Border.Transitions>
                     <Transitions>
                         <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
@@ -80,17 +96,21 @@
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" IsEnabled="{Binding HasStrip}">
-                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
+                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40"
+                                    ToolTip.Tip="Previous frame" AutomationProperties.Name="Previous frame" />
                             <Button x:Name="PlayButton" Click="OnPlayClick" Width="90" ToolTip.Tip="Play / stop the preview">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock x:Name="PlayIcon" Text="&#xE768;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
                                     <TextBlock x:Name="PlayLabel" Text="Play" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
-                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40" ToolTip.Tip="Reset to the first frame" />
+                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40"
+                                    ToolTip.Tip="Next frame" AutomationProperties.Name="Next frame" />
+                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40"
+                                    ToolTip.Tip="Reset to the first frame" AutomationProperties.Name="Reset to the first frame" />
                         </StackPanel>
-                        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
+                        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0"
+                                ToolTip.Tip="Scrub through the strip's frames." />
                         <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right"
                                    FontFamily="{StaticResource DepthMono}" />

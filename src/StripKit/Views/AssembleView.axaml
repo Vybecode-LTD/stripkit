@@ -12,7 +12,7 @@
             <ScrollViewer>
                 <StackPanel Margin="16" Spacing="2" IsEnabled="{Binding !IsRunning}">
 
-                    <TextBlock Text="Assemble" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <TextBlock Text="Assemble" Classes="page-title" />
                     <Border Classes="divider" />
                     <TextBlock Text="Stack a folder of pre-rendered frames (e.g. a path-traced PNG sequence) into one filmstrip."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
@@ -23,10 +23,16 @@
                             ToolTip.Tip="Pick a folder of numbered frames (e.g. knob_0001.png … knob_0128.png). You can also drop them onto the preview."
                             Command="{Binding ChooseFolderCommand}" />
                     <Grid ColumnDefinitions="*,6,*" Margin="0,4,0,0">
-                        <Button Grid.Column="0" Content="Add files…" HorizontalAlignment="Stretch" Command="{Binding AddFilesCommand}" />
-                        <Button Grid.Column="2" Content="Clear" HorizontalAlignment="Stretch" Command="{Binding ClearFramesCommand}" />
+                        <Button Grid.Column="0" Content="Add files…" HorizontalAlignment="Stretch" Command="{Binding AddFilesCommand}"
+                                ToolTip.Tip="Add individual frame files to the current sequence, instead of a whole folder." />
+                        <Button Grid.Column="2" Content="Clear" HorizontalAlignment="Stretch" Command="{Binding ClearFramesCommand}"
+                                ToolTip.Tip="Remove every frame from the current sequence." />
                     </Grid>
-                    <TextBlock Classes="label" Text="{Binding SequenceInfo}" TextWrapping="Wrap" Margin="0,6,0,0" />
+                    <!-- Same SequenceInfo value as the transport-tile readout below (two different
+                         moments — right after loading, vs. while scrubbing) — both now monospace,
+                         matching the house numeric-readout convention (audit finding). -->
+                    <TextBlock Text="{Binding SequenceInfo}" Foreground="{DynamicResource Text2Brush}" FontSize="12"
+                               FontFamily="{StaticResource DepthMono}" TextWrapping="Wrap" Margin="0,6,0,0" />
                     <TextBlock Text="{Binding WarningText}" IsVisible="{Binding HasWarning}"
                                Foreground="{DynamicResource AccentHiBrush}" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0" />
 
@@ -40,16 +46,19 @@
                                         <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="2,1">
                                             <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center"
                                                        Text="{Binding Display}" TextTrimming="CharacterEllipsis" />
-                                            <Button Grid.Column="1" Content="↑" Width="26" Padding="0"
-                                                    ToolTip.Tip="Move earlier"
+                                            <Button Grid.Column="1" Content="&#xE74A;" FontFamily="{StaticResource DepthIcon}"
+                                                    Width="26" Padding="0" ToolTip.Tip="Move earlier"
+                                                    AutomationProperties.Name="Move frame earlier"
                                                     Command="{Binding DataContext.MoveFrameUpCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button Grid.Column="2" Content="↓" Width="26" Padding="0" Margin="2,0,0,0"
-                                                    ToolTip.Tip="Move later"
+                                            <Button Grid.Column="2" Content="&#xE74B;" FontFamily="{StaticResource DepthIcon}"
+                                                    Width="26" Padding="0" Margin="2,0,0,0" ToolTip.Tip="Move later"
+                                                    AutomationProperties.Name="Move frame later"
                                                     Command="{Binding DataContext.MoveFrameDownCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
-                                            <Button Grid.Column="3" Content="✕" Width="26" Padding="0" Margin="2,0,0,0"
-                                                    ToolTip.Tip="Remove"
+                                            <Button Grid.Column="3" Classes="destructive" Content="&#xE74D;" FontFamily="{StaticResource DepthIcon}"
+                                                    Width="26" Padding="0" Margin="2,0,0,0" ToolTip.Tip="Remove"
+                                                    AutomationProperties.Name="Remove frame"
                                                     Command="{Binding DataContext.RemoveFrameCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
                                                     CommandParameter="{Binding}" />
                                         </Grid>
@@ -68,9 +77,11 @@
                     <!-- Layout -->
                     <controls:SectionHeader Text="LAYOUT" />
                     <TextBlock Classes="label" Text="Stack direction" />
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding StackDirections}" SelectedItem="{Binding StackDirection}" />
+                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding StackDirections}" SelectedItem="{Binding StackDirection}"
+                              ToolTip.Tip="Whether frames stack vertically (top to bottom) or horizontally (left to right) in the exported strip." />
                     <TextBlock Classes="label" Text="If frame sizes differ" Margin="0,6,0,0" />
-                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding CellFits}" SelectedItem="{Binding CellFit}" />
+                    <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding CellFits}" SelectedItem="{Binding CellFit}"
+                              ToolTip.Tip="How to reconcile frames that aren't all the same size: pad every frame to the largest, crop to the smallest, or fail strictly." />
                     <CheckBox Content="Re-centre each frame on its content" IsChecked="{Binding RecenterOnContent}" Margin="0,6,0,0"
                               ToolTip.Tip="Fixes a 3D object that drifts off-centre between rendered frames." />
 
@@ -83,13 +94,15 @@
 
                     <!-- Resample -->
                     <controls:SectionHeader Text="RESAMPLE (optional)" />
-                    <CheckBox Content="Re-time to a standard frame count" IsChecked="{Binding ResampleEnabled}" />
+                    <CheckBox Content="Re-time to a standard frame count" IsChecked="{Binding ResampleEnabled}"
+                              ToolTip.Tip="Retime the assembled sequence to a different frame count on export." />
                     <StackPanel IsVisible="{Binding ResampleEnabled}" Spacing="2" Margin="0,4,0,0">
-                        <NumericUpDown Value="{Binding TargetFrameCount}" Minimum="2" Maximum="512" Increment="1" />
+                        <NumericUpDown Value="{Binding TargetFrameCount}" Minimum="2" Maximum="512" Increment="1"
+                                       ToolTip.Tip="The frame count to resample to on export." />
                         <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                            <Button Content="32" Command="{Binding SetTarget32Command}" />
-                            <Button Content="64" Command="{Binding SetTarget64Command}" />
-                            <Button Content="128" Command="{Binding SetTarget128Command}" />
+                            <Button Content="32" Command="{Binding SetTarget32Command}" ToolTip.Tip="Set the target frame count to 32" />
+                            <Button Content="64" Command="{Binding SetTarget64Command}" ToolTip.Tip="Set the target frame count to 64" />
+                            <Button Content="128" Command="{Binding SetTarget128Command}" ToolTip.Tip="Set the target frame count to 128" />
                         </StackPanel>
                         <TextBlock Classes="label" Text="Method" Margin="0,6,0,0" />
                         <ComboBox HorizontalAlignment="Stretch" ItemsSource="{Binding Interpolations}" SelectedItem="{Binding Interpolation}"
@@ -106,8 +119,10 @@
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0" Text="{Binding EmissionInfo}" />
                     <StackPanel IsVisible="{Binding EmissionEnabled}" Spacing="2" Margin="0,4,0,0">
                         <TextBlock Classes="label" Text="Intensity (%)" Margin="0,4,0,0" />
-                        <Slider Minimum="0" Maximum="100" Value="{Binding EmissionIntensity}" />
-                        <Button Content="Remove emission pass" HorizontalAlignment="Left" Command="{Binding ClearEmissionCommand}" />
+                        <Slider Minimum="0" Maximum="100" Value="{Binding EmissionIntensity}"
+                                ToolTip.Tip="How strongly the emission pass is added over the beauty frames." />
+                        <Button Classes="destructive" Content="Remove emission pass" HorizontalAlignment="Left" Command="{Binding ClearEmissionCommand}"
+                                ToolTip.Tip="Discard the loaded emission frames." />
                     </StackPanel>
 
                     <!-- Quality / output -->
@@ -122,20 +137,24 @@
 
                     <!-- Manifest -->
                     <controls:SectionHeader Text="MANIFEST (optional)" />
-                    <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}" />
+                    <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}"
+                              ToolTip.Tip="Writes a single-control skin.json next to the exported PNG." />
                     <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
-                    <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)" />
+                    <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)"
+                             ToolTip.Tip="The host/APVTS parameter id this control binds to in the manifest." />
 
                     <!-- Code export -->
                     <controls:SectionHeader Text="CODE EXPORT (loader snippets)" />
-                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}" />
+                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}"
+                              ToolTip.Tip="Writes a loader file per ticked target below, next to the exported PNG." />
                     <StackPanel IsVisible="{Binding ExportCode}" Spacing="2" Margin="0,4,0,12">
                         <Grid ColumnDefinitions="*,*">
                             <CheckBox Grid.Column="0" Content="JUCE" IsChecked="{Binding EmitCodeJuce}" />
                             <CheckBox Grid.Column="1" Content="CSS / HTML" IsChecked="{Binding EmitCodeCss}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*">
-                            <CheckBox Grid.Column="0" Content="iPlug2" IsChecked="{Binding EmitCodeIPlug2}" />
+                            <CheckBox Grid.Column="0" Content="iPlug2" IsChecked="{Binding EmitCodeIPlug2}"
+                                      ToolTip.Tip="iPlug2's IBitmap/LoadBitmap can only read a 1D strip — a grid-layout strip is not supported by this target." />
                             <CheckBox Grid.Column="1" Content="HISE" IsChecked="{Binding EmitCodeHise}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*">
@@ -164,16 +183,19 @@
                             <TextBlock Classes="label" Text="Sweep (degrees) — rotary" Margin="0,4,0,0" />
                             <NumericUpDown Value="{Binding RecipeSweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
                             <ComboBox HorizontalAlignment="Stretch" Margin="0,4,0,0"
-                                      ItemsSource="{Binding RecipeTargets}" SelectedItem="{Binding RecipePreviewTarget}" />
+                                      ItemsSource="{Binding RecipeTargets}" SelectedItem="{Binding RecipePreviewTarget}"
+                                      ToolTip.Tip="Which recipe format to preview below: a Blender bpy script, or a CSV/JSON frame table." />
                             <Border Classes="tile" Padding="2">
                                 <ScrollViewer MaxHeight="200" HorizontalScrollBarVisibility="Auto">
                                     <TextBox Text="{Binding GeneratedRecipe}" IsReadOnly="True" AcceptsReturn="True"
-                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11"
+                                             FontFamily="{StaticResource DepthMono}" />
                                 </ScrollViewer>
                             </Border>
                             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="6">
-                                <Button Content="Save recipe…" Command="{Binding SaveRecipeCommand}" />
-                                <Button Content="Copy to clipboard" Click="OnCopyRecipe" />
+                                <Button Content="Save recipe…" Command="{Binding SaveRecipeCommand}"
+                                        ToolTip.Tip="Save the recipe above to disk." />
+                                <Button Content="Copy to clipboard" Click="OnCopyRecipe" ToolTip.Tip="Copy the recipe above to the clipboard." />
                             </StackPanel>
                         </StackPanel>
                     </Expander>
@@ -189,7 +211,7 @@
             <Border Grid.Row="0" x:Name="FramesDropBorder" DragDrop.AllowDrop="True"
                     Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
                     BorderThickness="2" BorderBrush="Transparent"
-                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                    BoxShadow="{StaticResource DropZoneShadow}">
                 <Border.Transitions>
                     <Transitions>
                         <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
@@ -209,22 +231,25 @@
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4" IsEnabled="{Binding HasFrames}">
-                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
+                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40"
+                                    ToolTip.Tip="Previous frame" AutomationProperties.Name="Previous frame" />
                             <Button x:Name="PlayButton" Click="OnPlayClick" Width="90" ToolTip.Tip="Play / stop the preview">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock x:Name="PlayIcon" Text="&#xE768;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
                                     <TextBlock x:Name="PlayLabel" Text="Play" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
-                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40" ToolTip.Tip="Reset to the first frame" />
+                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40"
+                                    ToolTip.Tip="Next frame" AutomationProperties.Name="Next frame" />
+                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40"
+                                    ToolTip.Tip="Reset to the first frame" AutomationProperties.Name="Reset to the first frame" />
                         </StackPanel>
-                        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
+                        <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0"
+                                ToolTip.Tip="Scrub through the assembled sequence." />
                         <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Text2Brush}" MinWidth="160" TextAlignment="Right"
                                    FontFamily="{StaticResource DepthMono}" />
                     </Grid>
-
                     <TextBlock Text="{Binding SequenceInfo}" Foreground="{DynamicResource Text3Brush}" FontSize="12"
                                FontFamily="{StaticResource DepthMono}" />
 
@@ -235,7 +260,8 @@
                     <Grid ColumnDefinitions="*,Auto,Auto">
                         <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
                                    Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
-                        <Button Grid.Column="1" Content="Cancel" MinWidth="90" Margin="0,0,8,0"
+                        <Button Grid.Column="1" Classes="destructive" Content="Cancel" MinWidth="90" Margin="0,0,8,0"
+                                ToolTip.Tip="Stop the assembly. Nothing is written until it completes."
                                 IsVisible="{Binding IsRunning}" Command="{Binding CancelCommand}" />
                         <Button Grid.Column="2" Classes="accent" Content="Assemble &amp; export" MinWidth="190"
                                 ToolTip.Tip="Pack the frames into one stacked PNG (plus @2x, a skin.json, and loader code if ticked)."

@@ -22,6 +22,26 @@
   Clear** shortcut for the type picker, a **Show in folder** button that opens the built kit with its
   `skin.json` selected, and copy that walks you from Generate set → Build kit; the in-app Getting
   Started walkthrough covers the Build-kit flow. +1 test (suite 346 → 347).
+- **App-wide style & usability pass** — a three-perspective audit (end user, UX professional, visual
+  artist) found 34 issues across the six tabs; every one is fixed, in 12 staged commits' worth of work
+  landed as one release. Highlights: **tooltips backfilled everywhere** (Batch went from zero coverage
+  to full; every precision numeric field on Create — pivot, arc radius, angles, segment count, skew/log
+  base — now explains itself); **colour-swatch entry** extended from Generate-only to Create + Batch (8
+  more `#AARRGGBB` fields now have a live picker instead of a blind hex TextBox), via a new shared
+  `Helpers/ColorFlyoutHelper.cs`; a new **`.destructive`** button variant applied to every irreversible
+  action (Remove/Delete/Clear/Cancel), which previously looked identical to Add/Save; **10 hardcoded
+  `Foreground="White"` instances** swept to the ink-token system via a new `TextBlock.page-title` class;
+  `Text3Brush` remapped to a contrast-safe value (the vendored token failed WCAG AA on the app's own
+  panels); `AutomationProperties.Name` added to every icon-only control (was zero anywhere in the app);
+  Assemble's raw `↑ ↓ ✕` glyphs and the tutorial's emoji unified onto the app's own icon font; the
+  duplicated "Import layered file" section (pasted once per component type) consolidated into one
+  shared block via a new `IsLayerImportRelevant` computed property; the Create tab's 19 sections grouped
+  into 8 `Border.tile` clusters instead of one continuous scroll; Verdana demoted to a last-resort font
+  fallback (Segoe UI first); and the SectionHeader accent-divider's gesture now echoes on every card via
+  a subtle ember-tinted top edge. Two regressions caught by the test suite mid-implementation and fixed
+  before landing: an invalid XML comment inside a `Window` tag, and a "duplicate" readout removal that
+  broke the documented cross-tab `TransportTile`-height invariant. +6 tests (suite 347 → 353); zero
+  findings from a closing adversarial review.
 
 ## [1.5.1] — 2026-07-04
 

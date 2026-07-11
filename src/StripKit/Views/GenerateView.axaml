@@ -18,7 +18,7 @@
             <ScrollViewer>
                 <StackPanel Margin="16" Spacing="2">
 
-                    <TextBlock Text="Generate" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <TextBlock Text="Generate" Classes="page-title" />
                     <Border Classes="divider" />
                     <TextBlock Text="Generate a layered knob SVG with your own AI key — a static body plus a rotating pointer."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
@@ -36,8 +36,10 @@
                     <CheckBox Content="Show key" IsChecked="{Binding #KeyBox.RevealPassword}" Margin="0,4,0,0" />
                     <Grid ColumnDefinitions="*,6,*" Margin="0,6,0,0">
                         <Button Grid.Column="0" Content="Save key" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Store this key encrypted for the selected provider, so you don't have to paste it again next time."
                                 Command="{Binding SaveKeyCommand}" />
-                        <Button Grid.Column="2" Content="Clear key" HorizontalAlignment="Stretch"
+                        <Button Grid.Column="2" Classes="destructive" Content="Clear key" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Remove the stored key for the selected provider."
                                 Command="{Binding ClearKeyCommand}" />
                     </Grid>
                     <TextBlock Classes="label" Text="{Binding KeyStatus}" TextWrapping="Wrap" Margin="0,4,0,0" />
@@ -82,17 +84,20 @@
                                 </DataTemplate>
                             </ComboBox.ItemTemplate>
                         </ComboBox>
-                        <Button Grid.Column="2" Content="Apply" Command="{Binding ApplySeedCommand}" />
+                        <Button Grid.Column="2" Content="Apply" Command="{Binding ApplySeedCommand}"
+                                ToolTip.Tip="Prefill Style / colours / effects below from the selected seed." />
                     </Grid>
                     <Grid ColumnDefinitions="*,6,Auto,6,Auto" Margin="0,6,0,0">
                         <TextBox Grid.Column="0" Text="{Binding SeedName}" Watermark="name to save current as…" />
-                        <Button Grid.Column="2" Content="Save" Command="{Binding SaveSeedCommand}" />
-                        <Button Grid.Column="4" Content="Delete" Command="{Binding DeleteSeedCommand}"
+                        <Button Grid.Column="2" Content="Save" Command="{Binding SaveSeedCommand}"
+                                ToolTip.Tip="Save the current style / colours / effects below as a new seed with this name." />
+                        <Button Grid.Column="4" Classes="destructive" Content="Delete" Command="{Binding DeleteSeedCommand}"
                                 ToolTip.Tip="Delete the selected saved seed (built-in seeds can't be deleted)." />
                     </Grid>
 
                     <TextBlock Classes="label" Text="Style" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="A coarse visual style preset folded into the prompt. Extra direction below refines it further."
                               ItemsSource="{Binding Styles}" SelectedItem="{Binding Style}" />
 
                     <!-- Colours -->
@@ -132,15 +137,20 @@
                     <!-- Effects -->
                     <controls:SectionHeader Text="EFFECTS" />
                     <WrapPanel Orientation="Horizontal">
-                        <CheckBox Content="Drop shadow" IsChecked="{Binding HasDropShadow}" Margin="0,0,12,0" />
-                        <CheckBox Content="Outer glow" IsChecked="{Binding HasOuterGlow}" Margin="0,0,12,0" />
-                        <CheckBox Content="Bevel / 3D" IsChecked="{Binding HasBevel}" Margin="0,0,12,0" />
-                        <CheckBox Content="Metallic sheen" IsChecked="{Binding HasMetallicSheen}" />
+                        <CheckBox Content="Drop shadow" IsChecked="{Binding HasDropShadow}" Margin="0,0,12,0"
+                                  ToolTip.Tip="Fold a drop-shadow direction into the prompt." />
+                        <CheckBox Content="Outer glow" IsChecked="{Binding HasOuterGlow}" Margin="0,0,12,0"
+                                  ToolTip.Tip="Fold an outer-glow direction into the prompt." />
+                        <CheckBox Content="Bevel / 3D" IsChecked="{Binding HasBevel}" Margin="0,0,12,0"
+                                  ToolTip.Tip="Fold a bevelled/3D-shaded direction into the prompt." />
+                        <CheckBox Content="Metallic sheen" IsChecked="{Binding HasMetallicSheen}"
+                                  ToolTip.Tip="Fold a metallic-sheen direction into the prompt." />
                     </WrapPanel>
 
                     <TextBlock Classes="label" Text="Extra direction (optional)" Margin="0,8,0,0" />
                     <TextBox Text="{Binding StyleNotes}" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="56"
-                             Watermark="e.g. amber LED ring, knurled edge, brushed aluminium face" />
+                             Watermark="e.g. amber LED ring, knurled edge, brushed aluminium face"
+                             ToolTip.Tip="Free-text detail folded straight into the prompt — the most direct way to steer the result." />
                     <Button Content="Describe a reference image…" HorizontalAlignment="Stretch" Margin="0,6,0,0"
                             ToolTip.Tip="Pick a screenshot of a control you like — a vision model describes its style and adds it to Extra direction above."
                             Command="{Binding DescribeReferenceCommand}" />
@@ -152,13 +162,16 @@
 
                     <TextBlock Classes="label" Text="Canvas size (px)" Margin="0,8,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="The square SVG viewBox edge — larger gives the model more room for detail."
                               ItemsSource="{Binding CanvasSizes}" SelectedItem="{Binding CanvasSize}" />
 
                     <Grid ColumnDefinitions="*,8,Auto" Margin="0,12,0,0">
                         <Button Grid.Column="0" Classes="accent" Content="Generate" HorizontalAlignment="Stretch"
                                 ToolTip.Tip="Generate a fresh knob. Click again to regenerate a new take."
                                 Command="{Binding GenerateCommand}" />
-                        <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelCommand}" />
+                        <Button Grid.Column="2" Classes="destructive" Content="Cancel"
+                                ToolTip.Tip="Stop the in-flight generation."
+                                Command="{Binding CancelCommand}" />
                     </Grid>
                     <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsGenerating}" Margin="0,8,0,0" />
 
@@ -209,7 +222,9 @@
                         <Button Grid.Column="0" Classes="accent" Content="Generate set" HorizontalAlignment="Stretch"
                                 ToolTip.Tip="Generate every ticked control at once, in one consistent style."
                                 Command="{Binding GenerateSetCommand}" />
-                        <Button Grid.Column="2" Content="Cancel" Command="{Binding CancelSetCommand}" />
+                        <Button Grid.Column="2" Classes="destructive" Content="Cancel"
+                                ToolTip.Tip="Stop the in-flight set generation or kit build."
+                                Command="{Binding CancelSetCommand}" />
                     </Grid>
                     <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsGeneratingSet}" Margin="0,8,0,0" />
                     <TextBlock Classes="label" Text="{Binding SetStatus}" TextWrapping="Wrap" Margin="0,4,0,12" />
@@ -222,7 +237,7 @@
         <Grid Grid.Column="1" RowDefinitions="*,Auto" Margin="6,12,12,12">
 
             <Border Grid.Row="0" Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
-                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                    BoxShadow="{StaticResource DropZoneShadow}">
                 <Panel>
                     <!-- Single-control preview -->
                     <Panel IsVisible="{Binding !HasSetResults}">
@@ -244,7 +259,7 @@
                                 <DataTemplate x:DataType="vm:GeneratedSetResult">
                                     <Border Classes="tile" Width="190" Margin="6" Padding="8">
                                         <StackPanel Spacing="6">
-                                            <TextBlock Text="{Binding Label}" FontWeight="Bold" Foreground="White" />
+                                            <TextBlock Text="{Binding Label}" FontWeight="Bold" Foreground="{DynamicResource Text1Brush}" />
                                             <Border Height="120" Background="{DynamicResource GlassFillGradient}"
                                                     CornerRadius="8" ClipToBounds="True">
                                                 <Panel>
@@ -260,14 +275,17 @@
                                                        FontSize="11" TextWrapping="Wrap" />
                                             <Button Content="Use in Create" Classes="accent" HorizontalAlignment="Stretch"
                                                     IsEnabled="{Binding IsSuccess}"
+                                                    ToolTip.Tip="Send this control to the Create tab as a layered import."
                                                     Command="{Binding $parent[ItemsControl].((vm:GenerateViewModel)DataContext).UseSetItemInCreateCommand}"
                                                     CommandParameter="{Binding}" />
                                             <Grid ColumnDefinitions="*,6,*">
                                                 <Button Grid.Column="0" Content="Save" HorizontalAlignment="Stretch"
                                                         IsEnabled="{Binding IsSuccess}"
+                                                        ToolTip.Tip="Save this control's SVG to disk."
                                                         Command="{Binding $parent[ItemsControl].((vm:GenerateViewModel)DataContext).SaveSetItemCommand}"
                                                         CommandParameter="{Binding}" />
                                                 <Button Grid.Column="2" Content="Regenerate" HorizontalAlignment="Stretch"
+                                                        ToolTip.Tip="Generate a fresh take of just this control, keeping the same style."
                                                         Command="{Binding $parent[ItemsControl].((vm:GenerateViewModel)DataContext).RegenerateSetItemCommand}"
                                                         CommandParameter="{Binding}" />
                                             </Grid>
@@ -289,15 +307,18 @@
                         <Button Grid.Column="0" Classes="accent" Content="Use in Create" MinWidth="140"
                                 ToolTip.Tip="Send this to the Create tab as a layered import, ready to make the filmstrip."
                                 Command="{Binding UseInCreateCommand}" />
-                        <Button Grid.Column="2" Content="Save SVG…" Command="{Binding SaveSvgCommand}" />
-                        <Button Grid.Column="4" Content="Copy SVG" Click="OnCopySvg" IsEnabled="{Binding HasResult}" />
+                        <Button Grid.Column="2" Content="Save SVG…" ToolTip.Tip="Save the current generated SVG to disk."
+                                Command="{Binding SaveSvgCommand}" />
+                        <Button Grid.Column="4" Content="Copy SVG" Click="OnCopySvg" IsEnabled="{Binding HasResult}"
+                                ToolTip.Tip="Copy the current generated SVG to the clipboard." />
                     </Grid>
 
                     <Grid ColumnDefinitions="*,8,Auto" IsVisible="{Binding HasResult}">
                         <TextBox Grid.Column="0" Text="{Binding RefineInstruction}"
                                  Watermark="describe a change, e.g. thicker pointer, warmer accent"
                                  ToolTip.Tip="Send the current SVG back to the model with this change — keeps the same structure, tweaks what you ask." />
-                        <Button Grid.Column="2" Content="Refine" Command="{Binding RefineCommand}" />
+                        <Button Grid.Column="2" Content="Refine" ToolTip.Tip="Apply the change described above to the current SVG."
+                                Command="{Binding RefineCommand}" />
                     </Grid>
 
                     <StackPanel IsVisible="{Binding HasSetResults}" Spacing="6">

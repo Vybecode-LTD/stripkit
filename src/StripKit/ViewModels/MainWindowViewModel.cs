@@ -183,7 +183,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     // ---- component / frames ----
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsLinear), nameof(IsMeter), nameof(IsButton), nameof(IsToggle), nameof(IsStateFrames), nameof(ShowLoadHint))]
+    [NotifyPropertyChangedFor(nameof(IsRotary), nameof(IsLinear), nameof(IsMeter), nameof(IsButton), nameof(IsToggle), nameof(IsStateFrames), nameof(IsLayerImportRelevant), nameof(ShowLoadHint))]
     [NotifyCanExecuteChangedFor(nameof(ExportCommand))]
     private ComponentType _componentType = ComponentType.RotaryKnob;
 
@@ -336,6 +336,12 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>Button and Toggle share the discrete state-frame render + Create logic (off/on layers),
     /// so the state-frame UI and layer-building branch on this rather than on Button alone.</summary>
     public bool IsStateFrames => IsButton || IsToggle;
+
+    /// <summary>Whether the layered SVG/PSD file-import feature applies to the current component type
+    /// (knob body+pointer layers, or button/toggle off/on state layers) — Linear and Meter have their
+    /// own separate adoption paths. Backs the single shared "Import layered file" section so it shows
+    /// once, gated on this, instead of being duplicated per type (audit finding, three reviews).</summary>
+    public bool IsLayerImportRelevant => IsRotary || IsStateFrames;
 
     /// <summary>The "load a source" overlay shows only when there is nothing to preview;
     /// a procedural meter renders without a source, and a layered knob or button previews

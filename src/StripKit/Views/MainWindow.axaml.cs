@@ -11,6 +11,7 @@ using Avalonia.Media;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
+using StripKit.Helpers;
 using StripKit.ViewModels;
 
 namespace StripKit.Views;
@@ -126,6 +127,45 @@ public partial class MainWindow : Window
         if (clipboard is null) return;
         await clipboard.SetTextAsync(Vm.GeneratedRecipe);
         Vm.StatusMessage = $"Copied the {Vm.RecipePreviewTarget} render recipe to the clipboard.";
+    }
+
+    // Colour-swatch flyouts (shared with Batch/Generate via ColorFlyoutHelper): every hex field here
+    // is #AARRGGBB, so alphaAware stays true throughout — was previously a plain typed TextBox with
+    // no live preview everywhere except Generate (audit finding, three independent reviews).
+    private void OnArcColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || Vm is null) return;
+        ColorFlyoutHelper.Show(btn, Vm.ArcColorHex, alphaAware: true, hex => Vm.ArcColorHex = hex);
+    }
+
+    private void OnArcTrackColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || Vm is null) return;
+        ColorFlyoutHelper.Show(btn, Vm.ArcTrackColorHex, alphaAware: true, hex => Vm.ArcTrackColorHex = hex);
+    }
+
+    private void OnArcColor2Click(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || Vm is null) return;
+        ColorFlyoutHelper.Show(btn, Vm.ArcColor2Hex, alphaAware: true, hex => Vm.ArcColor2Hex = hex);
+    }
+
+    private void OnMeterOnColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || Vm is null) return;
+        ColorFlyoutHelper.Show(btn, Vm.OnColorHex, alphaAware: true, hex => Vm.OnColorHex = hex);
+    }
+
+    private void OnMeterOffColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || Vm is null) return;
+        ColorFlyoutHelper.Show(btn, Vm.OffColorHex, alphaAware: true, hex => Vm.OffColorHex = hex);
+    }
+
+    private void OnMeterPeakColorClick(object? sender, RoutedEventArgs e)
+    {
+        if (sender is not Button btn || Vm is null) return;
+        ColorFlyoutHelper.Show(btn, Vm.PeakColorHex, alphaAware: true, hex => Vm.PeakColorHex = hex);
     }
 
     private void OnPlayTick(object? sender, EventArgs e)

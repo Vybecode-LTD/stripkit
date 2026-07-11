@@ -12,36 +12,40 @@
             <ScrollViewer>
                 <StackPanel Margin="16" Spacing="2">
 
-                    <TextBlock Text="Skin manifest" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <TextBlock Text="Skin manifest" Classes="page-title" />
                     <Border Classes="divider" />
                     <TextBlock Text="Bind several exported filmstrips to several parameters in one skin.json."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
                     <controls:SectionHeader Text="SKIN" />
                     <TextBlock Classes="label" Text="Name" />
-                    <TextBox Text="{Binding SkinName}" />
+                    <TextBox Text="{Binding SkinName}" ToolTip.Tip="The skin.json manifest's display name." />
                     <TextBlock Classes="label" Text="Author (optional)" Margin="0,6,0,0" />
                     <TextBox Text="{Binding Author}" Watermark="e.g. VybeCode" />
                     <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0">
                         <StackPanel Grid.Column="0">
                             <TextBlock Classes="label" Text="Base width" />
-                            <NumericUpDown Value="{Binding BaseWidth}" Minimum="1" Maximum="8192" Increment="1" />
+                            <NumericUpDown Value="{Binding BaseWidth}" Minimum="1" Maximum="8192" Increment="1"
+                                           ToolTip.Tip="The design resolution every control's Bounds below are authored against, in pixels." />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Classes="label" Text="Base height" />
-                            <NumericUpDown Value="{Binding BaseHeight}" Minimum="1" Maximum="8192" Increment="1" />
+                            <NumericUpDown Value="{Binding BaseHeight}" Minimum="1" Maximum="8192" Increment="1"
+                                           ToolTip.Tip="The design resolution every control's Bounds below are authored against, in pixels." />
                         </StackPanel>
                     </Grid>
                     <TextBlock Classes="label" Text="Window background (optional)" Margin="0,6,0,0" />
                     <Grid ColumnDefinitions="*,6,Auto">
-                        <TextBox Grid.Column="0" Text="{Binding WindowBackground}" Watermark="relative file name" />
+                        <TextBox Grid.Column="0" Text="{Binding WindowBackground}" Watermark="relative file name"
+                                 ToolTip.Tip="An optional whole-window background image, as a relative path next to the skin.json." />
                         <Button Grid.Column="2" Content="…" Width="34" Command="{Binding ChooseWindowBackgroundCommand}"
                                 ToolTip.Tip="Pick a window background image" />
                     </Grid>
 
                     <controls:SectionHeader Text="CONTROLS" />
                     <ListBox ItemsSource="{Binding Controls}" SelectedItem="{Binding SelectedControl}"
-                             MinHeight="160" MaxHeight="320">
+                             MinHeight="160" MaxHeight="320"
+                             ToolTip.Tip="Every control bound in this skin. Select one to edit its binding on the right.">
                         <ListBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:SkinControlEntry">
                                 <TextBlock Text="{Binding Display}" />
@@ -50,11 +54,14 @@
                     </ListBox>
                     <Grid ColumnDefinitions="*,6,*" Margin="0,6,0,0">
                         <Button Grid.Column="0" Content="Add from strip…" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Pick an exported filmstrip PNG — its dimensions and frame count are read from the file and pre-filled below."
                                 Command="{Binding AddFromStripCommand}" />
                         <Button Grid.Column="2" Content="Add blank" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Add an empty control entry to fill in by hand."
                                 Command="{Binding AddBlankCommand}" />
                     </Grid>
-                    <Button Content="Remove selected" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                    <Button Classes="destructive" Content="Remove selected" HorizontalAlignment="Stretch" Margin="0,4,0,0"
+                            ToolTip.Tip="Remove the selected control from this skin. Does not delete its exported PNG."
                             Command="{Binding RemoveSelectedCommand}" />
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,6,0,12"
                                Text="Export strips on the Create or Batch tab first; add them here by file name. The skin.json is written next to its assets." />
@@ -77,53 +84,67 @@
                         <StackPanel Spacing="2">
                             <controls:SectionHeader Text="CONTROL" />
                             <TextBlock Classes="label" Text="Id" />
-                            <TextBox Text="{Binding SelectedControl.Id}" />
+                            <TextBox Text="{Binding SelectedControl.Id}" ToolTip.Tip="A unique identifier for this control within the skin." />
                             <TextBlock Classes="label" Text="Type" Margin="0,6,0,0" />
                             <ComboBox HorizontalAlignment="Stretch"
+                                      ToolTip.Tip="The control type — sets how a loader interprets its filmstrip (rotation vs. discrete states vs. a fill)."
                                       ItemsSource="{Binding ComponentTypes}" SelectedItem="{Binding SelectedControl.Type}" />
                             <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
-                            <TextBox Text="{Binding SelectedControl.ParameterId}" Watermark="host/APVTS parameter id" />
+                            <TextBox Text="{Binding SelectedControl.ParameterId}" Watermark="host/APVTS parameter id"
+                                     ToolTip.Tip="The host/APVTS parameter this control reads and writes." />
 
                             <controls:SectionHeader Text="ASSET" />
                             <TextBlock Classes="label" Text="Strip file (1x, relative)" />
-                            <TextBox Text="{Binding SelectedControl.Asset}" Watermark="e.g. cutoff_64frames.png" />
+                            <TextBox Text="{Binding SelectedControl.Asset}" Watermark="e.g. cutoff_64frames.png"
+                                     ToolTip.Tip="The exported filmstrip PNG's file name, relative to the skin.json." />
                             <TextBlock Classes="label" Text="@2x file (optional)" Margin="0,6,0,0" />
-                            <TextBox Text="{Binding SelectedControl.Asset2x}" Watermark="e.g. cutoff_64frames@2x.png" />
+                            <TextBox Text="{Binding SelectedControl.Asset2x}" Watermark="e.g. cutoff_64frames@2x.png"
+                                     ToolTip.Tip="An optional HiDPI variant, relative to the skin.json. Leave blank if none was exported." />
                             <Grid ColumnDefinitions="*,8,*,8,*" Margin="0,6,0,0">
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Classes="label" Text="Frames" />
-                                    <NumericUpDown Value="{Binding SelectedControl.Frames}" Minimum="1" Maximum="512" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.Frames}" Minimum="1" Maximum="512" Increment="1"
+                                                   ToolTip.Tip="How many frames the strip file above contains." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Classes="label" Text="Frame W" />
-                                    <NumericUpDown Value="{Binding SelectedControl.FrameWidth}" Minimum="1" Maximum="8192" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.FrameWidth}" Minimum="1" Maximum="8192" Increment="1"
+                                                   ToolTip.Tip="One frame's width in the strip, in 1x pixels." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Classes="label" Text="Frame H" />
-                                    <NumericUpDown Value="{Binding SelectedControl.FrameHeight}" Minimum="1" Maximum="8192" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.FrameHeight}" Minimum="1" Maximum="8192" Increment="1"
+                                                   ToolTip.Tip="One frame's height in the strip, in 1x pixels." />
                                 </StackPanel>
                             </Grid>
                             <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" />
                             <ComboBox HorizontalAlignment="Stretch"
+                                      ToolTip.Tip="Whether the strip file's frames are stacked vertically or horizontally — must match how it was exported."
                                       ItemsSource="{Binding StackDirections}" SelectedItem="{Binding SelectedControl.Stack}" />
 
                             <controls:SectionHeader Text="BOUNDS (base-resolution px)" />
+                            <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,0,0,4"
+                                       Text="Where this control sits on screen, in Base width/height pixels above. (0,0) is the top-left of the design canvas; X/Y may go negative for a control anchored partly off-canvas." />
                             <Grid ColumnDefinitions="*,8,*,8,*,8,*">
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Classes="label" Text="X" />
-                                    <NumericUpDown Value="{Binding SelectedControl.BoundsX}" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsX}" Increment="1"
+                                                   ToolTip.Tip="Left edge, in base-resolution px. May be negative." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Classes="label" Text="Y" />
-                                    <NumericUpDown Value="{Binding SelectedControl.BoundsY}" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsY}" Increment="1"
+                                                   ToolTip.Tip="Top edge, in base-resolution px. May be negative." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="4">
                                     <TextBlock Classes="label" Text="W" />
-                                    <NumericUpDown Value="{Binding SelectedControl.BoundsW}" Minimum="0" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsW}" Minimum="0" Increment="1"
+                                                   ToolTip.Tip="Width, in base-resolution px." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="6">
                                     <TextBlock Classes="label" Text="H" />
-                                    <NumericUpDown Value="{Binding SelectedControl.BoundsH}" Minimum="0" Increment="1" />
+                                    <NumericUpDown Value="{Binding SelectedControl.BoundsH}" Minimum="0" Increment="1"
+                                                   ToolTip.Tip="Height, in base-resolution px." />
                                 </StackPanel>
                             </Grid>
 
@@ -131,15 +152,18 @@
                                 <Grid ColumnDefinitions="*,8,*,8,*">
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Classes="label" Text="Min" />
-                                        <TextBox Text="{Binding SelectedControl.ValueMin}" Watermark="0" />
+                                        <TextBox Text="{Binding SelectedControl.ValueMin}" Watermark="0"
+                                                 ToolTip.Tip="The parameter value frame 0 represents. Leave blank for the loader's default." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Classes="label" Text="Max" />
-                                        <TextBox Text="{Binding SelectedControl.ValueMax}" Watermark="1" />
+                                        <TextBox Text="{Binding SelectedControl.ValueMax}" Watermark="1"
+                                                 ToolTip.Tip="The parameter value the last frame represents." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="4">
                                         <TextBlock Classes="label" Text="Default" />
-                                        <TextBox Text="{Binding SelectedControl.ValueDefault}" Watermark="0.5" />
+                                        <TextBox Text="{Binding SelectedControl.ValueDefault}" Watermark="0.5"
+                                                 ToolTip.Tip="The parameter's default/reset value." />
                                     </StackPanel>
                                 </Grid>
                             </Expander>
@@ -153,6 +177,7 @@
                     <TextBlock Grid.Column="0" Text="{Binding StatusMessage}" VerticalAlignment="Center"
                                Foreground="{DynamicResource Text2Brush}" TextWrapping="Wrap" Margin="0,0,12,0" />
                     <Button Grid.Column="1" Classes="accent" Content="Export skin.json…" MinWidth="170"
+                            ToolTip.Tip="Write the manifest — every control above, bound to its parameter — to disk."
                             Command="{Binding ExportSkinCommand}" />
                 </Grid>
             </Border>

@@ -20,11 +20,12 @@
                                    FontSize="11" FontWeight="SemiBold"
                                    Foreground="{DynamicResource AccentHiBrush}" />
                         <TextBlock Text="{Binding CurrentStep.Title}"
-                                   FontSize="16" FontWeight="Bold" Foreground="White" TextWrapping="Wrap" />
+                                   FontSize="16" FontWeight="Bold" Foreground="{DynamicResource Text1Brush}" TextWrapping="Wrap" />
                     </StackPanel>
                     <Button Grid.Column="1" Content="✕" Width="30" Height="30" Padding="0"
                             VerticalAlignment="Top" HorizontalContentAlignment="Center"
-                            ToolTip.Tip="Skip the tour" Command="{Binding SkipCommand}" />
+                            ToolTip.Tip="Skip the tour" AutomationProperties.Name="Skip the tour"
+                            Command="{Binding SkipCommand}" />
                 </Grid>
 
                 <!-- Footer: progress + navigation -->
@@ -47,10 +48,17 @@
                                FontSize="13" LineHeight="19"
                                Foreground="{DynamicResource Text1Brush}" />
 
-                    <Button Classes="accent" Content="🎛  Load sample knob"
-                            HorizontalAlignment="Left"
+                    <!-- The DepthIcon glyph (reusing the same "load" codepoint MainWindow's "Load source
+                         image" button uses) replaces a hand-typed emoji baked into the Content string
+                         (audit finding: a third, one-off icon vocabulary alongside the app's icon font). -->
+                    <Button Classes="accent" HorizontalAlignment="Left"
                             IsVisible="{Binding CurrentOffersSample}"
-                            Command="{Binding LoadSampleCommand}" />
+                            Command="{Binding LoadSampleCommand}">
+                        <StackPanel Orientation="Horizontal" Spacing="8">
+                            <TextBlock Text="&#xE8E5;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
+                            <TextBlock Text="Load sample knob" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
 
                     <Border IsVisible="{Binding CurrentHasTip}"
                             Background="{DynamicResource GlassFillBrush}"

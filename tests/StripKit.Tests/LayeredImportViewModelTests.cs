@@ -306,4 +306,23 @@ public class LayeredImportViewModelTests
         }
         finally { File.Delete(svgPath); if (File.Exists(savePath)) File.Delete(savePath); }
     }
+
+    [Theory]
+    [InlineData(ComponentType.RotaryKnob, true)]
+    [InlineData(ComponentType.Button, true)]
+    [InlineData(ComponentType.Toggle, true)]
+    [InlineData(ComponentType.VerticalFader, false)]
+    [InlineData(ComponentType.HorizontalSlider, false)]
+    [InlineData(ComponentType.Meter, false)]
+    public void IsLayerImportRelevant_matches_the_types_that_actually_support_layered_import(
+        ComponentType type, bool expected)
+    {
+        // Locks in the Create tab's single shared "Import layered file" section (previously
+        // duplicated once for Rotary and once for Button/Toggle — audit finding, consolidated into
+        // one IsLayerImportRelevant-gated block). Linear/Meter have their own separate art-adoption
+        // paths (a flattened cap, an on/off pair) and must NOT show this section.
+        var (vm, _, _, _) = Build();
+        vm.ComponentType = type;
+        vm.IsLayerImportRelevant.Should().Be(expected);
+    }
 }

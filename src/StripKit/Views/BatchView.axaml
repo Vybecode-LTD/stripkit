@@ -2,8 +2,13 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:StripKit.ViewModels"
              xmlns:controls="clr-namespace:StripKit.Controls"
+             xmlns:helpers="clr-namespace:StripKit.Helpers"
              x:Class="StripKit.Views.BatchView"
              x:DataType="vm:BatchViewModel">
+
+    <UserControl.Resources>
+        <helpers:HexToColorBrushConverter x:Key="HexColor" />
+    </UserControl.Resources>
 
     <Grid ColumnDefinitions="370,*">
 
@@ -12,54 +17,82 @@
             <ScrollViewer>
                 <StackPanel Margin="16" Spacing="2" IsEnabled="{Binding !IsRunning}">
 
-                    <TextBlock Text="Batch export" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <TextBlock Text="Batch export" Classes="page-title" />
                     <Border Classes="divider" />
                     <TextBlock Text="Render one filmstrip per source image in a folder, using one template."
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
                     <controls:SectionHeader Text="COMPONENT TYPE" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="What every source image in the folder becomes — this template applies to all of them."
                               ItemsSource="{Binding ComponentTypes}" SelectedItem="{Binding ComponentType}" />
 
                     <controls:SectionHeader Text="FRAMES" />
-                    <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1" />
+                    <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1"
+                                   ToolTip.Tip="How many frames each filmstrip has. 32 / 64 / 128 are the standard choices; more = smoother but larger." />
 
                     <controls:SectionHeader Text="FRAME SIZE (1x, px)" />
                     <Grid ColumnDefinitions="*,8,*">
                         <StackPanel Grid.Column="0">
                             <TextBlock Classes="label" Text="Width" />
-                            <NumericUpDown Value="{Binding FrameWidth}" Minimum="1" Maximum="4096" Increment="1" />
+                            <NumericUpDown Value="{Binding FrameWidth}" Minimum="1" Maximum="4096" Increment="1"
+                                           ToolTip.Tip="The cell width every frame is rendered into, in 1x pixels." />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Classes="label" Text="Height" />
-                            <NumericUpDown Value="{Binding FrameHeight}" Minimum="1" Maximum="4096" Increment="1" />
+                            <NumericUpDown Value="{Binding FrameHeight}" Minimum="1" Maximum="4096" Increment="1"
+                                           ToolTip.Tip="The cell height every frame is rendered into, in 1x pixels." />
                         </StackPanel>
                     </Grid>
-                    <CheckBox Content="Square knob frames to each source" IsChecked="{Binding MatchKnobFrameToSource}" Margin="0,6,0,0" />
+                    <CheckBox Content="Square knob frames to each source" IsChecked="{Binding MatchKnobFrameToSource}" Margin="0,6,0,0"
+                              ToolTip.Tip="For rotary knobs: ignore Width/Height above and instead square each frame to that source image's own size — handy when your source PNGs aren't all the same dimensions." />
 
                     <StackPanel IsVisible="{Binding IsRotary}" Spacing="2">
                         <controls:SectionHeader Text="ROTATION" />
                         <TextBlock Classes="label" Text="Sweep (degrees)" />
-                        <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
-                        <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,4,0,0" />
+                        <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5"
+                                       ToolTip.Tip="Total rotation from frame 0 (minimum) to the last frame (maximum). 270° is the standard synth-knob sweep." />
+                        <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,4,0,0"
+                                  ToolTip.Tip="Uncheck for a counter-clockwise sweep (rare — most hardware and plugin knobs turn clockwise to increase)." />
                     </StackPanel>
 
                     <StackPanel IsVisible="{Binding IsMeter}" Spacing="2">
                         <controls:SectionHeader Text="METER" />
                         <TextBlock Classes="label" Text="Segments" />
-                        <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1" />
+                        <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1"
+                                       ToolTip.Tip="Number of LED-style segments the procedural meter fills. Ignored when the source art is a layered on/off pair rather than a plain image." />
                         <TextBlock Classes="label" Text="Fill direction" Margin="0,6,0,0" />
                         <ComboBox HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="Which edge the meter fills from as the value rises from 0 to 1."
                                   ItemsSource="{Binding FillDirections}" SelectedItem="{Binding FillDirection}" />
-                        <CheckBox Content="Continuous (smooth) fill" IsChecked="{Binding ContinuousFill}" Margin="0,6,0,0" />
+                        <CheckBox Content="Continuous (smooth) fill" IsChecked="{Binding ContinuousFill}" Margin="0,6,0,0"
+                                  ToolTip.Tip="Fill smoothly between segment boundaries instead of snapping to whole segments." />
                         <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Classes="label" Text="On colour (#AARRGGBB)" />
-                                <TextBox Text="{Binding OnColorHex}" />
+                                <Grid ColumnDefinitions="*,6,28">
+                                    <TextBox Grid.Column="0" Text="{Binding OnColorHex}" Watermark="#FFE8440A"
+                                             ToolTip.Tip="Procedural meter lit-segment colour. Ignored if the source image is itself already the lit (on-state) art." />
+                                    <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                            Width="28" Height="24" ToolTip.Tip="Click to pick the on colour" Click="OnMeterOnColorClick">
+                                        <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                                Background="{Binding OnColorHex, Converter={StaticResource HexColor}}"
+                                                BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                    </Button>
+                                </Grid>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Classes="label" Text="Off colour" />
-                                <TextBox Text="{Binding OffColorHex}" />
+                                <Grid ColumnDefinitions="*,6,28">
+                                    <TextBox Grid.Column="0" Text="{Binding OffColorHex}" Watermark="#FF2A2A2A"
+                                             ToolTip.Tip="Procedural meter unlit-segment colour (#AARRGGBB)." />
+                                    <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                            Width="28" Height="24" ToolTip.Tip="Click to pick the off colour" Click="OnMeterOffColorClick">
+                                        <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                                Background="{Binding OffColorHex, Converter={StaticResource HexColor}}"
+                                                BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                    </Button>
+                                </Grid>
                             </StackPanel>
                         </Grid>
                         <CheckBox Content="Source is a backdrop (draw procedural LEDs on top)"
@@ -71,20 +104,25 @@
                     <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
                     <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="Internal oversampling before downscaling to the final size. Higher is smoother edges but slower to render."
                               ItemsSource="{Binding SupersampleOptions}" SelectedItem="{Binding Supersample}" />
                     <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="Whether frames stack vertically (top to bottom) or horizontally (left to right) in the exported strip."
                               ItemsSource="{Binding StackDirections}" SelectedItem="{Binding StackDirection}" />
-                    <CheckBox Content="Also export a HiDPI copy" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0" />
+                    <CheckBox Content="Also export a HiDPI copy" IsChecked="{Binding ExportAt2x}" Margin="0,8,0,0"
+                              ToolTip.Tip="Writes a second, upscaled strip alongside the 1x one, at the scale chosen below." />
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding ExportAt2x}" Margin="0,4,0,4">
                         <TextBlock Classes="label" Text="Scale" VerticalAlignment="Center" />
                         <ComboBox ItemsSource="{Binding HiDpiScales}" SelectedItem="{Binding HiDpiScale}" MinWidth="70" />
                         <TextBlock Classes="label" Text="× (@2x / @3x / @4x)" VerticalAlignment="Center" />
                     </StackPanel>
-                    <CheckBox Content="Also write a skin.json per strip" IsChecked="{Binding ExportManifest}" />
+                    <CheckBox Content="Also write a skin.json per strip" IsChecked="{Binding ExportManifest}"
+                              ToolTip.Tip="Writes one skin.json next to each exported PNG, binding it to a parameter named after the source file." />
 
                     <controls:SectionHeader Text="CODE EXPORT (per strip)" />
-                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}" />
+                    <CheckBox Content="Also emit ready-to-paste loader code" IsChecked="{Binding ExportCode}"
+                              ToolTip.Tip="Writes a loader snippet per ticked target below, next to each exported PNG." />
                     <StackPanel IsVisible="{Binding ExportCode}" Spacing="2" Margin="0,4,0,12">
                         <Grid ColumnDefinitions="*,*">
                             <CheckBox Grid.Column="0" Content="JUCE" IsChecked="{Binding EmitCodeJuce}" />
@@ -109,12 +147,14 @@
             <StackPanel Grid.Row="0" Spacing="2" IsEnabled="{Binding !IsRunning}">
                 <controls:SectionHeader Text="INPUT FOLDER" />
                 <Button Content="Choose input folder…" HorizontalAlignment="Stretch"
+                        ToolTip.Tip="Pick a folder of source PNGs — one filmstrip is rendered per image, using the template on the left."
                         Command="{Binding ChooseInputFolderCommand}" />
                 <TextBlock Classes="label" Text="{Binding InputFolder}" TextWrapping="Wrap" Margin="0,4,0,0" />
                 <TextBlock Classes="label" Text="{Binding InputSummary}" />
 
                 <controls:SectionHeader Text="OUTPUT FOLDER" />
                 <Button Content="Choose output folder…" HorizontalAlignment="Stretch"
+                        ToolTip.Tip="Where the rendered strips (and any skin.json / loader code) are written."
                         Command="{Binding ChooseOutputFolderCommand}" />
                 <TextBlock Classes="label" Text="{Binding OutputFolder}" TextWrapping="Wrap" Margin="0,4,0,0" />
             </StackPanel>
@@ -123,8 +163,11 @@
                 <StackPanel Spacing="8">
                     <StackPanel Orientation="Horizontal" Spacing="8">
                         <Button Classes="accent" Content="Run batch" MinWidth="140"
+                                ToolTip.Tip="Render every source image in the input folder using the template on the left. This can take a while for a large folder — the run happens in the background and can be cancelled."
                                 Command="{Binding RunCommand}" />
-                        <Button Content="Cancel" MinWidth="90" Command="{Binding CancelCommand}" />
+                        <Button Classes="destructive" Content="Cancel" MinWidth="90"
+                                ToolTip.Tip="Stop the batch after the current file finishes. Files already rendered are kept."
+                                Command="{Binding CancelCommand}" />
                     </StackPanel>
                     <ProgressBar Minimum="0" Maximum="100" Value="{Binding ProgressValue}"
                                  Height="6" IsVisible="{Binding IsRunning}" />

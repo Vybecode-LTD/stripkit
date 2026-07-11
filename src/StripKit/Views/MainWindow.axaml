@@ -1,16 +1,21 @@
+<!-- FontFamily below: Segoe UI first, Verdana demoted to a last-resort fallback (was first) —
+     Verdana was engineered for small-size legibility on 1990s CRTs and reads as dated enterprise
+     software everywhere it appears (audit finding, visual-artist review). Both are system fonts,
+     so this is a zero-risk, zero-install typography fix. -->
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:StripKit.ViewModels"
         xmlns:views="clr-namespace:StripKit.Views"
         xmlns:controls="clr-namespace:StripKit.Controls"
         xmlns:models="clr-namespace:StripKit.Models"
+        xmlns:helpers="clr-namespace:StripKit.Helpers"
         x:Class="StripKit.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Title="StripKit — Animated Control Filmstrip Maker"
         Icon="/Assets/stripkit.png"
         Width="1060" Height="740"
         MinWidth="940" MinHeight="620"
-        FontFamily="Verdana, Segoe UI, Arial, sans-serif"
+        FontFamily="Segoe UI, Verdana, Arial, sans-serif"
         Background="{DynamicResource DepthBg}">
 
     <!-- Ctrl-modified only, so text fields / checkboxes keep Space, arrows, and plain keys. -->
@@ -18,6 +23,10 @@
         <KeyBinding Gesture="Ctrl+O" Command="{Binding OpenSourceCommand}" />
         <KeyBinding Gesture="Ctrl+E" Command="{Binding ExportCommand}" />
     </Window.KeyBindings>
+
+    <Window.Resources>
+        <helpers:HexToColorBrushConverter x:Key="HexColor" />
+    </Window.Resources>
 
     <Panel>
         <!-- Solid Depth base (machined grey) — uniform across every tab. -->
@@ -33,12 +42,14 @@
             <ScrollViewer>
                 <StackPanel Margin="16" Spacing="2">
 
-                    <TextBlock Text="StripKit" FontSize="20" FontWeight="Bold" Foreground="White" />
+                    <TextBlock Text="StripKit" Classes="page-title" />
                     <Border Classes="divider" />
                     <TextBlock Text="Single image → animated knob / fader / slider / meter / button filmstrip"
                                Foreground="{DynamicResource Text1Brush}" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,4" />
 
                     <!-- Render presets -->
+                    <Border Classes="tile" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                     <controls:SectionHeader Text="PRESETS" />
                     <ListBox ItemsSource="{Binding Presets}" SelectedItem="{Binding SelectedPreset}" MaxHeight="120">
                         <ListBox.ItemTemplate>
@@ -51,7 +62,8 @@
                         <Button Grid.Column="0" Content="Apply" HorizontalAlignment="Stretch"
                                 Command="{Binding ApplyPresetCommand}"
                                 ToolTip.Tip="Restores this preset's full render setup (type, frames, sweep, layout, meter/arc, export options) — not any loaded art." />
-                        <Button Grid.Column="2" Content="Delete" HorizontalAlignment="Stretch"
+                        <Button Grid.Column="2" Classes="destructive" Content="Delete" HorizontalAlignment="Stretch"
+                                ToolTip.Tip="Delete the selected preset. Does not affect any loaded art or the current render setup."
                                 Command="{Binding DeletePresetCommand}" />
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
@@ -79,15 +91,19 @@
                               ToolTip.Tip="What you're making. StripKit applies sensible frame sizes and defaults for each type."
                               ItemsSource="{Binding ComponentTypes}"
                               SelectedItem="{Binding ComponentType}" />
+                    </StackPanel>
+                    </Border>
 
                     <!-- Frames -->
+                    <Border Classes="tile" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                     <controls:SectionHeader Text="FRAMES" />
                     <NumericUpDown Value="{Binding FrameCount}" Minimum="2" Maximum="512" Increment="1"
                                    ToolTip.Tip="How many frames the filmstrip has. 32 / 64 / 128 are the standard choices; more = smoother but larger." />
                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                        <Button Content="32" Command="{Binding SetFrames32Command}" />
-                        <Button Content="64" Command="{Binding SetFrames64Command}" />
-                        <Button Content="128" Command="{Binding SetFrames128Command}" />
+                        <Button Content="32" Command="{Binding SetFrames32Command}" ToolTip.Tip="Set the frame count to 32" />
+                        <Button Content="64" Command="{Binding SetFrames64Command}" ToolTip.Tip="Set the frame count to 64" />
+                        <Button Content="128" Command="{Binding SetFrames128Command}" ToolTip.Tip="Set the frame count to 128" />
                     </StackPanel>
 
                     <!-- Frame size -->
@@ -95,91 +111,26 @@
                     <Grid ColumnDefinitions="*,8,*">
                         <StackPanel Grid.Column="0">
                             <TextBlock Classes="label" Text="Width" />
-                            <NumericUpDown Value="{Binding FrameWidth}" Minimum="1" Maximum="4096" Increment="1" />
+                            <NumericUpDown Value="{Binding FrameWidth}" Minimum="1" Maximum="4096" Increment="1"
+                                           ToolTip.Tip="The cell width every frame is rendered into, in 1x pixels." />
                         </StackPanel>
                         <StackPanel Grid.Column="2">
                             <TextBlock Classes="label" Text="Height" />
-                            <NumericUpDown Value="{Binding FrameHeight}" Minimum="1" Maximum="4096" Increment="1" />
+                            <NumericUpDown Value="{Binding FrameHeight}" Minimum="1" Maximum="4096" Increment="1"
+                                           ToolTip.Tip="The cell height every frame is rendered into, in 1x pixels." />
                         </StackPanel>
                     </Grid>
                     <Button Content="Match frame to source size" Margin="0,6,0,0"
                             HorizontalAlignment="Stretch" Command="{Binding MatchFrameToSourceCommand}" />
 
-                    <!-- Rotary -->
-                    <StackPanel IsVisible="{Binding IsRotary}" Spacing="2">
-                        <controls:SectionHeader Text="ROTATION" />
-                        <TextBlock Classes="label" Text="Sweep (degrees)" />
-                        <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5" />
-                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
-                            <Button Content="270°" Command="{Binding Sweep270Command}" />
-                            <Button Content="300°" Command="{Binding Sweep300Command}" />
-                            <Button Content="360°" Command="{Binding Sweep360Command}" />
-                        </StackPanel>
-                        <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,6,0,0" />
-
-                        <controls:SectionHeader Text="CENTER (alignment)" />
-                        <Button Content="Auto-center on content" HorizontalAlignment="Stretch"
-                                Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
-                        <CheckBox Content="Enable crosshair"
-                                  IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
-                        <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
-                            <StackPanel Grid.Column="0">
-                                <TextBlock Classes="label" Text="Center X (0–1)" />
-                                <NumericUpDown Value="{Binding SourceCenterX}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Classes="label" Text="Center Y (0–1)" />
-                                <NumericUpDown Value="{Binding SourceCenterY}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
-                            </StackPanel>
-                        </Grid>
-                        <Button Content="Reset to image centre" HorizontalAlignment="Left"
-                                Command="{Binding ResetCenterCommand}" Margin="0,4,0,0" />
-                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="The spin centre is auto-detected on load. If a knob still wobbles, enable the crosshair and drag it onto the knob's true centre — it updates live and the art stays put. Switch it off when done." />
-
-                        <!-- Value arc / fill ring (Serum/Vital-style) -->
-                        <controls:SectionHeader Text="VALUE ARC (fill ring)" />
-                        <CheckBox Content="Add a value arc that tracks the value" IsChecked="{Binding ShowValueArc}" />
-                        <StackPanel IsVisible="{Binding ShowValueArc}" Spacing="2" Margin="0,4,0,0">
-                            <Grid ColumnDefinitions="*,8,*">
-                                <StackPanel Grid.Column="0">
-                                    <TextBlock Classes="label" Text="Radius (0–1)" />
-                                    <NumericUpDown Value="{Binding ArcRadius}" Minimum="0.1" Maximum="1.2" Increment="0.01" FormatString="0.00" />
-                                </StackPanel>
-                                <StackPanel Grid.Column="2">
-                                    <TextBlock Classes="label" Text="Thickness (px)" />
-                                    <NumericUpDown Value="{Binding ArcThickness}" Minimum="0.5" Maximum="64" Increment="0.5" FormatString="0.0" />
-                                </StackPanel>
-                            </Grid>
-                            <TextBlock Classes="label" Text="Arc colour (#AARRGGBB)" Margin="0,4,0,0" />
-                            <TextBox Text="{Binding ArcColorHex}" />
-                            <CheckBox Content="Round end caps" IsChecked="{Binding ArcRoundCaps}" Margin="0,6,0,0" />
-                            <CheckBox Content="Dim track behind" IsChecked="{Binding ArcTrack}" />
-                            <TextBox Text="{Binding ArcTrackColorHex}" IsVisible="{Binding ArcTrack}"
-                                     Watermark="track colour #AARRGGBB" />
-
-                            <Expander Header="Gradient &amp; glow" Margin="0,6,0,0">
-                                <StackPanel Spacing="2">
-                                    <CheckBox Content="Gradient along the arc" IsChecked="{Binding ArcGradient}" />
-                                    <TextBlock Classes="label" Text="Gradient end colour" IsVisible="{Binding ArcGradient}" />
-                                    <TextBox Text="{Binding ArcColor2Hex}" IsVisible="{Binding ArcGradient}" />
-                                    <CheckBox Content="Glow" IsChecked="{Binding ArcGlow}" Margin="0,6,0,0" />
-                                    <TextBlock Classes="label" Text="Glow size (px)" IsVisible="{Binding ArcGlow}" />
-                                    <NumericUpDown Value="{Binding ArcGlowSize}" Minimum="0" Maximum="64" Increment="0.5"
-                                                   FormatString="0.0" IsVisible="{Binding ArcGlow}" />
-                                </StackPanel>
-                            </Expander>
-                            <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
-                                       Text="A modern fill arc composited onto every frame; it follows the rotation sweep above. Baked into the PNG." />
-                        </StackPanel>
-
-                        <!-- Layer-aware animation: a static body + a separate rotating pointer -->
-                        <controls:SectionHeader Text="LAYERED KNOB (base + pointer)" />
-                        <TextBlock Classes="label" TextWrapping="Wrap"
-                                   Text="Optional. Load a static body and a separate pointer — only the pointer rotates, so the body stays crisp at any resolution. Leave empty to spin the single source image above as before." />
-
-                        <!-- Import a real layered file (SVG/PSD) → N tagged layers (★ #3 step 3) -->
-                        <Button HorizontalAlignment="Stretch" Margin="0,8,0,0"
+                    <!-- Import layered file (SVG/PSD) — shown once whenever it applies (knob
+                         body+pointer OR button/toggle off/on states), instead of being pasted
+                         once per type (audit finding: three independent reviews flagged the
+                         duplicated markup, and the old per-type copy never explained the Frame
+                         behaviour button/toggle states actually need). -->
+                    <StackPanel IsVisible="{Binding IsLayerImportRelevant}" Spacing="2">
+                        <controls:SectionHeader Text="IMPORT LAYERED FILE (SVG / PSD)" />
+                        <Button HorizontalAlignment="Stretch"
                                 Command="{Binding ImportLayeredFileCommand}">
                             <StackPanel Orientation="Horizontal" Spacing="8">
                                 <TextBlock Text="&#xE8B5;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
@@ -187,7 +138,7 @@
                             </StackPanel>
                         </Button>
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
-                                   Text="Drop in a layered knob exported from Illustrator / Inkscape / Figma (.svg) or Photoshop (.psd). Each layer is listed below — set the body layers to Static and the indicator to Rotate. Replaces the manual base/pointer slots." />
+                                   Text="Drop in a layered SVG (Illustrator / Inkscape / Figma) or PSD (Photoshop). Each layer is listed below — set its behaviour to match your control: Rotate for a knob's pointer, Frame for a button/toggle's off/on states, Static for everything else. Replaces the manual base/pointer slots." />
 
                         <StackPanel IsVisible="{Binding HasImportedLayers}" Spacing="2" Margin="0,6,0,0">
                             <TextBlock Classes="label" Text="{Binding ImportInfo}" TextWrapping="Wrap" />
@@ -206,6 +157,116 @@
                             <Button Content="Clear import" HorizontalAlignment="Stretch" Margin="0,4,0,0"
                                     Command="{Binding ClearImportedLayersCommand}" />
                         </StackPanel>
+                    </StackPanel>
+                    </StackPanel>
+                    </Border>
+
+                    <!-- Rotary -->
+                    <Border Classes="tile" IsVisible="{Binding IsRotary}" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
+                        <controls:SectionHeader Text="ROTATION" />
+                        <TextBlock Classes="label" Text="Sweep (degrees)" />
+                        <NumericUpDown Value="{Binding SweepDegrees}" Minimum="1" Maximum="360" Increment="5"
+                                       ToolTip.Tip="Total rotation from frame 0 (minimum) to the last frame (maximum). 270° is the standard synth-knob sweep." />
+                        <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,4,0,0">
+                            <Button Content="270°" Command="{Binding Sweep270Command}" />
+                            <Button Content="300°" Command="{Binding Sweep300Command}" />
+                            <Button Content="360°" Command="{Binding Sweep360Command}" />
+                        </StackPanel>
+                        <CheckBox Content="Clockwise (min → max)" IsChecked="{Binding RotationClockwise}" Margin="0,6,0,0" />
+
+                        <controls:SectionHeader Text="CENTER (alignment)" />
+                        <Button Content="Auto-center on content" HorizontalAlignment="Stretch"
+                                Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
+                        <CheckBox Content="Enable crosshair"
+                                  IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
+                        <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
+                            <StackPanel Grid.Column="0">
+                                <TextBlock Classes="label" Text="Center X (0–1)" />
+                                <NumericUpDown Value="{Binding SourceCenterX}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00"
+                                               ToolTip.Tip="Normalized rotation pivot within the source image (0 = left edge, 1 = right edge). Auto-detected on load — nudge only if the knob wobbles." />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="label" Text="Center Y (0–1)" />
+                                <NumericUpDown Value="{Binding SourceCenterY}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00"
+                                               ToolTip.Tip="Normalized rotation pivot within the source image (0 = top edge, 1 = bottom edge). Auto-detected on load — nudge only if the knob wobbles." />
+                            </StackPanel>
+                        </Grid>
+                        <Button Content="Reset to image centre" HorizontalAlignment="Left"
+                                Command="{Binding ResetCenterCommand}" Margin="0,4,0,0" />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="The spin centre is auto-detected on load. If a knob still wobbles, enable the crosshair and drag it onto the knob's true centre — it updates live and the art stays put. Switch it off when done." />
+
+                        <!-- Value arc / fill ring (Serum/Vital-style) -->
+                        <controls:SectionHeader Text="VALUE ARC (fill ring)" />
+                        <CheckBox Content="Add a value arc that tracks the value" IsChecked="{Binding ShowValueArc}" />
+                        <StackPanel IsVisible="{Binding ShowValueArc}" Spacing="2" Margin="0,4,0,0">
+                            <Grid ColumnDefinitions="*,8,*">
+                                <StackPanel Grid.Column="0">
+                                    <TextBlock Classes="label" Text="Radius (0–1)" />
+                                    <NumericUpDown Value="{Binding ArcRadius}" Minimum="0.1" Maximum="1.2" Increment="0.01" FormatString="0.00"
+                                                   ToolTip.Tip="Arc radius as a fraction of the frame's inscribed radius. ~0.88 sits just outside a typical knob body; 1.0 rings the frame edge." />
+                                </StackPanel>
+                                <StackPanel Grid.Column="2">
+                                    <TextBlock Classes="label" Text="Thickness (px)" />
+                                    <NumericUpDown Value="{Binding ArcThickness}" Minimum="0.5" Maximum="64" Increment="0.5" FormatString="0.0"
+                                                   ToolTip.Tip="Arc stroke thickness, in 1x pixels." />
+                                </StackPanel>
+                            </Grid>
+                            <TextBlock Classes="label" Text="Arc colour (#AARRGGBB)" Margin="0,4,0,0" />
+                            <Grid ColumnDefinitions="*,6,28">
+                                <TextBox Grid.Column="0" Text="{Binding ArcColorHex}" />
+                                <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                        Width="28" Height="24" ToolTip.Tip="Click to pick the arc colour" Click="OnArcColorClick">
+                                    <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                            Background="{Binding ArcColorHex, Converter={StaticResource HexColor}}"
+                                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                </Button>
+                            </Grid>
+                            <CheckBox Content="Round end caps" IsChecked="{Binding ArcRoundCaps}" Margin="0,6,0,0" />
+                            <CheckBox Content="Dim track behind" IsChecked="{Binding ArcTrack}" />
+                            <Grid ColumnDefinitions="*,6,28" IsVisible="{Binding ArcTrack}">
+                                <TextBox Grid.Column="0" Text="{Binding ArcTrackColorHex}" Watermark="track colour #AARRGGBB" />
+                                <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                        Width="28" Height="24" ToolTip.Tip="Click to pick the track colour" Click="OnArcTrackColorClick">
+                                    <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                            Background="{Binding ArcTrackColorHex, Converter={StaticResource HexColor}}"
+                                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                </Button>
+                            </Grid>
+
+                            <Expander Header="Gradient &amp; glow" Margin="0,6,0,0">
+                                <StackPanel Spacing="2">
+                                    <CheckBox Content="Gradient along the arc" IsChecked="{Binding ArcGradient}" />
+                                    <TextBlock Classes="label" Text="Gradient end colour" IsVisible="{Binding ArcGradient}" />
+                                    <Grid ColumnDefinitions="*,6,28" IsVisible="{Binding ArcGradient}">
+                                        <TextBox Grid.Column="0" Text="{Binding ArcColor2Hex}" />
+                                        <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                                Width="28" Height="24" ToolTip.Tip="Click to pick the gradient end colour" Click="OnArcColor2Click">
+                                            <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                                    Background="{Binding ArcColor2Hex, Converter={StaticResource HexColor}}"
+                                                    BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                        </Button>
+                                    </Grid>
+                                    <CheckBox Content="Glow" IsChecked="{Binding ArcGlow}" Margin="0,6,0,0" />
+                                    <TextBlock Classes="label" Text="Glow size (px)" IsVisible="{Binding ArcGlow}" />
+                                    <NumericUpDown Value="{Binding ArcGlowSize}" Minimum="0" Maximum="64" Increment="0.5"
+                                                   FormatString="0.0" IsVisible="{Binding ArcGlow}" />
+                                </StackPanel>
+                            </Expander>
+                            <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                       Text="A modern fill arc composited onto every frame; it follows the rotation sweep above. Baked into the PNG." />
+                        </StackPanel>
+
+                        <!-- Layer-aware animation: a static body + a separate rotating pointer.
+                             The Import layered file section above already covers the file-import
+                             path for a knob (tag the pointer layer Rotate) — this section is the
+                             hand-built base/pointer alternative. -->
+                        <controls:SectionHeader Text="LAYERED KNOB (base + pointer)" />
+                        <TextBlock Classes="label" TextWrapping="Wrap"
+                                   Text="Optional. Load a static body and a separate pointer — only the pointer rotates, so the body stays crisp at any resolution. Leave empty to spin the single source image above as before." />
+                        <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
+                                   Text="Imported a layered file above? Tag its pointer layer Rotate and skip the hand-built steps below." />
 
                         <Separator Margin="0,10,0,6" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Text="…or build a layered knob by hand:" />
@@ -233,11 +294,13 @@
                             <Grid ColumnDefinitions="*,8,*">
                                 <StackPanel Grid.Column="0">
                                     <TextBlock Classes="label" Text="Pointer pivot X (0–1)" />
-                                    <NumericUpDown Value="{Binding PointerPivotX}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
+                                    <NumericUpDown Value="{Binding PointerPivotX}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00"
+                                                   ToolTip.Tip="Where the pointer rotates about, normalized within the pointer image (0 = left, 1 = right). Use Center pointer on body below to set it automatically." />
                                 </StackPanel>
                                 <StackPanel Grid.Column="2">
                                     <TextBlock Classes="label" Text="Pointer pivot Y (0–1)" />
-                                    <NumericUpDown Value="{Binding PointerPivotY}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00" />
+                                    <NumericUpDown Value="{Binding PointerPivotY}" Minimum="0" Maximum="1" Increment="0.01" FormatString="0.00"
+                                                   ToolTip.Tip="Where the pointer rotates about, normalized within the pointer image (0 = top, 1 = bottom)." />
                                 </StackPanel>
                             </Grid>
                             <Button Content="Center pointer on body" HorizontalAlignment="Left" Margin="0,4,0,0"
@@ -249,99 +312,117 @@
                         <Expander Header="Advanced angles / pivot" Margin="0,6,0,0">
                             <StackPanel Spacing="2">
                                 <TextBlock Classes="label" Text="Start angle (frame 0)" />
-                                <NumericUpDown Value="{Binding StartAngleDegrees}" Minimum="-360" Maximum="360" Increment="1" />
+                                <NumericUpDown Value="{Binding StartAngleDegrees}" Minimum="-360" Maximum="360" Increment="1"
+                                               ToolTip.Tip="Rotation of frame 0 (the minimum value), in degrees clockwise. Advanced override — usually left at the default for the Sweep above." />
                                 <TextBlock Classes="label" Text="End angle (last frame)" />
-                                <NumericUpDown Value="{Binding EndAngleDegrees}" Minimum="-360" Maximum="360" Increment="1" />
+                                <NumericUpDown Value="{Binding EndAngleDegrees}" Minimum="-360" Maximum="360" Increment="1"
+                                               ToolTip.Tip="Rotation of the final frame (the maximum value), in degrees clockwise." />
                                 <Grid ColumnDefinitions="*,8,*" Margin="0,4,0,0">
                                     <StackPanel Grid.Column="0">
                                         <TextBlock Classes="label" Text="Pivot offset X" />
-                                        <NumericUpDown Value="{Binding PivotOffsetX}" Minimum="-2048" Maximum="2048" Increment="0.5" />
+                                        <NumericUpDown Value="{Binding PivotOffsetX}" Minimum="-2048" Maximum="2048" Increment="0.5"
+                                                       ToolTip.Tip="An extra nudge on top of the detected/set centre, in 1x pixels. For a deliberately eccentric (off-centre) rotation." />
                                     </StackPanel>
                                     <StackPanel Grid.Column="2">
                                         <TextBlock Classes="label" Text="Pivot offset Y" />
-                                        <NumericUpDown Value="{Binding PivotOffsetY}" Minimum="-2048" Maximum="2048" Increment="0.5" />
+                                        <NumericUpDown Value="{Binding PivotOffsetY}" Minimum="-2048" Maximum="2048" Increment="0.5"
+                                                       ToolTip.Tip="An extra nudge on top of the detected/set centre, in 1x pixels." />
                                     </StackPanel>
                                 </Grid>
                             </StackPanel>
                         </Expander>
                     </StackPanel>
+                    </Border>
 
                     <!-- Linear -->
-                    <StackPanel IsVisible="{Binding IsLinear}" Spacing="2">
+                    <Border Classes="tile" IsVisible="{Binding IsLinear}" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                         <controls:SectionHeader Text="TRAVEL" />
                         <TextBlock Classes="label" Text="Edge margin (px)" />
-                        <NumericUpDown Value="{Binding EdgeMargin}" Minimum="0" Maximum="512" Increment="1" />
+                        <NumericUpDown Value="{Binding EdgeMargin}" Minimum="0" Maximum="512" Increment="1"
+                                       ToolTip.Tip="Gap left at each end of the cap's travel, in 1x pixels — so the cap doesn't touch the frame edge at min/max." />
                         <TextBlock Classes="label" Text="Cap cross-axis offset (px)" />
-                        <NumericUpDown Value="{Binding CapCrossOffset}" Minimum="-512" Maximum="512" Increment="1" />
+                        <NumericUpDown Value="{Binding CapCrossOffset}" Minimum="-512" Maximum="512" Increment="1"
+                                       ToolTip.Tip="Offset of the cap on its non-travel axis, in 1x pixels — nudges it off-centre across the track." />
                         <Button Content="Auto-center cap on content" HorizontalAlignment="Stretch" Margin="0,6,0,0"
                                 Command="{Binding AutoCenterCommand}" IsEnabled="{Binding HasSource}" />
                         <CheckBox Content="Enable crosshair" IsChecked="{Binding ShowCenterGuide}" Margin="0,6,0,0" />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="The loaded image is the moving cap. Frame size above is the full track area." />
                     </StackPanel>
+                    </Border>
 
-                    <!-- Button / Toggle -->
-                    <StackPanel IsVisible="{Binding IsStateFrames}" Spacing="2">
+                    <!-- Button / Toggle. The Import layered file section above already covers
+                         getting off/on art in — tag each state layer Frame. -->
+                    <Border Classes="tile" IsVisible="{Binding IsStateFrames}" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                         <controls:SectionHeader Text="BUTTON / TOGGLE STATES" />
                         <TextBlock Classes="label" TextWrapping="Wrap"
                                    Text="A button/toggle filmstrip has one frame per UI state: frame 0 = off, frame 1 = on, frame 2 = pressed (optional), frame 3 = disabled (optional). A toggle is just the off/on pair. Set Frames above to the number of states you need." />
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,6,0,0"
-                                   Text="Import a layered SVG / PSD with groups named 'off' and 'on' (or 'state0', 'state1'…) — each group renders only on its matching frame. Use the Generate tab to create button/toggle art with your own AI key." />
-                        <Button HorizontalAlignment="Stretch" Margin="0,8,0,0"
-                                Command="{Binding ImportLayeredFileCommand}">
-                            <StackPanel Orientation="Horizontal" Spacing="8">
-                                <TextBlock Text="&#xE8B5;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
-                                <TextBlock Text="Import layered file (SVG / PSD)…" VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                        <StackPanel IsVisible="{Binding HasImportedLayers}" Spacing="2" Margin="0,6,0,0">
-                            <TextBlock Classes="label" Text="{Binding ImportInfo}" TextWrapping="Wrap" />
-                            <ItemsControl ItemsSource="{Binding ImportedLayers}" Margin="0,4,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ImportedLayerRow">
-                                        <Grid ColumnDefinitions="*,8,Auto" Margin="0,0,0,4">
-                                            <TextBlock Grid.Column="0" Classes="label" VerticalAlignment="Center"
-                                                       Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
-                                            <ComboBox Grid.Column="2" MinWidth="98"
-                                                      ItemsSource="{Binding Behaviors}" SelectedItem="{Binding Behavior}" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
-                            </ItemsControl>
-                            <Button Content="Clear import" HorizontalAlignment="Stretch" Margin="0,4,0,0"
-                                    Command="{Binding ClearImportedLayersCommand}" />
-                        </StackPanel>
+                                   Text="Import a layered SVG / PSD above with groups named 'off' and 'on' (or 'state0', 'state1'…) and tag each Frame — it renders only on its matching frame. Use the Generate tab to create button/toggle art with your own AI key." />
                     </StackPanel>
+                    </Border>
 
                     <!-- Meter -->
-                    <StackPanel IsVisible="{Binding IsMeter}" Spacing="2">
+                    <Border Classes="tile" IsVisible="{Binding IsMeter}" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                         <controls:SectionHeader Text="METER" />
                         <TextBlock Classes="label" Text="Segments" />
-                        <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1" />
+                        <NumericUpDown Value="{Binding SegmentCount}" Minimum="1" Maximum="128" Increment="1"
+                                       ToolTip.Tip="Number of LED-style segments the procedural meter fills. Ignored when using layered on/off source art instead." />
                         <TextBlock Classes="label" Text="Fill direction" Margin="0,6,0,0" />
                         <ComboBox HorizontalAlignment="Stretch"
+                                  ToolTip.Tip="Which edge the meter fills from as the value rises from 0 to 1."
                                   ItemsSource="{Binding FillDirections}" SelectedItem="{Binding FillDirection}" />
                         <CheckBox Content="Continuous (smooth) fill" IsChecked="{Binding ContinuousFill}" Margin="0,6,0,0" />
                         <Grid ColumnDefinitions="*,8,*" Margin="0,6,0,0">
                             <StackPanel Grid.Column="0">
                                 <TextBlock Classes="label" Text="On colour (#AARRGGBB)" />
-                                <TextBox Text="{Binding OnColorHex}" />
+                                <Grid ColumnDefinitions="*,6,28">
+                                    <TextBox Grid.Column="0" Text="{Binding OnColorHex}" />
+                                    <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                            Width="28" Height="24" ToolTip.Tip="Click to pick the on colour" Click="OnMeterOnColorClick">
+                                        <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                                Background="{Binding OnColorHex, Converter={StaticResource HexColor}}"
+                                                BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                    </Button>
+                                </Grid>
                             </StackPanel>
                             <StackPanel Grid.Column="2">
                                 <TextBlock Classes="label" Text="Off colour" />
-                                <TextBox Text="{Binding OffColorHex}" />
+                                <Grid ColumnDefinitions="*,6,28">
+                                    <TextBox Grid.Column="0" Text="{Binding OffColorHex}" />
+                                    <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                            Width="28" Height="24" ToolTip.Tip="Click to pick the off colour" Click="OnMeterOffColorClick">
+                                        <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                                Background="{Binding OffColorHex, Converter={StaticResource HexColor}}"
+                                                BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                    </Button>
+                                </Grid>
                             </StackPanel>
                         </Grid>
                         <CheckBox Content="Peak marker (highlight the top segment)" IsChecked="{Binding ShowMeterPeak}" Margin="0,6,0,0" />
                         <StackPanel IsVisible="{Binding ShowMeterPeak}" Margin="0,4,0,0">
                             <TextBlock Classes="label" Text="Peak colour (#AARRGGBB)" />
-                            <TextBox Text="{Binding PeakColorHex}" />
+                            <Grid ColumnDefinitions="*,6,28">
+                                <TextBox Grid.Column="0" Text="{Binding PeakColorHex}" />
+                                <Button Grid.Column="2" Padding="0" Background="Transparent" BorderThickness="0"
+                                        Width="28" Height="24" ToolTip.Tip="Click to pick the peak colour" Click="OnMeterPeakColorClick">
+                                    <Border CornerRadius="4" ClipToBounds="True" Width="28" Height="24"
+                                            Background="{Binding PeakColorHex, Converter={StaticResource HexColor}}"
+                                            BorderBrush="{DynamicResource GlassBorderBrush}" BorderThickness="1" />
+                                </Button>
+                            </Grid>
                         </StackPanel>
                         <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,0"
                                    Text="Procedural segments by default. Load a source image (on-state) — and optionally a background (off-state) — for a layered meter instead." />
                     </StackPanel>
+                    </Border>
 
                     <!-- Background -->
+                    <Border Classes="tile" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                     <controls:SectionHeader Text="STATIC BACKGROUND (optional)" />
                     <Button Content="Load background layer…" HorizontalAlignment="Stretch"
                             Command="{Binding OpenBackgroundCommand}" />
@@ -353,6 +434,7 @@
                     <controls:SectionHeader Text="QUALITY &amp; OUTPUT" />
                     <TextBlock Classes="label" Text="Supersample (anti-aliasing)" />
                     <ComboBox HorizontalAlignment="Stretch"
+                              ToolTip.Tip="Internal oversampling before downscaling to the final size. Higher is smoother edges but slower to render."
                               ItemsSource="{Binding SupersampleOptions}"
                               SelectedItem="{Binding Supersample}" />
                     <TextBlock Classes="label" Text="Sprite layout" Margin="0,6,0,0" />
@@ -362,7 +444,8 @@
                               ToolTip.Tip="Strip: a single 1×N strip along the stack direction below. Grid: an R×C sprite atlas for loaders that expect one." />
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsGridLayout}" Margin="0,4,0,0">
                         <TextBlock Classes="label" Text="Grid columns" VerticalAlignment="Center" />
-                        <NumericUpDown Value="{Binding GridColumns}" Minimum="1" Maximum="512" Increment="1" MinWidth="110" />
+                        <NumericUpDown Value="{Binding GridColumns}" Minimum="1" Maximum="512" Increment="1" MinWidth="110"
+                                       ToolTip.Tip="Columns in the R×C sprite atlas — rows are frame count ÷ columns, rounded up." />
                     </StackPanel>
                     <TextBlock Classes="label" Text="Stack direction" Margin="0,6,0,0" IsVisible="{Binding !IsGridLayout}" />
                     <ComboBox HorizontalAlignment="Stretch"
@@ -385,18 +468,26 @@
                               ToolTip.Tip="Remaps each frame's position in the sweep so it matches the plugin's actual parameter law (e.g. a log frequency taper) instead of a straight linear divisor. Linear leaves every render unchanged." />
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsSkewMapping}" Margin="0,4,0,0">
                         <TextBlock Classes="label" Text="Skew exponent" VerticalAlignment="Center" />
-                        <NumericUpDown Value="{Binding MappingSkew}" Minimum="0.1" Maximum="10" Increment="0.1" FormatString="0.00" MinWidth="110" />
+                        <NumericUpDown Value="{Binding MappingSkew}" Minimum="0.1" Maximum="10" Increment="0.1" FormatString="0.00" MinWidth="110"
+                                       ToolTip.Tip="Power-law exponent (t' = t^skew, the JUCE NormalisableRange convention). 1.0 is linear; below 1 spreads the low end, above 1 compresses it." />
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding IsLogMapping}" Margin="0,4,0,0">
                         <TextBlock Classes="label" Text="Log base" VerticalAlignment="Center" />
-                        <NumericUpDown Value="{Binding MappingLogBase}" Minimum="1.1" Maximum="1000" Increment="1" FormatString="0.0" MinWidth="110" />
+                        <NumericUpDown Value="{Binding MappingLogBase}" Minimum="1.1" Maximum="1000" Increment="1" FormatString="0.0" MinWidth="110"
+                                       ToolTip.Tip="Compression base for the logarithmic taper. Higher compresses the low end more aggressively (a typical frequency knob uses ~9)." />
                     </StackPanel>
+                    </StackPanel>
+                    </Border>
 
                     <!-- Manifest -->
+                    <Border Classes="tile" Margin="0,10,0,0">
+                    <StackPanel Spacing="2">
                     <controls:SectionHeader Text="MANIFEST (optional)" />
-                    <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}" />
+                    <CheckBox Content="Also write a skin.json manifest" IsChecked="{Binding ExportManifest}"
+                              ToolTip.Tip="Writes a skin.json next to the exported PNG, binding this one control to the parameter id below." />
                     <TextBlock Classes="label" Text="Parameter id" Margin="0,6,0,0" />
-                    <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)" />
+                    <TextBox Text="{Binding ParameterId}" Watermark="e.g. filterCutoff (defaults to the file name)"
+                             ToolTip.Tip="The host/APVTS parameter this control binds to in the manifest." />
                     <TextBlock Classes="label" TextWrapping="Wrap" Margin="0,4,0,12"
                                Text="Writes &lt;name&gt;.skin.json next to the PNG: one control bound to this parameter, ready for a JUCE LookAndFeel / skin loader." />
 
@@ -426,7 +517,8 @@
                             <Border Classes="tile" Padding="2">
                                 <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Auto">
                                     <TextBox Text="{Binding GeneratedCode}" IsReadOnly="True" AcceptsReturn="True"
-                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11" />
+                                             TextWrapping="NoWrap" Background="Transparent" BorderThickness="0" FontSize="11"
+                                             FontFamily="{StaticResource DepthMono}" />
                                 </ScrollViewer>
                             </Border>
                             <Button Content="Copy to clipboard" HorizontalAlignment="Right" Click="OnCopyCode" />
@@ -453,6 +545,8 @@
                             </StackPanel>
                         </StackPanel>
                     </Expander>
+                    </StackPanel>
+                    </Border>
 
                 </StackPanel>
             </ScrollViewer>
@@ -467,7 +561,7 @@
             <Border Grid.Row="0" x:Name="PreviewBorder" DragDrop.AllowDrop="True"
                     Background="{DynamicResource GlassFillGradient}" CornerRadius="12" ClipToBounds="True"
                     BorderThickness="2" BorderBrush="Transparent"
-                    BoxShadow="0 2 6 0 #44000000, 0 18 44 0 #7A000000">
+                    BoxShadow="{StaticResource DropZoneShadow}">
                 <Border.Transitions>
                     <Transitions>
                         <BrushTransition Property="BorderBrush" Duration="0:0:0.15" />
@@ -503,15 +597,18 @@
                 <StackPanel Spacing="6">
                     <Grid ColumnDefinitions="Auto,*,Auto">
                         <StackPanel Grid.Column="0" Orientation="Horizontal" Spacing="4">
-                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40" ToolTip.Tip="Previous frame" />
+                            <Button Content="&#xE892;" FontFamily="{StaticResource DepthIcon}" Click="OnStepBack" Width="40"
+                                    ToolTip.Tip="Previous frame" AutomationProperties.Name="Previous frame" />
                             <Button x:Name="PlayButton" Click="OnPlayClick" Width="90" ToolTip.Tip="Play / stop the preview">
                                 <StackPanel Orientation="Horizontal" Spacing="6">
                                     <TextBlock x:Name="PlayIcon" Text="&#xE768;" FontFamily="{StaticResource DepthIcon}" VerticalAlignment="Center" />
                                     <TextBlock x:Name="PlayLabel" Text="Play" VerticalAlignment="Center" />
                                 </StackPanel>
                             </Button>
-                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40" ToolTip.Tip="Next frame" />
-                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40" ToolTip.Tip="Reset to the centred start frame" />
+                            <Button Content="&#xE893;" FontFamily="{StaticResource DepthIcon}" Click="OnStepForward" Width="40"
+                                    ToolTip.Tip="Next frame" AutomationProperties.Name="Next frame" />
+                            <Button Content="&#xE72C;" FontFamily="{StaticResource DepthIcon}" Click="OnResetPreview" Width="40"
+                                    ToolTip.Tip="Reset to the centred start frame" AutomationProperties.Name="Reset to the centred start frame" />
                         </StackPanel>
                         <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PreviewValue}" Margin="12,0" />
                         <TextBlock Grid.Column="2" Text="{Binding PreviewReadout}" VerticalAlignment="Center"
@@ -575,7 +672,7 @@
                        RenderOptions.BitmapInterpolationMode="HighQuality" />
                 <!-- Runs adjacent (no whitespace between them) so VYBECODE and DSP close up into
                      one wordmark, kept two colours to differentiate. -->
-                <TextBlock VerticalAlignment="Center" FontSize="17" FontWeight="Bold" LetterSpacing="0.5"><Run Text="VYBECODE" Foreground="White" /><Run Text="DSP" Foreground="{StaticResource DepthEmber}" /></TextBlock>
+                <TextBlock VerticalAlignment="Center" FontSize="17" FontWeight="Bold" LetterSpacing="0.5"><Run Text="VYBECODE" Foreground="{DynamicResource Text1Brush}" /><Run Text="DSP" Foreground="{StaticResource DepthEmber}" /></TextBlock>
             </StackPanel>
             <Button Content="Help" VerticalAlignment="Center" FontSize="10.5" Padding="8,4"
                     ToolTip.Tip="Open the Getting Started guide for the current tab"
@@ -598,7 +695,7 @@
                     <Image Grid.Column="0" Grid.RowSpan="4" Source="/Assets/stripkit.png"
                            Width="64" Height="64" Margin="0,0,18,0" VerticalAlignment="Top"
                            RenderOptions.BitmapInterpolationMode="HighQuality" />
-                    <TextBlock Grid.Column="1" Grid.Row="0" FontSize="15" FontWeight="SemiBold" Foreground="White"
+                    <TextBlock Grid.Column="1" Grid.Row="0" FontSize="15" FontWeight="SemiBold" Foreground="{DynamicResource Text1Brush}"
                                Text="{Binding AppVersion, StringFormat='StripKit Filmstrip Generator v{0}'}" />
                     <TextBlock Grid.Column="1" Grid.Row="1" Text="https://stripkit.pro" Tag="https://stripkit.pro"
                                Background="Transparent" PointerPressed="OnAboutLinkTapped" Cursor="Hand"
