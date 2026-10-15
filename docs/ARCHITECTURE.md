@@ -1198,3 +1198,187 @@ render + skin.json assembly for a mixed kit). **347 green.** See `docs/TESTING.m
   is ever needed (§13).
 - Phases 5–7 (batch, meter, packaging) are **done**; packaging detail lives in
   `docs/PACKAGING.md`, intentionally out of this app-internals reference.
+
+> Moved from `CLAUDE.md` on 2026-10-15.
+
+## Stack
+
+- .NET 9, Avalonia 11.3, CommunityToolkit.Mvvm 8.4 (source generators),
+  SkiaSharp 3.119.2. `Avalonia.Controls.ColorPicker` 11.3.0 (Generate colour swatches).
+- Layered-source import + HDR frame ingest (app-only): **Svg.Skia** 5.0.0 (MIT, SVG layers) +
+  **Magick.NET-Q16-HDRI-x64** 14.14.0 (Apache-2.0, PSD/PSB layers + 16-bit/EXR HDR frames — Q16-HDRI
+  so an EXR tone-maps before the 8-bit reduction; `Helpers/MagickPixels` downshifts its 16-bit
+  `ToByteArray`). Both permissive; not in `FilmstripEngine.cs`.
+- AI SVG generation (Generate tab, app-only): OpenAI / Gemini / Claude — plus any **OpenAI-compatible
+  custom endpoint** (`AiProvider.Custom`: OpenRouter / Ollama / LM Studio) — over a shared `HttpClient`,
+  incl. **vision** (`DescribeImageAsync`) for reference-image matching; user API keys encrypted at rest
+  with **System.Security.Cryptography.ProtectedData** 9.0.0 (Windows DPAPI). Not in `FilmstripEngine.cs`.
+- MVVM + DI (Microsoft.Extensions.DependencyInjection), compiled bindings.
+- Tests: xUnit + NSubstitute + FluentAssertions, `Avalonia.Headless` for view
+  tests, golden-image regression for the renderer (`tests/StripKit.Tests`; coverlet.collector
+  6.0.4). **347 green.**
+- Packaging: self-contained `win-x64` publish → **Inno Setup** installer
+  (`installer/StripKit.iss`); distributed as a **GitHub Release download** (no in-app
+  auto-update). Release pipeline: `scripts/Invoke-Release.ps1` +
+  `.github/workflows/auto-release.yml` — see `docs/PACKAGING.md`.
+- CI: `.github/workflows/ci.yml` runs build + full test suite on every push and PR
+  (`actions/checkout@v5` + `actions/setup-dotnet@v5` — Node 24); collects coverage and **fails below
+  70% line coverage**.
+
+> Moved from `CLAUDE.md` on 2026-10-15.
+
+## Architecture (one idea, six component types) — full detail in `docs/ARCHITECTURE.md`
+
+Every render is: *for each of N frames, place the source art inside a fixed frame
+cell under a per-frame transform, then stack the cells into one PNG.* The six
+component types are knob, vertical fader, horizontal slider, **meter**
+(progressive segment fill), **button** (discrete state frames — off/on/…), and **toggle**
+(an on/off pair; rendered exactly like a 2-state button, with switch-style generated art and a
+latching code-export binding). The app is a
+`TabControl` with **six** tabs — **Create**
+(make a strip), **Import** (re-use / re-slice / resample one), **Batch** (a whole folder at
+once), **Skin** (assemble a multi-control `skin.json`), **Generate** (AI-generate layered
+control art from your own OpenAI / Gemini / Claude key, then hand it to Create), and **Assemble**
+(stack a folder of pre-rendered frames — e.g. a path-traced PNG sequence — into one filmstrip).
+
+- `Models/` — pure data, no UI/Skia deps: `FilmstripSettings` (render contract — incl.
+  `ShowMeterPeak` + `PeakColorArgb`, mirrored in `FilmstripEngine.cs`; also **sprite-grid layout**
+  `Layout`/`GridColumns` and **parameter-law frame mapping** `MappingCurve`/`MappingSkew`/
+  `MappingLogBase` + the `MapT(t)` remap method — both default to the byte-identical Strip/Linear
+  path), `StripLayout` ({Strip, **Grid**}) / `FrameMappingCurve` ({Linear, **Skew**, **Logarithmic**})
+  enums, `FrameTransform`, `StripDetection` (importer output),
+  `SkinManifest`/`ManifestControl`/`ManifestBounds` (`ManifestControl` carries nullable
+  `Layout`/`GridColumns`, populated only for a grid strip), `BatchModels`, `CodeModels`
+  (`CodeSnippetRequest` carries `Layout`/`GridColumns` too), `RenderLayer` (`LayerBehavior`
+  {Static, Rotate, **Frame**} + per-layer pivot — the layered-knob / button stack), `RenderPreset`
+  (a named snapshot of the Create tab's full render setup — no loaded art — for save/load presets),
+  the `ComponentType` ({RotaryKnob, VerticalFader, HorizontalSlider, Meter,
+  **Button**, **Toggle**}) / `StackDirection` / `MeterFillDirection` enums.
+- `Services/SkiaFilmstripRenderer.cs` — **the heart.** `ComputeTransform` does the
+  rotary/linear math; `RenderFrame` composites one frame with supersampling +
+  Mitchell cubic resampling (meters fill segments via `RenderMeterFrame` — procedural
+  or layered on/off-art reveal, plus an optional direction-aware **peak marker** on the leading segment
+  when `settings.ShowMeterPeak`; knobs may get a value-tracking fill arc via
+  `RenderValueArc`, or be composited from a base+pointer layer stack via `RenderLayers`
+  when `settings.Layers` + `layerArt` are supplied; **buttons** composite discrete state
+  art per frame via `RenderButtonLayers` — `Static` on every frame, `Frame` only on its
+  matching index); `RenderStrip` blits frames into the stacked PNG — a single Stack-direction strip
+  (default) or, when `Layout == Grid`, a row-major R×C sprite atlas. All four sites that compute the
+  linear sweep fraction `t` (`ComputeTransform`, `RenderLayers`, `RenderMeterFrame`,
+  `RenderValueArc`) pass it through `settings.MapT(t)` first, so the parameter-law curve applies
+  uniformly everywhere; `Linear` (default) is a true no-op.
+- `Services/FilmstripImporter.cs` — detect an existing strip's layout from its
+  dimensions, extract a frame, re-stack orientation, and **resample** (re-time) to a new
+  frame count via nearest-frame mapping (no Avalonia dep).
+- `Services/PointerExtractor.cs` — split a flat knob into a static base + a rotating pointer
+  via the **radial-symmetry residual** (auto-fills the layered-knob slots; ★ #3 step 2). Static,
+  pure SkiaSharp like `ContentAnalysis`; app-only (not in `FilmstripEngine.cs`).
+- `Services/LayeredImportService.cs` — import a real layered **SVG** (Svg.Skia) / **PSD/PSB**
+  (Magick.NET) into named, behaviour-tagged, canvas-registered layers (★ #3 step 3 — the final
+  layer-aware piece) → a `LayeredImportResult`. Auto-tags `off`/`on` groups → `Frame` (button
+  states); parses SVG through `SafeXml`. Feeds the renderer's existing layer stack with
+  no renderer change; app-only (not in `FilmstripEngine.cs`).
+- `Services/SafeXml.cs` — hardened `XDocument` parse for **untrusted** SVG (AI replies + imported
+  files): `DtdProcessing.Prohibit`, no resolver, `MaxCharactersFromEntities = 0` — closes
+  entity-expansion DoS / external-entity. Used by `SvgSanitizer` + `LayeredImportService`. App-only.
+- `Services/ManifestService.cs` — build + serialize a `skin.json` (System.Text.Json):
+  `BuildSingleControl` (Create tab) and `BuildManifest` (the Skin tab's multi-control export).
+  Clamps `GridColumns` to `Math.Max(1, …)` before serializing (BUG-017) so an unclamped upstream
+  value can never violate the `plugin-asset-manifest` schema's `minimum: 1`.
+- `Services/KitBuilder.cs` — the Generate tab's **one-click "Build kit"**: takes a generated matching
+  set and renders each control to a filmstrip PNG (+@Nx) via the same per-type paths the Create tab
+  uses (layered knob / state-frame button-toggle / flattened fader-slider / meter off-on reveal), then
+  assembles a multi-control `skin.json` (row layout, reusing `ManifestService`). Orchestration over the
+  renderer/exporter/importer/manifest; no renderer-math change → not in `FilmstripEngine.cs`. App-only.
+- `Services/CodeSnippetService.cs` — emit ready-to-paste loader code (JUCE / CSS-HTML /
+  iPlug2 / HISE / **React** — `CodeTarget.React` → a `.jsx` sprite component driven by a 0..1 `value`
+  prop) for an exported strip; pure string-gen mirroring `ManifestService`. Wired into the Create,
+  Assemble, and **Batch** code-export panels (Batch emits per-strip snippets via `BatchOptions.CodeTargets`).
+  All 5 targets are **grid-layout aware** (real column/row math for JUCE/CSS/HISE/React; iPlug2's
+  `IBitmap`/`LoadBitmap` can only read a 1D strip, so its grid path emits an explicit warning
+  comment instead of silently mis-reading a 2D atlas).
+- `Services/RenderRecipeService.cs` — the **Render recipe** (Create tab; path-tracing P2): emit a
+  Blender `bpy` script + `frame,value,angle_deg` CSV/JSON so an offline render matches the runtime
+  sweep law. Pure string-gen like `CodeSnippetService`; its static `BuildFrameTable` mirrors
+  `SkiaFilmstripRenderer`'s `t = i/(N−1)` / `angle = start + (end−start)·t`, so recipe and renderer
+  can't drift. App-only; not in `FilmstripEngine.cs`.
+- `Services/BatchProcessor.cs` — render a folder of sources into many strips off the
+  UI thread (`Task.Run`), with per-item progress and a working cancel; takes `ICodeSnippetService` and
+  emits the JUCE/CSS/iPlug2/HISE/React loader snippets per strip (`BatchOptions.CodeTargets` — parity
+  with Create & Assemble).
+- `Services/FrameSequenceAssembler.cs` (+ `NaturalFileNameComparer`) — the **Assemble** tab:
+  natural-sort a folder of pre-rendered frames (`frame_2` before `frame_10`) and pack them into one
+  stacked strip (reconcile odd sizes via `CellFit`, optional content re-centre, optional **un-premultiply**,
+  optional nearest-frame resample by delegating to `FilmstripImporter`). Two static **render-QC** helpers
+  (path-tracing P3): `AnalyzeQc` → a `RenderQcReport` (drift / missing-transparency / blank / premultiplied
+  frames; surfaced as assemble warnings + the "Check frames" pre-flight) and `UnpremultiplyAlpha`. Pure
+  SkiaSharp; no renderer change → not in `FilmstripEngine.cs`. The import-side bridge for offline-3D /
+  path-traced art.
+- `Services/AssetGenerationService.cs` (+ `IAssetGenerationProvider` → `ClaudeProvider` /
+  `OpenAiProvider` / `GeminiProvider`, `SvgSanitizer`, `ISecretStore`/`DpapiSecretStore`) — the
+  **Generate** tab: build a type-aware StripKit-aware SVG prompt (knob = `body`+`pointer`, button =
+  `off`+`on`, fader/slider = a single `body` cap) → call the user's chosen AI over a shared
+  `HttpClient` → sanitize the reply to a clean **layered** SVG → feed the
+  existing layered-import pipeline. Keys DPAPI-encrypted. App-only; not in `FilmstripEngine.cs`.
+- `Services/ImageLoadService.cs` / `ExportService.cs` — decode/encode PNG ↔ `SKBitmap`.
+- `Services/FileDialogService.cs` — open/save/open-layered pickers (app-layer; holds the Window).
+- `Services/SettingsService.cs` — persist `AppSettings` (the first-run "seen tutorial" flag + the
+  Generate provider/model prefs) to `%APPDATA%/StripKit/settings.json`; the app's saved state.
+  `Services/AssetService.cs` — extract the bundled sample knob to a temp path for the tutorial (app-layer).
+- `Helpers/SkiaImageInterop.cs` — `SKBitmap` -> Avalonia `Bitmap` for preview.
+  `Helpers/HexToColorBrushConverter.cs` — `#RRGGBB` → `IBrush` for the Generate colour swatches.
+  `Helpers/MagickPixels.cs` — downshift Q16-HDRI's 16-bit `ToByteArray` to 8-bit, with an 8×8 Bayer
+  **ordered dither** (`DitherDownTo8`) so EXR/16-bit HDR ingest reduces to 8-bit without banding (used
+  by `ImageLoadService.LoadHdr`). `Helpers/ShellHelper.cs` — `RevealInFolder` (the "Show in folder"
+  export action).
+- `Controls/SectionHeader.cs` — a `TemplatedControl` section label with a 3px accent divider
+  (styled by a `ControlTheme` in `App.axaml`); used across the sidebars.
+- `ViewModels/MainWindowViewModel.cs` — Create-tab state + commands; a single
+  `OnPropertyChanged` funnel refreshes the preview. Holds the layered-knob Base/Pointer slots +
+  the auto-extract command + the **layered SVG/PSD import** (an `ImportedLayers` row list with
+  per-layer Static/Rotate/Frame dropdowns; `ImportedLayerRow`). Exposes `Importer`, `Batch`, `Skin`,
+  and `Generate`; `ImportLayeredFromPathAsync` is shared by the layered file picker and the Generate
+  tab's "Use in Create" handoff — which **honours the generated control type** (knob → body+pointer;
+  button → off/on Frame layers; fader/slider → flattened single source). Also holds the **sprite
+  layout** (`Layout`/`GridColumns`), the **parameter-law** curve fields, and — now taking an
+  injected `ISettingsService` — **render presets** (`Presets` + Save/Apply/Delete commands; a
+  preset is a named snapshot of the full render setup, no loaded art; delete removes by object
+  reference on both the UI collection and the persisted list so duplicate names can't desync them —
+  BUG-018).
+- `ViewModels/ImporterViewModel.cs` — Import-tab state + commands (detect / scrub / extract /
+  re-stack / resample; same funnel).
+- `ViewModels/BatchViewModel.cs` — Batch-tab state + commands (folders, template incl. the meter
+  settings + layered/backdrop toggle, run/cancel, progress); no preview funnel.
+- `ViewModels/SkinViewModel.cs` (+ `SkinControlEntry.cs`) — Skin-tab state + commands: a
+  multi-control `skin.json` builder (controls list, add-from-strip / blank, detail editor, export).
+- `ViewModels/GenerateViewModel.cs` — Generate-tab state + commands: provider/model/key/style + the
+  generated control type, the async cancellable generate, preview-by-importing (validates the layered
+  SVG), Save/Copy SVG, a structure warning (knob with no pointer / button missing a state), and the
+  `UseInCreateRequested` handoff. The **model field is an editable `AutoCompleteBox`** (free text +
+  per-provider suggestions — a custom/just-released id can be typed and is sent verbatim; a
+  pinned-but-delisted model shows as text, not a blank box). The preview is built **off the UI thread**
+  in one `Task.Run` (`BuildPreview` — temp-write + layered import + composite + PNG-encode; the UI
+  thread only assigns the bitmap), and the prior temp SVG is dropped each generation (no temp
+  accumulation). Persists provider/model prefs + the encrypted key.
+- `ViewModels/TutorialViewModel.cs` — the Getting Started overlay: step list + navigation +
+  first-run auto-open (via `ISettingsService`) + the `LoadSampleRequested` event (sample knob).
+  Also has a **Generate** walkthrough.
+- `ViewModels/ImportedLayerRow.cs` — the observable per-layer row for an imported/generated SVG/PSD
+  (name + editable Static/Rotate/Frame `Behavior` + the canvas-sized art).
+- `Views/MainWindow.axaml(.cs)` — the `TabControl` (+ header "Getting started" button + the
+  `TutorialOverlay` as the top layer); code-behind holds the auto-play timer + the Create
+  preview's drag-drop handlers.
+- `Views/TutorialOverlay.axaml(.cs)` — the Getting Started guided overlay (bound to `TutorialViewModel`).
+- `Views/ImporterView.axaml(.cs)` — the Import tab UserControl + its drop handlers.
+- `Views/BatchView.axaml(.cs)` — the Batch tab UserControl (folder pickers, template,
+  Run/Cancel, progress bar, results).
+- `Views/SkinView.axaml(.cs)` — the Skin tab UserControl (skin metadata + controls list;
+  per-control detail editor + Export skin.json).
+- `Views/GenerateView.axaml(.cs)` — the Generate tab UserControl (provider/key/model + control type +
+  style/accent/size + Generate/Cancel on the left; SVG preview + Use-in-Create / Save / Copy +
+  raw-response expander on the right). The model picker is an `AutoCompleteBox` (provider + style stay
+  `ComboBox`es). Code-behind: clipboard copy + colour-picker flyout handlers.
+- Repo-root `FilmstripEngine.cs` — standalone portable copy of the renderer (NOT in
+  the build); keep in sync with `SkiaFilmstripRenderer` if the math changes (incl. the button
+  state-frame path; the Generate providers + sanitizer are app-only and not mirrored).
+

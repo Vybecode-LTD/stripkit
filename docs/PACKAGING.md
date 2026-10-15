@@ -1097,3 +1097,24 @@ the workflow, so this is a one-line change (line 29).
 `releases/latest/*.exe` are git-ignored build outputs (§7). The tracked
 `releases/latest/*.exe` is the CI trigger, not a user-download path — users get the
 installer from the GitHub Release.
+
+> Moved from `CLAUDE.md` on 2026-10-15.
+
+## Release (Inno Setup + GitHub) — full detail in `docs/PACKAGING.md`
+
+Three stages, **one release creator**. **Stage 1** `scripts/Invoke-Release.ps1`:
+test-gate → **release-integrity guard** (abort if tracked source is uncommitted; untracked strays
+allowed; `-AllowDirty` overrides) → bump `Version` in `src/StripKit/StripKit.csproj`, `MyAppVersion`
+in `installer/StripKit.iss`, and `docs/CHANGELOG.md` (promote `## [Unreleased]` → `## [X.Y.Z]`)
+→ `dotnet publish` → **sign the exe + installer** (Azure Trusted Signing via signtool + the
+`Microsoft.Trusted.Signing.Client` dlib — NOT AzureSignTool, which 403s) → `ISCC` builds
+`releases/latest/StripKit-Setup-<ver>-x64.exe` → commit + tag `vX.Y.Z` + push. **Stage
+2** `.github/workflows/auto-release.yml` (triggered by the tracked `releases/latest/*.exe`,
+or `workflow_dispatch`): VirusTotal scan (`VT_API_KEY` secret) → the **sole**
+`gh release create` (notes via `--notes-file`, never inline `--notes`). **Stage 3** the
+website reads the live GitHub Release (auto-draft + refine `updates.json` via
+`Publish-WebsiteChangelog.ps1` — invoked with **hashtable** splatting so a trailing `-Push` binds).
+**Release integrity:** the "Release" commit stages only version files + the installer by design —
+so **commit the feature work first** (the v1.2.0 source was once orphaned because it wasn't; the
+Stage-1 guard now enforces this).
+
